@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" role="img" aria-labelledby="t d">
+  <title id="t">How LibKa builds a document</title>
+  <desc id="d">A Markdown file with LibKa blocks is linted, then built into a web page, a PDF, slides and a Word file. Guard checks each output: axe-core with the WCAG 2.2 rules, contrast, structure and reflow at 320 CSS pixels in Chrome, veraPDF for PDF/UA-1, and the Word file's structure. Outputs that pass get a signed manifest and a conformance report.</desc>
+  <style>
+    rect { fill: #FFFFFF; stroke: #B0B9C8; stroke-width: 1.5; }
+    rect.guard { fill: #E6F4F6; stroke: #056F7D; }
+    text { font: 600 15px Inter, "Segoe UI", system-ui, sans-serif; fill: #1A2130; text-anchor: middle; }
+    .small { font: 400 12px Inter, "Segoe UI", system-ui, sans-serif; fill: #4A5568; }
+    path { stroke: #056F7D; stroke-width: 2; fill: none; marker-end: url(#a); }
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:#056F7D;stroke:none"/></marker></defs>
+
+  <rect x="10" y="110" width="150" height="80" rx="12"/>
+  <text x="85" y="146">guide.md</text><text class="small" x="85" y="166">Markdown + LibKa blocks</text>
+
+  <rect x="200" y="110" width="150" height="80" rx="12"/>
+  <text x="275" y="146">Lint</text><text class="small" x="275" y="166">problems by line, with fixes</text>
+
+  <rect x="390" y="14" width="150" height="54" rx="10"/><text x="465" y="46">Web page</text>
+  <rect x="390" y="86" width="150" height="54" rx="10"/><text x="465" y="118">PDF</text>
+  <rect x="390" y="158" width="150" height="54" rx="10"/><text x="465" y="190">Slides</text>
+  <rect x="390" y="230" width="150" height="54" rx="10"/><text x="465" y="262">Word file</text>
+
+  <rect class="guard" x="590" y="70" width="190" height="160" rx="12"/>
+  <text x="685" y="98">Guard</text>
+  <text class="small" x="685" y="122">axe-core WCAG 2.2 A/AA</text>
+  <text class="small" x="685" y="140">contrast 4.5:1 and 7:1</text>
+  <text class="small" x="685" y="158">structure, slide fit</text>
+  <text class="small" x="685" y="176">reflow at 320 px</text>
+  <text class="small" x="685" y="194">veraPDF PDF/UA-1</text>
+  <text class="small" x="685" y="212">Word file structure</text>
+
+  <rect x="820" y="110" width="170" height="80" rx="12"/>
+  <text x="905" y="146">Signed manifest</text><text class="small" x="905" y="166">and conformance report</text>
+
+  <path d="M160 150 H195"/>
+  <path d="M350 150 L385 41"/><path d="M350 150 L385 113"/><path d="M350 150 L385 185"/><path d="M350 150 L385 257"/>
+  <path d="M540 41 L585 130"/><path d="M540 113 L585 140"/><path d="M540 185 L585 160"/><path d="M540 257 L585 170"/>
+  <path d="M780 150 H815"/>
+</svg>

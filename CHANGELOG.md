@@ -1,0 +1,16 @@
+# Changelog
+
+All notable changes to the LibKa Design Platform are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/).
+
+## 2.0.0 (2026-10-11): the first public release
+
+LibKa was developed in a private repository up to 2.0; this repository starts with it.
+
+- **Documents:** one Markdown file with LibKa blocks (35 block types, from headings and lists to charts, diagrams and timelines) builds a web page, an A4 PDF, 16:9 slides and an editable Word file; each document chooses its outputs.
+- **Guard:** every output is checked (axe-core WCAG 2.2 A/AA in Chrome, text contrast 4.5:1 and 7:1 in high contrast, structure rules, reflow at 320 CSS pixels, slide fit; veraPDF PDF/UA-1 for the PDF; the Word file's structure) and the outputs that pass are signed; a conformance report maps each WCAG 2.2 criterion to EN 301 549. A PDF built without veraPDF is marked as not validated in its manifest, its conformance report and `libka verify`.
+- **LibKa Studio:** an installable, local-first web app with visual and source editing, live checks with quick fixes, versions, English and Czech; self-audited against WCAG 2.2 A/AA, with the evidence in `docs/acr/studio.md`. Help, About LibKa Studio gives the licence, the third-party notices and what happens to your documents; `build.mjs --hosted` builds a copy for a web address of its own, whose headers keep a host's statistics script out (`no-transform`); it starts offline on hosts that redirect `index.html` too.
+- **Documentation:** the documents in `docs/` are LibKa documents themselves, from [getting started](docs/getting-started.md) to the conformance reports; the block registry carries a Czech example for every block. HTML comments are allowed in documents as notes for editors and are never rendered.
+- **Design tokens:** W3C DTCG 2025.10 tokens with light, dark and high-contrast themes, generated into CSS, SCSS and Tailwind themes with contrast gates.
+- **AI authoring:** an Agent Skill and an MCP server; AI-written content is checked like any other, and content the document declares as AI-written is listed in the signed manifest. For Claude Code both come as one plugin from this repository's marketplace file; for Claude Desktop the server comes as an extension (`.mcpb`), and the skill as a `.zip` for claude.ai and Desktop ([`docs/ai-tools.md`](docs/ai-tools.md)).
+- **Packages:** `@libka/cli` (the `libka` command, with LibKa Studio), `@libka/mcp`, `@libka/tokens`, and `npm create libka` for a new project with an example in English or Czech, npm scripts and a CI workflow. `libka doctor` says what a computer has and what works without each missing piece; a wrong command, a missing value or a missing file is named, and a misspelled front-matter key gets the nearest known one. Each project signs with its own key, and trusts its first key in its own list.
+- **Releases:** built from a tag by `publish.yml`: the npm packages with provenance (this first version's packages are published by hand, so they carry no provenance statement), the MCP server in the MCP Registry, and a draft GitHub Release with the Desktop extension, the skill `.zip` and SHA-256 checksums, published after review. Run by hand, the workflow is a dry run by default.

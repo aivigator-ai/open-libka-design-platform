@@ -1,0 +1,49 @@
+{
+  "$description": "High-contrast overrides for the dark theme (stacked on theme-dark): every text role reaches 7:1 (WCAG AAA) on every background and on 12% tints of its own color; UI colors reach 4.5:1. Applied by the dark-high-contrast context.",
+  "color": {
+    "$type": "color",
+    "semantic": {
+      "bg": {
+        "canvas": {"$value": {"colorSpace": "srgb", "components": [0.0, 0.0, 0.0], "hex": "#000000"}},
+        "surface": {"$value": {"colorSpace": "srgb", "components": [0.051, 0.051, 0.051], "hex": "#0D0D0D"}},
+        "elevated": {"$value": {"colorSpace": "srgb", "components": [0.1216, 0.1216, 0.1216], "hex": "#1F1F1F"}}
+      },
+      "text": {
+        "primary": {"$value": {"colorSpace": "srgb", "components": [1.0, 1.0, 1.0], "hex": "#FFFFFF"}},
+        "secondary": {"$value": {"colorSpace": "srgb", "components": [0.949, 0.949, 0.949], "hex": "#F2F2F2"}},
+        "muted": {"$value": {"colorSpace": "srgb", "components": [0.851, 0.851, 0.851], "hex": "#D9D9D9"}},
+        "accent": {"$value": {"colorSpace": "srgb", "components": [0.2157, 0.8275, 0.898], "hex": "#37D3E5"}},
+        "info": {"$value": {"colorSpace": "srgb", "components": [0.2157, 0.8275, 0.898], "hex": "#37D3E5"}},
+        "success": {"$value": {"colorSpace": "srgb", "components": [0.4039, 0.8353, 0.6667], "hex": "#67D5AA"}},
+        "warning": {"$value": {"colorSpace": "srgb", "components": [0.9529, 0.7137, 0.3804], "hex": "#F3B661"}},
+        "error": {"$value": {"colorSpace": "srgb", "components": [1.0, 0.6667, 0.7137], "hex": "#FFAAB6"}},
+        "ai": {"$value": {"colorSpace": "srgb", "components": [0.7137, 0.7451, 1.0], "hex": "#B6BEFF"}}
+      },
+      "border": {
+        "default": {"$value": {"colorSpace": "srgb", "components": [1.0, 1.0, 1.0], "hex": "#FFFFFF"}},
+        "strong": {"$value": {"colorSpace": "srgb", "components": [1.0, 1.0, 1.0], "hex": "#FFFFFF"}},
+        "control": {"$value": {"colorSpace": "srgb", "components": [1.0, 1.0, 1.0], "hex": "#FFFFFF"}}
+      },
+      "action": {
+        "primary": {"$value": {"colorSpace": "srgb", "components": [1.0, 1.0, 1.0], "hex": "#FFFFFF"}},
+        "accent": {"$value": {"colorSpace": "srgb", "components": [0.2157, 0.8275, 0.898], "hex": "#37D3E5"}},
+        "iris": {"$value": {"colorSpace": "srgb", "components": [0.7137, 0.7451, 1.0], "hex": "#B6BEFF"}},
+        "accent-strong": {"$value": {"colorSpace": "srgb", "components": [0.2157, 0.8275, 0.898], "hex": "#37D3E5"}},
+        "destructive": {"$value": {"colorSpace": "srgb", "components": [1.0, 0.6667, 0.7137], "hex": "#FFAAB6"}},
+        "on-accent": {"$value": {"colorSpace": "srgb", "components": [0.0, 0.0, 0.0], "hex": "#000000"}},
+        "on-iris": {"$value": {"colorSpace": "srgb", "components": [0.0, 0.0, 0.0], "hex": "#000000"}},
+        "on-destructive": {"$value": {"colorSpace": "srgb", "components": [0.0, 0.0, 0.0], "hex": "#000000"}}
+      },
+      "focus": {
+        "ring": {"$value": {"colorSpace": "srgb", "components": [0.9412, 0.702, 0.3686], "hex": "#F0B35E"}}
+      },
+      "status": {
+        "success": {"$value": {"colorSpace": "srgb", "components": [0.4039, 0.8353, 0.6667], "hex": "#67D5AA"}},
+        "warning": {"$value": {"colorSpace": "srgb", "components": [0.9529, 0.7137, 0.3804], "hex": "#F3B661"}},
+        "error": {"$value": {"colorSpace": "srgb", "components": [1.0, 0.6667, 0.7137], "hex": "#FFAAB6"}},
+        "info": {"$value": {"colorSpace": "srgb", "components": [0.2157, 0.8275, 0.898], "hex": "#37D3E5"}},
+        "ai": {"$value": {"colorSpace": "srgb", "components": [0.7137, 0.7451, 1.0], "hex": "#B6BEFF"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "name": "LibKa design tokens",
+  "version": "2025.10",
+  "description": "LibKa tokens: base sets (light theme values) plus a theme modifier: dark adds the dark overrides; the high-contrast contexts add AAA overrides on top of light or dark.",
+  "sets": {
+    "primitive": {
+      "sources": [
+        {
+          "$ref": "tokens/primitive.tokens.json"
+        }
+      ]
+    },
+    "semantic": {
+      "sources": [
+        {
+          "$ref": "tokens/semantic.tokens.json"
+        }
+      ]
+    },
+    "component": {
+      "sources": [
+        {
+          "$ref": "tokens/component.tokens.json"
+        }
+      ]
+    },
+    "foundation": {
+      "sources": [
+        {
+          "$ref": "tokens/foundation.tokens.json"
+        }
+      ]
+    }
+  },
+  "modifiers": {
+    "theme": {
+      "description": "Color theme and contrast",
+      "contexts": {
+        "light": [],
+        "dark": [
+          {
+            "$ref": "tokens/theme-dark.tokens.json"
+          }
+        ],
+        "light-high-contrast": [
+          {
+            "$ref": "tokens/theme-light-hc.tokens.json"
+          }
+        ],
+        "dark-high-contrast": [
+          {
+            "$ref": "tokens/theme-dark.tokens.json"
+          },
+          {
+            "$ref": "tokens/theme-dark-hc.tokens.json"
+          }
+        ]
+      },
+      "default": "light"
+    }
+  },
+  "resolutionOrder": [
+    {
+      "$ref": "#/sets/primitive"
+    },
+    {
+      "$ref": "#/sets/semantic"
+    },
+    {
+      "$ref": "#/sets/component"
+    },
+    {
+      "$ref": "#/sets/foundation"
+    },
+    {
+      "$ref": "#/modifiers/theme"
+    }
+  ]
+}

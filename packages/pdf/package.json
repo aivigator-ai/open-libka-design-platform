@@ -1,0 +1,23 @@
+{
+  "name": "@libka/pdf",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa PDF: makes Chrome's tagged PDFs meet PDF/UA-1 (metadata, link descriptions, role map, list structure, artifacts) and runs veraPDF to prove it.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./verapdf": "./src/verapdf.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "playwright-core": "^1.64.0"
+  }
+}

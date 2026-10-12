@@ -1,0 +1,33 @@
+{
+  "name": "@libka/cli",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "libka build, check, verify: Markdown manual in, checked and signed HTML (and PDF via Chrome) out.",
+  "type": "module",
+  "exports": {
+    ".": "./src/libka.ts",
+    "./src/*": "./src/*"
+  },
+  "bin": {
+    "libka": "./src/libka.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/docx": "workspace:*",
+    "@libka/guard": "workspace:*",
+    "@libka/model": "workspace:*",
+    "@libka/pdf": "workspace:*",
+    "@libka/render": "workspace:*",
+    "mermaid": "12.1.0",
+    "playwright-core": "^1.64.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "fflate": "0.8.3",
+    "pdf-lib": "1.17.1"
+  }
+}

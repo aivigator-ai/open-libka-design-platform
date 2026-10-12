@@ -1,0 +1,22 @@
+{
+  "name": "@libka/guard",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa Guard: checks rendered output in headless Chrome (axe-core, live contrast in standard and more-contrast mode, LibKa structure rules, reflow at 320 CSS pixels) and signs a manifest of the checks.",
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./docx": "./src/docx.ts", "./manifest": "./src/manifest.ts", "./scan": "./src/scan.ts", "./wcag": "./src/wcag.ts" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/contrast": "workspace:*",
+    "axe-core": "4.14.0",
+    "fflate": "0.8.3",
+    "playwright-core": "^1.64.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4"
+  }
+}

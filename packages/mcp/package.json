@@ -1,0 +1,23 @@
+{
+  "name": "@libka/mcp",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa MCP server: AI agents list blocks, read their syntax and schema, check LibKa Markdown and build checked, signed outputs.",
+  "type": "module",
+  "bin": { "libka-mcp": "./src/server.ts" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/blocks": "workspace:*",
+    "@libka/cli": "workspace:*",
+    "@libka/model": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4"
+  }
+}

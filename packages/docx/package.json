@@ -1,0 +1,28 @@
+{
+  "name": "@libka/docx",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa DOCX: renders a LibKa document as an editable, tagged Word file (real headings, lists, tables, footnotes, alt text, styles from the tokens). Runs in Node and in the browser.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./libreoffice": "./src/libreoffice.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/model": "workspace:*",
+    "@libka/render": "workspace:*",
+    "docx": "9.9.0",
+    "fflate": "0.8.3"
+  },
+  "devDependencies": {
+    "@libka/blocks": "workspace:*",
+    "@libka/guard": "workspace:*",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^26.6.4"
+  }
+}

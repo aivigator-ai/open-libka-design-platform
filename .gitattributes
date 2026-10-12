@@ -1,0 +1,2 @@
+# Generators write LF; keep the working copy LF on every platform
+* text=auto eol=lf

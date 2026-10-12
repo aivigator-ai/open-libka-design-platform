@@ -1,0 +1,161 @@
+/* LibKa deck. Slides are laid out on a fixed 1280×720 canvas and scaled to the screen, so a slide
+   looks the same everywhere and Guard can measure whether its content fits. Only --lk-* tokens. */
+html { font-size: 150%; }   /* rem = 24px on the 1280×720 canvas: slide text at presentation size */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--lk-bg-elevated); color: var(--lk-text-primary); font-family: var(--lk-font-ui); font-size: 1rem; line-height: 1.5; }
+.lk-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--lk-focus-ring); outline-offset: 2px; }
+
+.lk-deck {
+  height: 100vh; height: 100dvh; overflow: hidden;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "stage" "bar";
+}
+.lk-deck[data-notes="open"] { grid-template-columns: minmax(0, 1fr) minmax(280px, 30%); grid-template-areas: "stage notes" "bar bar"; }
+.lk-deck-viewport { grid-area: stage; position: relative; overflow: hidden; min-height: 0; }
+
+/* ---- slides ---- */
+.lk-deck-frame {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(1280px * var(--lk-deck-scale, .5)); height: calc(720px * var(--lk-deck-scale, .5));
+  transform: translate(-50%, -50%);
+  visibility: hidden; opacity: 0;
+  transition: opacity var(--lk-duration-base) var(--lk-ease-standard), visibility 0s linear var(--lk-duration-base);
+  box-shadow: var(--lk-shadow-2);
+}
+.lk-deck-frame.is-active { visibility: visible; opacity: 1; transition: opacity var(--lk-duration-base) var(--lk-ease-standard); }
+.lk-deck-frame > .lk-slide, .lk-deck-next-body > .lk-slide {
+  width: 1280px; height: 720px; min-height: 0; overflow: hidden;
+  transform: scale(var(--lk-deck-scale, .5)); transform-origin: 0 0;
+  justify-content: flex-start; font-size: 1rem; line-height: 1.5;
+}
+/* fixed sizes on the canvas (the catalog's fluid clamp() sizes follow the window, not the slide) */
+.lk-deck .lk-slide-heading { font-size: 2rem; line-height: 1.15; }
+.lk-deck .lk-slide--title, .lk-deck .lk-slide--section { justify-content: center; }
+.lk-deck .lk-slide--title .lk-slide-heading { font-size: 3rem; line-height: 1.05; }
+.lk-deck .lk-slide--section .lk-slide-heading { font-size: 2.5rem; }
+.lk-deck .lk-doc-subtitle { margin: 0; font-size: 1.1rem; color: var(--lk-text-secondary); max-width: 40ch; }
+.lk-slide-body > * { margin: 0; }
+.lk-slide-body p, .lk-slide-body li { max-width: 60ch; }
+.lk-slide-body ul:not([class]), .lk-slide-body ol:not([class]) { padding-left: 1.4em; display: grid; gap: var(--lk-space-2); }
+.lk-deck-h3 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--lk-text-heading); }
+.lk-slide a { color: var(--lk-text-accent); text-underline-offset: 2px; }
+.lk-slide code { font-family: var(--lk-font-mono); font-size: .85em; background: var(--lk-bg-elevated); border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-xs); padding: 0 var(--lk-space-1); }
+.lk-slide .lk-code-pre { white-space: pre-wrap; }
+/* the core blocks on the canvas: fixed sizes, nothing hidden behind a click */
+.lk-deck .lk-statement { font-size: 1.6rem; max-width: 34ch; }
+.lk-deck .lk-slide--statement { justify-content: center; }
+.lk-deck .lk-slide--statement .lk-statement { font-size: 2.6rem; }
+.lk-deck .lk-metric-value { font-size: 2rem; }
+.lk-slide .lk-chart-svg { max-height: 360px; min-width: 0; }
+.lk-deck .lk-chart-data, .lk-deck .lk-video-transcript, .lk-deck .lk-diagram-source { display: none; }
+/* on a slide a diagram takes the space left under the heading and text (up to 420px high), and the viewBox
+   scales it to fit; below 200px it overflows instead, so Guard reports a slide that is really too full */
+.lk-slide-body:has(> .lk-diagram) { flex: 1 1 auto; min-height: 0; }
+.lk-slide .lk-diagram { flex: 1 1 auto; min-height: 0; }
+.lk-slide .lk-diagram-art { flex: 1 1 auto; min-height: 200px; max-height: 420px; overflow: visible; }
+.lk-slide .lk-diagram-svg { width: 100%; height: 100%; }
+.lk-slide .lk-video { max-width: 760px; }
+.lk-slide .lk-cards, .lk-slide .lk-gallery { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.lk-callout-body, .lk-flow-step-desc { display: flex; flex-direction: column; gap: var(--lk-space-2); }
+.lk-callout-body > p, .lk-flow-step-desc > p { margin: 0; }
+.lk-slide .lk-table-scroll { overflow: visible; }
+.lk-slide .lk-figure img { max-height: 400px; max-width: 100%; object-fit: contain; }
+/* the document frame: part dividers fill the slide, addresses are written out, the title slide carries the status */
+.lk-deck .lk-slide--part { border-left: 24px solid var(--lk-action-accent-strong); }
+.lk-deck .lk-slide--part .lk-slide-heading { font-size: 3rem; line-height: 1.05; }
+.lk-deck .lk-slide--part .lk-section-body, .lk-deck .lk-slide--part .lk-slide-body p { font-size: 1.2rem; color: var(--lk-text-secondary); }
+.lk-slide .lk-cta-url { display: inline; }
+.lk-slide .lk-section { margin-top: 0; }
+.lk-deck .lk-slide--title { position: relative; }
+/* navigation and sources: the agenda fills its slide; notes and sources are set small so a list fits */
+.lk-slide .lk-toc { padding: 0; background: none; border: 0; }
+.lk-slide .lk-toc-list { font-size: 1.1rem; gap: var(--lk-space-2); }
+.lk-slide .lk-notes-list, .lk-slide .lk-references-list { font-size: .75rem; line-height: 1.4; }
+/* time and comparison: timelines run left to right on a slide */
+.lk-slide .lk-timeline-list { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.lk-slide .lk-timeline-item { padding: var(--lk-space-8) 0 0; }
+.lk-slide .lk-timeline-item::before { left: 0; right: calc(-1 * var(--lk-space-4)); top: 7px; bottom: auto; width: auto; height: 2px; }
+.lk-slide .lk-timeline-item:last-child::before { right: auto; width: 1rem; height: 2px; }
+.lk-slide .lk-timeline-item::after { top: 0; }
+/* a release's groups side by side, so a full release fits its slide */
+.lk-slide .lk-release { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lk-space-3) var(--lk-space-6); align-items: start; }
+.lk-slide .lk-release-intro { grid-column: 1 / -1; }
+.lk-slide .lk-release-group { gap: var(--lk-space-1); padding-left: var(--lk-space-3); }
+.lk-slide .lk-release-body { gap: var(--lk-space-1); font-size: .9rem; line-height: 1.4; }
+.lk-slide .lk-release-body ul { gap: var(--lk-space-1); }
+.lk-slide-status { position: absolute; left: var(--lk-slide-pad-x); right: var(--lk-slide-pad-x); bottom: var(--lk-slide-pad-y); margin: 0; font-size: .7rem; color: var(--lk-text-secondary); }
+
+/* ---- control bar ---- */
+.lk-deck-bar {
+  grid-area: bar; position: relative;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-height: 60px; padding: 8px 16px;
+  background: var(--lk-bg-surface); border-top: 1px solid var(--lk-border-default);
+  font-size: 14px; line-height: 1.3;
+}
+.lk-deck-progress { position: absolute; left: 0; top: -1px; height: 3px; width: var(--lk-deck-progress, 0%); background: var(--lk-action-accent-strong); }
+.lk-deck-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 44px; min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-sm);
+  background: var(--lk-bg-surface); color: var(--lk-text-primary);
+  font: inherit; font-weight: 500; cursor: pointer;
+}
+.lk-deck-btn:hover { background: var(--lk-bg-elevated); }
+.lk-deck-btn[aria-pressed="true"] { background: var(--lk-bg-elevated); border-color: var(--lk-text-primary); }
+.lk-deck-btn:disabled { cursor: default; color: var(--lk-text-muted); border-color: var(--lk-border-default); background: var(--lk-bg-surface); }
+.lk-deck-btn svg { width: 18px; height: 18px; }
+.lk-deck-count { min-width: 72px; text-align: center; font-family: var(--lk-font-mono); font-variant-numeric: tabular-nums; }
+.lk-deck-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lk-text-secondary); }
+.lk-deck-timer { font-family: var(--lk-font-mono); font-size: 22px; font-variant-numeric: tabular-nums; padding: 0 8px; }
+/* with the letter shortcuts off (WCAG 2.1.4), the buttons stop showing their letters */
+.lk-deck[data-letters="off"] .lk-deck-key { display: none; }
+.lk-deck-key { font-family: var(--lk-font-mono); font-size: 12px; color: var(--lk-text-secondary); border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-xs); padding: 0 4px; }
+
+/* ---- notes and presenter view ---- */
+.lk-deck-notes { grid-area: notes; min-height: 0; overflow: auto; padding: 16px 20px; background: var(--lk-bg-surface); border-left: 1px solid var(--lk-border-default); font-size: 18px; line-height: 1.55; }
+.lk-deck-panel-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
+.lk-deck-notes-body > * { margin: 0 0 12px; }
+.lk-deck-empty { color: var(--lk-text-secondary); font-style: italic; }
+.lk-deck-next { grid-area: next; min-height: 0; padding: 16px 20px; background: var(--lk-bg-surface); border-left: 1px solid var(--lk-border-default); border-bottom: 1px solid var(--lk-border-default); display: flex; flex-direction: column; }
+.lk-deck-next-body { flex: 1; min-height: 0; overflow: hidden; }
+.lk-deck-next-body > .lk-slide { --lk-deck-scale: var(--lk-deck-next-scale, .3); box-shadow: var(--lk-shadow-1); }
+.lk-deck[data-presenter="true"] { grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1.2fr) auto; grid-template-areas: "stage next" "stage notes" "bar bar"; }
+
+/* ---- overview: all slides as thumbnails ---- */
+.lk-deck[data-mode="overview"] .lk-deck-viewport { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, 268px); justify-content: center; align-content: start; gap: 20px; padding: 24px; }
+.lk-deck[data-mode="overview"] .lk-deck-frame { --lk-deck-scale: .2; position: relative; left: auto; top: auto; transform: none; visibility: visible; opacity: 1; transition: none; cursor: pointer; outline: 1px solid var(--lk-border-default); }
+.lk-deck[data-mode="overview"] .lk-deck-frame.is-active { outline: 3px solid var(--lk-action-accent-strong); outline-offset: 3px; }
+.lk-deck[data-mode="overview"] .lk-deck-frame:focus-visible { outline: 3px solid var(--lk-focus-ring); outline-offset: 3px; }
+
+/* ---- all slides at full size, one after another (Guard, review) ---- */
+.lk-deck[data-mode="all"] { height: auto; overflow: visible; display: block; }
+.lk-deck[data-mode="all"] .lk-deck-viewport { overflow: visible; display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0; }
+.lk-deck[data-mode="all"] .lk-deck-frame { --lk-deck-scale: 1; position: static; transform: none; visibility: visible; opacity: 1; transition: none; flex: none; }
+.lk-deck[data-mode="all"] .lk-deck-notes, .lk-deck[data-mode="all"] .lk-deck-next { display: none; }
+
+/* narrow screens: a compact bar (presenting happens on a wide screen) */
+@media (max-width: 900px) {
+  .lk-deck-bar { gap: 6px; padding: 6px 8px; }
+  .lk-deck-key, .lk-deck-name, .lk-deck-bar [data-deck="presenter"], .lk-deck-bar [data-deck="fullscreen"], .lk-deck-bar [data-deck="letters"] { display: none; }
+  .lk-deck-btn { padding: 0 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) { .lk-deck-frame, .lk-deck-frame.is-active { transition: none; } }
+
+/* ---- print: one 16:9 page per slide ---- */
+@page { size: 1280px 720px; margin: 0; }
+@media print {
+  body { background: none; }
+  .lk-deck, .lk-deck[data-mode] { display: block; height: auto; overflow: visible; }
+  .lk-deck-bar, .lk-deck-notes, .lk-deck-next, .lk-deck-live { display: none !important; }
+  .lk-deck[data-mode] .lk-deck-viewport { display: block; overflow: visible; padding: 0; }   /* beats the all-slides view */
+  .lk-deck[data-mode] .lk-deck-frame { --lk-deck-scale: 1; position: static; transform: none; visibility: visible; opacity: 1; box-shadow: none; transition: none; break-after: page; }
+  .lk-deck-frame:last-child { break-after: auto; }
+}
+/* a slide that overflows a little is shrunk (the build measures it and picks the level); more is continued */
+.lk-deck .lk-slide--fit-95 .lk-slide-body { zoom: .95; }
+.lk-deck .lk-slide--fit-90 .lk-slide-body { zoom: .9; }
+.lk-deck .lk-slide--fit-85 .lk-slide-body { zoom: .85; }

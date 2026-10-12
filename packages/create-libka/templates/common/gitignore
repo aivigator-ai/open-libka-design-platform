@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# LibKa: signing keys stay on this computer; .libka/trusted-keys.json is meant to be committed
+.libka/*.pem

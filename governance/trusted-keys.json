@@ -1,0 +1,6 @@
+{
+  "$description": "Signing keys whose LibKa manifests a verifier should trust. Only public fingerprints live here (first 16 hex of the SHA-256 of the DER public key); private keys stay in .libka/signing-key.pem or the LIBKA_SIGNING_KEY secret and are never committed. Add a key by running libka build once and copying the fingerprint from libka verify. A replaced key gets \"retired\" (the date it stopped signing; its manifests stay trusted); a compromised key gets \"revoked\" (its manifests are no longer trusted). See docs/admin/signing-keys.md.",
+  "keys": [
+    { "fingerprint": "3fe83bdb07ba9d73", "owner": "maintainer workstation", "added": "2026-10-03" }
+  ]
+}

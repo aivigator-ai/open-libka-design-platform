@@ -1,0 +1,46 @@
+name: Bug report
+description: Something LibKa builds, checks or shows is wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting. Security problems go to the private channel in SECURITY.md, never here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: document
+    attributes:
+      label: The smallest document that shows it
+      description: LibKa Markdown, front matter included. Remove anything private.
+      render: markdown
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The output of `libka lint` or `libka build`, or a Guard finding.
+      render: text
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      multiple: true
+      options: [Web page, PDF, Slides, Word file, Guard, CLI, Studio, MCP server or skill, Design tokens, Documentation]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: LibKa version, Node.js version, operating system, browser (for the Studio).
+  - type: checkboxes
+    id: accessibility
+    attributes:
+      label: Accessibility
+      options:
+        - label: This is an accessibility problem (a barrier for people using assistive technology, keyboard, zoom or high contrast).

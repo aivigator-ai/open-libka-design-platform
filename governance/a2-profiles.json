@@ -1,0 +1,74 @@
+{
+  "$description": "LibKa AI generation profiles (manual Appendix A2). This file is the source: generate.py writes the profiles into the manual with the current version and fails the build if a profile names a token, theme or density that does not exist. AI tools can read this file directly.",
+  "profiles": [
+    {
+      "id": "dashboard",
+      "title": "Dashboard profile",
+      "spec": {
+        "screen_type": "dashboard",
+        "theme": "light | dark",
+        "density": "comfortable",
+        "required_components": ["topbar", "sidebar", "insight-cards (min 3)", "data-table or chart", "status-badges"],
+        "primary_action": "single verb label",
+        "accessibility": { "contrast": "WCAG 2.2 AA", "keyboard": true, "reduced_motion": true },
+        "avoid": ["decorative gradients", "ai sparkle icons", "corporate blue monotony", "text in aqua.500 or iris.500"],
+        "token_check": ["all colors reference semantic layer", "no arbitrary hex values", "shadows use shadow.1 or shadow.2 only"]
+      },
+      "tokens": {
+        "never_as_text": ["color.primitive.aqua.500", "color.primitive.iris.500"],
+        "allowed_shadows": ["shadow.1", "shadow.2"]
+      }
+    },
+    {
+      "id": "landing",
+      "title": "Landing / hero profile",
+      "spec": {
+        "screen_type": "landing",
+        "theme": "light | dark",
+        "density": "spacious",
+        "required_components": ["hero (title + lead + primary CTA)", "dot logo mark", "max 2 CTAs total", "one supporting section"],
+        "typography": { "hero_title": "type.display.xl or type.display.lg (Fraunces)", "body": "type.body.lg" },
+        "primary_action": "single verb label",
+        "accessibility": { "contrast": "WCAG 2.2 AA", "keyboard": true },
+        "avoid": ["background video autoplay", "parallax", "more than 2 fonts", "marketing superlatives"]
+      },
+      "tokens": {
+        "hero_title": ["typography.scale.display.xl", "typography.scale.display.lg"],
+        "body": ["typography.scale.body.lg"]
+      }
+    },
+    {
+      "id": "documentation",
+      "title": "Documentation page profile",
+      "spec": {
+        "screen_type": "documentation",
+        "theme": "light",
+        "density": "comfortable",
+        "structure": ["title (type.heading.h1)", "purpose paragraph", "rules section", "examples", "tokens used (code blocks)", "accessibility notes", "anti-patterns"],
+        "typography": { "headings": "Inter (UI sans) except top H1", "code": "JetBrains Mono" },
+        "avoid": ["marketing language", "vague rules (\"use appropriately\")", "missing anti-patterns section"]
+      },
+      "tokens": {
+        "title": ["typography.scale.heading.h1"],
+        "headings_font": ["typography.font.ui"],
+        "code_font": ["typography.font.mono"]
+      }
+    },
+    {
+      "id": "form",
+      "title": "Form / onboarding profile",
+      "spec": {
+        "screen_type": "form",
+        "theme": "light | dark",
+        "density": "comfortable",
+        "required_components": ["progress indicator", "labeled inputs (never placeholder-only)", "inline validation", "primary submit button", "back/skip option"],
+        "accessibility": { "contrast": "WCAG 2.2 AA", "keyboard": true, "error_association": "aria-describedby" },
+        "avoid": ["multi-column form layout on mobile", "more than 7 fields per step", "password reveal hidden by default"]
+      },
+      "tokens": {
+        "error_text": ["color.semantic.text.error"],
+        "input_border_error": ["color.component.input.border.error"]
+      }
+    }
+  ]
+}

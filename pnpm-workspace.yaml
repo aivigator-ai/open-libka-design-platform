@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - npm
+  - apps/*
+
+# esbuild (Studio bundle) runs a postinstall that checks its platform binary
+allowBuilds:
+  esbuild: true
+  # comes with @guidepup/guidepup (screen recording); its postinstall downloads an ffmpeg binary LibKa never uses
+  ffmpeg-static: false

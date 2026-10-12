@@ -1,0 +1,20 @@
+name: Idea or new block
+description: Suggest a new block, output feature or improvement.
+labels: [idea]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you are trying to do
+      description: The document or situation you need it for. A real example helps most.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you suggest
+      description: For a new block, the Markdown you would like to write, and how it should look on the web page, slides, PDF and Word file.
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead

@@ -1,0 +1,29 @@
+{
+  "name": "@libka/model",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa document model: Markdown with directives parsed into typed blocks, with line-numbered problems.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/blocks": "workspace:*",
+    "remark-directive": "^4.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/node": "26.6.4",
+    "ajv": "^8.20.0"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@libka/editor",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa visual editing: the ProseMirror schema of LibKa documents and the lossless round-trip with LibKa Markdown (untouched blocks byte for byte, changed blocks in one canonical style). Runs in Node and in the browser.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/blocks": "workspace:*",
+    "@libka/model": "workspace:*",
+    "mdast-util-directive": "3.1.1",
+    "mdast-util-frontmatter": "2.0.1",
+    "mdast-util-gfm": "3.1.0",
+    "mdast-util-to-markdown": "2.2.0",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-inputrules": "1.5.1",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-schema-list": "1.5.1",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-transform": "1.12.2",
+    "remark-directive": "4.0.0",
+    "remark-frontmatter": "5.0.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@types/mdast": "4.0.4",
+    "@types/node": "26.6.4"
+  }
+}

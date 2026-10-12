@@ -1,0 +1,89 @@
+# The TypeScript job: strict type check and every package's tests, with Chrome, Java and veraPDF,
+# LibreOffice, Firefox and WebKit. Called by check.yml (pinned runner) and ubuntu-next.yml (the next image).
+name: typescript
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner image
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: typescript (packages/)
+    runs-on: ${{ inputs.runs-on }}
+    # the tests alone take about 9.5 minutes (the Studio's quality, performance and audit tests in Chrome)
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from "packageManager" in package.json
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (lockfile only)
+        run: pnpm install --frozen-lockfile
+
+      # PDF/UA validation (docs/admin/verapdf.md): Java 21 and veraPDF in /opt/verapdf, required by the tests
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # pinned to one version and its checksum (docs/admin/verapdf.md, "Updating" says how to move it)
+      - name: Install veraPDF
+        env:
+          VERAPDF_URL: https://software.verapdf.org/releases/1.30/verapdf-greenfield-1.30.2-installer.zip
+          VERAPDF_SHA256: 6cc6341cb1af644044054b81f00a6590a7918abb18f762243de115258bcad838
+        run: |
+          curl -sSfL -o /tmp/verapdf.zip "$VERAPDF_URL"
+          echo "$VERAPDF_SHA256  /tmp/verapdf.zip" | sha256sum -c -
+          unzip -q /tmp/verapdf.zip -d /tmp/verapdf-installer
+          cat > /tmp/verapdf-auto-install.xml <<'XML'
+          <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+          <AutomatedInstallation langpack="eng">
+            <com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>
+            <com.izforge.izpack.panels.target.TargetPanel id="install_dir"><installpath>/opt/verapdf</installpath></com.izforge.izpack.panels.target.TargetPanel>
+            <com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select">
+              <pack index="0" name="veraPDF GUI" selected="true"/>
+              <pack index="1" name="veraPDF Batch files" selected="true"/>
+              <pack index="2" name="veraPDF Validation model" selected="false"/>
+              <pack index="3" name="veraPDF Documentation" selected="false"/>
+              <pack index="4" name="veraPDF Sample Plugins" selected="false"/>
+            </com.izforge.izpack.panels.packs.PacksPanel>
+            <com.izforge.izpack.panels.install.InstallPanel id="install"/>
+            <com.izforge.izpack.panels.finish.FinishPanel id="finish"/>
+          </AutomatedInstallation>
+          XML
+          sudo "$JAVA_HOME/bin/java" -jar /tmp/verapdf-installer/*/verapdf-izpack-installer-*.jar /tmp/verapdf-auto-install.xml
+          /opt/verapdf/verapdf --version
+
+      # Word files must open in a second office suite (docs/admin/word-and-libreoffice.md): LibreOffice Writer, headless
+      - name: Install LibreOffice
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-writer
+          soffice --version
+
+      # the Studio's smoke tests in Firefox and WebKit (docs/admin/studio.md); Chrome is on the runner already
+      - name: Install Firefox and WebKit for Playwright
+        run: pnpm --filter @libka/studio exec playwright-core install --with-deps firefox webkit
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+        env:
+          LIBKA_REQUIRE_VERAPDF: '1'
+          LIBKA_REQUIRE_LIBREOFFICE: '1'
+          LIBKA_REQUIRE_BROWSERS: '1'
+          # the Studio's time budgets hold on a developer machine; shared runners are slower, so they get twice the time
+          LIBKA_PERF_SLACK: '2'

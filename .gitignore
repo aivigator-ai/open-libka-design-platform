@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# check.py --artifacts output (CI diagnostics)
+check-artifacts/
+
+# TypeScript workspace
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Built example outputs
+examples/**/dist/
+
+# Local signing key for the manifests of the checks (never commit)
+.libka/
+
+# Default output folder of the LibKa MCP server
+libka-out/

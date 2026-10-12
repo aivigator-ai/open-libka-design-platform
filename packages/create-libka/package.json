@@ -1,0 +1,17 @@
+{
+  "name": "create-libka",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Starts a LibKa project: npm create libka@latest. An example document in English or Czech, npm scripts, a GitHub Actions workflow, a .gitignore and a README of next steps.",
+  "type": "module",
+  "bin": { "create-libka": "./index.mjs" },
+  "scripts": {
+    "typecheck": "node --check index.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@libka/cli": "workspace:*",
+    "@types/node": "^26.6.4"
+  }
+}

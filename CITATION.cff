@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use LibKa in your work, please cite it as below."
+title: "LibKa Design Platform"
+type: software
+authors:
+  - name: "Libor Klimeš (aivigator.ai)"
+version: "2.0.0"
+license: Apache-2.0
+repository-code: "https://github.com/aivigator-ai/open-libka-design-platform"
+url: "https://libka.aivigator.ai/"
+abstract: >-
+  LibKa is a design system (W3C DTCG design tokens) and a document platform. One Markdown file with LibKa blocks
+  becomes a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility (axe-core
+  WCAG 2.2 A/AA, text contrast, structure rules, reflow at 320 CSS pixels, veraPDF PDF/UA-1, the Word file's structure), with a signed manifest
+  of the checks.
+keywords:
+  - accessibility
+  - wcag
+  - pdf-ua
+  - markdown
+  - design-tokens
+  - docs-as-code
+  - slides
+  - mcp

@@ -1,0 +1,16 @@
+# Tries the TypeScript job on ubuntu-latest, the image GitHub moves to next, while check.yml stays pinned. When this passes, move the pin in check.yml (docs/admin/environment.md).
+name: ubuntu-next
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    uses: ./.github/workflows/typescript.yml
+    with:
+      runs-on: ubuntu-latest

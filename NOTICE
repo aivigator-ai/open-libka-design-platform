@@ -1,0 +1,22 @@
+LibKa Design Platform
+Copyright 2026 Libor Klimeš (aivigator.ai)
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository also contains third-party material under its own licence:
+
+- fonts/: Fraunces, Inter and JetBrains Mono, under the SIL Open Font License 1.1
+  (the licence texts are in fonts/licenses/).
+- examples/open-source-guide/guide.md: text from GitHub's Open Source Guides
+  (https://opensource.guide), under the Creative Commons Attribution 4.0 International
+  licence (CC BY 4.0), adapted to LibKa blocks; the document credits its source.
+
+LibKa installs other open-source packages through npm instead of including them here;
+among them axe-core (Mozilla Public License 2.0) for the browser checks and Mermaid
+(MIT License) for diagrams. Each package carries its own licence;
+`npx --yes pnpm@12.8.1 licenses list` lists every one.
+
+LibKa, LibKa Design Platform and LibKa Studio are the names under which
+Libor Klimeš (aivigator.ai) publishes these products. The Apache License does not grant permission to use them (section 6),
+except to describe where the work comes from. If you publish a modified version, please give
+it its own name and say that it is based on LibKa.

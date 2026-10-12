@@ -1,0 +1,28 @@
+{
+  "name": "@libka/render",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Renders LibKa documents from the catalog blocks and tokens: manuals and 16:9 decks, each one self-contained HTML file.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manual.css": "./src/manual.css",
+    "./deck": "./src/deck.ts",
+    "./fit": "./src/fit.ts",
+    "./csp": "./src/csp.ts",
+    "./deck.css": "./src/deck.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libka/model": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^26.6.4",
+    "@libka/blocks": "workspace:*"
+  }
+}

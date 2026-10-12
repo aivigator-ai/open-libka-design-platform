@@ -1,0 +1,16 @@
+{
+  "name": "@libka/npm-build",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Builds LibKa's npm packages, the skill .zip and the Claude Desktop extension (build.mts), tests the quick start from the packed files (smoke.mts) and writes the Claude Code plugin (build-plugin.mts). Never published.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "fflate": "0.8.3"
+  }
+}

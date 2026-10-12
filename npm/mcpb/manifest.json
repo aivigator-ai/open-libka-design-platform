@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "libka",
+  "display_name": "LibKa",
+  "version": "{{version}}",
+  "description": "Write, check and build LibKa documents: one Markdown file to a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility and signed.",
+  "long_description": "LibKa gives Claude its block catalog and its checks. Claude lists the blocks, reads their syntax, checks LibKa Markdown line by line and builds it: Guard checks every output in Chrome (axe-core WCAG 2.2 A/AA, contrast in standard and high-contrast mode, structure rules, reflow at 320 CSS pixels, slide fit) and the outputs that pass are signed. Building needs Google Chrome on this computer; the files are written into the output folder you choose. Its server is tested with Node.js on Windows and Ubuntu; macOS is not tested.",
+  "author": { "name": "{{author}}" },
+  "repository": { "type": "git", "url": "{{repository}}" },
+  "homepage": "{{repository}}",
+  "documentation": "{{repository}}/blob/main/docs/ai-tools.md",
+  "support": "{{repository}}/issues",
+  "icon": "icon.png",
+  "license": "Apache-2.0",
+  "keywords": ["documents", "accessibility", "wcag", "pdf", "slides", "markdown"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/node_modules/@libka/mcp/dist/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/node_modules/@libka/mcp/dist/server.js"],
+      "env": { "LIBKA_OUT": "${user_config.out_dir}" }
+    }
+  },
+  "tools": [
+    { "name": "libka_list_blocks", "description": "Every LibKa block with the content it fits, and what to write for content without a block" },
+    { "name": "libka_get_block", "description": "One block: syntax, attributes, outputs, accessibility rules, anti-patterns and JSON schema" },
+    { "name": "libka_check", "description": "Parse LibKa Markdown: problems with line numbers, the outline and the slide count" },
+    { "name": "libka_build", "description": "Build the outputs, run Guard and sign; returns the files and every finding" }
+  ],
+  "user_config": {
+    "out_dir": {
+      "type": "directory",
+      "title": "Output folder",
+      "description": "Where LibKa writes the documents it builds. The signing key goes into .libka/ of this folder, or of the nearest folder above it with .libka/ (else with package.json or .git), with a .gitignore that keeps it out of git.",
+      "required": true,
+      "default": "${DOCUMENTS}/LibKa"
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": { "node": ">=22.18.0" }
+  }
+}

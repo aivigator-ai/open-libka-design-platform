@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LibKa Verification</title>
+<style>
+:root{
+  --bg:#F6F7F9;--surface:#fff;--elevated:#F1F4F7;--text:#1A2130;--muted:#5F6A7B;
+  --border:#D7DDE7;--accent:#0F8FA1;--pass:#2E8B65;--fail:#D8576B;--warn:#A66B1F;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+[data-theme="dark"]{--bg:#111723;--surface:#1A2130;--elevated:#2A3345;--text:#F6F7F9;--muted:#95A0B2;--border:#384255;--accent:#20C7D9}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.6;padding:32px clamp(16px,4vw,56px)}
+h1{font-family:Fraunces,Georgia,serif;font-size:clamp(2rem,5vw,3rem);letter-spacing:-.03em;font-weight:650;margin:0 0 6px}
+h2{font-size:18px;font-weight:600;margin:36px 0 14px;display:flex;align-items:center;gap:10px}
+.sub{color:var(--muted);margin:0 0 28px;max-width:680px}
+.topbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:28px}
+.btn{padding:9px 16px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--muted)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:8px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px}
+.stat .n{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}
+.p-pass{background:rgb(46 139 101/.14);color:var(--pass)}
+.p-fail{background:rgb(216 87 107/.14);color:var(--fail)}
+.p-warn{background:rgb(166 107 31/.14);color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+th{text-align:left;padding:10px 14px;background:var(--elevated);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+td{padding:9px 14px;border-top:1px solid var(--border)}
+td.mono,th.mono{font-family:var(--mono);font-size:12px}
+.num{text-align:right;font-family:var(--mono)}
+.swatch-cell{display:inline-block;width:16px;height:16px;border-radius:5px;border:1px solid rgba(0,0,0,.12);vertical-align:-3px;margin-right:6px}
+.note{font-size:13px;color:var(--muted);margin-top:8px}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>LibKa — Verification</h1>
+<p class="sub">This page recomputes every accessibility claim in the browser from the token values that the build writes into this page from <code>tokens/*.tokens.json</code>. Nothing here is asserted by hand — open it, read the numbers. Toggle the theme to confirm both modes.</p>
+
+<div class="topbar">
+  <button class="btn" onclick="setTheme('light')">Light theme</button>
+  <button class="btn" onclick="setTheme('dark')">Dark theme</button>
+  <button class="btn" onclick="runAll()">Re-run all checks</button>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<h2>1 · Token reference resolution</h2>
+<p class="note">Every component/icon/viz token that uses <code>ref</code> must point at a value that exists. A broken chain fails the build.</p>
+<div id="ref-result"></div>
+
+<h2>2 · Contrast matrix — light theme</h2>
+<p class="note">Normal text needs 4.5:1 (WCAG 2.2 AA). UI / large text / focus ring need 3:1.</p>
+<div id="contrast-light"></div>
+
+<h2>3 · Contrast matrix — dark theme</h2>
+<div id="contrast-dark"></div>
+
+<h2>4 · Colorblind distinguishability (viz series)</h2>
+<p class="note">CIE76 ΔE between every series pair under simulated deuteranopia, protanopia and tritanopia. Threshold: ΔE ≥ 15. Below that, pairs are too similar and pattern fills become mandatory.</p>
+<div id="cb-result"></div>
+
+<div class="foot" id="foot">LibKa Design System · verification recomputed client-side</div>
+
+<!-- Token data: written by generate.py from the DTCG source (tokens/, libka.resolver.json). Do not edit by hand. -->
+<!-- BEGIN GENERATED: token-data -->
+<script type="application/json" id="lk-token-data">
+{
+ "version": "2.0.0",
+ "theme": {
+  "light": {
+   "bg.canvas": "#F6F7F9",
+   "bg.surface": "#FFFFFF",
+   "bg.elevated": "#F1F4F7",
+   "text.primary": "#1A2130",
+   "text.secondary": "#556074",
+   "text.muted": "#5F6A7B",
+   "text.accent": "#056F7D",
+   "text.info": "#056F7D",
+   "text.success": "#16633F",
+   "text.warning": "#8F5804",
+   "text.error": "#B4364E",
+   "text.ai": "#4C4ECC",
+   "border.default": "#D7DDE7",
+   "border.strong": "#B0B9C8",
+   "border.control": "#5F6A7B",
+   "action.primary": "#111723",
+   "action.accent": "#0F8FA1",
+   "action.iris": "#4C4ECC",
+   "action.accent-strong": "#056F7D",
+   "action.destructive": "#B4364E",
+   "action.on-accent": "#FFFFFF",
+   "action.on-iris": "#FFFFFF",
+   "action.on-destructive": "#FFFFFF",
+   "focus.ring": "#B87A22",
+   "status.success": "#2E8B65",
+   "status.warning": "#A66B1F",
+   "status.error": "#D8576B",
+   "status.info": "#0F8FA1",
+   "status.ai": "#4C4ECC"
+  },
+  "dark": {
+   "bg.canvas": "#111723",
+   "bg.surface": "#1A2130",
+   "bg.elevated": "#2A3345",
+   "text.primary": "#F6F7F9",
+   "text.secondary": "#C6CDD8",
+   "text.muted": "#95A0B2",
+   "text.accent": "#20C7D9",
+   "text.info": "#20C7D9",
+   "text.success": "#67D5AA",
+   "text.warning": "#F0B35E",
+   "text.error": "#FF9FAE",
+   "text.ai": "#ABADFF",
+   "border.default": "#384255",
+   "border.strong": "#4A5568",
+   "border.control": "#7F8A9C",
+   "action.primary": "#F6F7F9",
+   "action.accent": "#20C7D9",
+   "action.iris": "#7A7CFF",
+   "action.accent-strong": "#20C7D9",
+   "action.destructive": "#FF9FAE",
+   "action.on-accent": "#111723",
+   "action.on-iris": "#111723",
+   "action.on-destructive": "#111723",
+   "focus.ring": "#F0B35E",
+   "status.success": "#67D5AA",
+   "status.warning": "#F0B35E",
+   "status.error": "#FF9FAE",
+   "status.info": "#20C7D9",
+   "status.ai": "#7A7CFF"
+  }
+ },
+ "series": {
+  "1": "#0F8FA1",
+  "2": "#7A7CFF",
+  "3": "#F0B35E",
+  "4": "#16633F",
+  "5": "#D8576B",
+  "6": "#B8C0CC"
+ },
+ "refs": {
+  "button.primary.background": "color.semantic.action.primary",
+  "button.primary.text": "color.semantic.bg.canvas",
+  "button.primary.focus.ring": "color.semantic.focus.ring",
+  "button.primary.disabled.opacity": "opacity.disabled",
+  "button.accent.background": "color.semantic.action.accent-strong",
+  "button.accent.text": "color.semantic.action.on-accent",
+  "button.accent.focus.ring": "color.semantic.focus.ring",
+  "button.iris.background": "color.semantic.action.iris",
+  "button.iris.text": "color.semantic.action.on-iris",
+  "button.iris.focus.ring": "color.semantic.focus.ring",
+  "button.secondary.background": "color.semantic.bg.surface",
+  "button.secondary.border": "color.semantic.border.default",
+  "button.secondary.text": "color.semantic.text.primary",
+  "button.destructive.background": "color.semantic.action.destructive",
+  "button.destructive.text": "color.semantic.action.on-destructive",
+  "button.ghost.text": "color.semantic.text.secondary",
+  "button.ghost.hover.background": "color.semantic.bg.elevated",
+  "input.background": "color.semantic.bg.surface",
+  "input.border.default": "color.semantic.border.control",
+  "input.border.focus": "color.semantic.action.accent",
+  "input.border.error": "color.semantic.status.error",
+  "input.text": "color.semantic.text.primary",
+  "input.placeholder": "color.semantic.text.muted",
+  "input.label": "color.semantic.text.primary",
+  "input.helper": "color.semantic.text.secondary",
+  "input.error.text": "color.semantic.text.error",
+  "card.background": "color.semantic.bg.surface",
+  "card.border": "color.semantic.border.default",
+  "card.shadow": "shadow.2",
+  "card.ai.border": "color.semantic.action.iris",
+  "badge.success.text": "color.semantic.text.success",
+  "badge.info.text": "color.semantic.text.info",
+  "badge.warning.text": "color.semantic.text.warning",
+  "badge.error.text": "color.semantic.text.error",
+  "badge.ai.text": "color.semantic.text.ai",
+  "nav.item.active.text": "color.semantic.text.primary",
+  "nav.item.hover.background": "color.semantic.bg.elevated",
+  "nav.item.default.text": "color.semantic.text.secondary",
+  "table.header.background": "color.semantic.bg.elevated",
+  "table.header.text": "color.semantic.text.primary",
+  "table.row.default": "color.semantic.bg.surface",
+  "table.border": "color.semantic.border.default",
+  "table.cell.padding.y": "spacing.3",
+  "table.cell.padding.x": "spacing.4",
+  "modal.background": "color.semantic.bg.surface",
+  "modal.shadow": "shadow.3",
+  "drawer.background": "color.semantic.bg.surface",
+  "drawer.shadow": "shadow.4"
+ },
+ "paths": [
+  "breakpoint.desktop",
+  "breakpoint.maxContentWidth",
+  "breakpoint.maxTextMeasure",
+  "breakpoint.mobile",
+  "breakpoint.tablet",
+  "breakpoint.wide",
+  "color.component.badge.ai.background",
+  "color.component.badge.ai.text",
+  "color.component.badge.error.background",
+  "color.component.badge.error.text",
+  "color.component.badge.info.background",
+  "color.component.badge.info.text",
+  "color.component.badge.success.background",
+  "color.component.badge.success.text",
+  "color.component.badge.warning.background",
+  "color.component.badge.warning.text",
+  "color.component.button.accent.background",
+  "color.component.button.accent.focus.ring",
+  "color.component.button.accent.hover.background",
+  "color.component.button.accent.text",
+  "color.component.button.destructive.background",
+  "color.component.button.destructive.text",
+  "color.component.button.ghost.background",
+  "color.component.button.ghost.hover.background",
+  "color.component.button.ghost.text",
+  "color.component.button.iris.background",
+  "color.component.button.iris.focus.ring",
+  "color.component.button.iris.hover.background",
+  "color.component.button.iris.text",
+  "color.component.button.primary.background",
+  "color.component.button.primary.disabled.opacity",
+  "color.component.button.primary.focus.ring",
+  "color.component.button.primary.hover.background",
+  "color.component.button.primary.text",
+  "color.component.button.secondary.background",
+  "color.component.button.secondary.border",
+  "color.component.button.secondary.text",
+  "color.component.card.ai.border",
+  "color.component.card.ai.tint",
+  "color.component.card.background",
+  "color.component.card.border",
+  "color.component.card.shadow",
+  "color.component.drawer.background",
+  "color.component.drawer.shadow",
+  "color.component.input.background",
+  "color.component.input.border.default",
+  "color.component.input.border.error",
+  "color.component.input.border.focus",
+  "color.component.input.error.text",
+  "color.component.input.helper",
+  "color.component.input.label",
+  "color.component.input.placeholder",
+  "color.component.input.text",
+  "color.component.modal.background",
+  "color.component.modal.overlay",
+  "color.component.modal.shadow",
+  "color.component.nav.item.active.background",
+  "color.component.nav.item.active.text",
+  "color.component.nav.item.default.text",
+  "color.component.nav.item.hover.background",
+  "color.component.table.border",
+  "color.component.table.cell.padding.x",
+  "color.component.table.cell.padding.y",
+  "color.component.table.header.background",
+  "color.component.table.header.text",
+  "color.component.table.row.default",
+  "color.component.table.row.hover",
+  "color.component.table.row.selected",
+  "color.primitive.apricot.500",
+  "color.primitive.apricot.600",
+  "color.primitive.apricot.700",
+  "color.primitive.apricot.800",
+  "color.primitive.aqua.500",
+  "color.primitive.aqua.650",
+  "color.primitive.aqua.750",
+  "color.primitive.cloud.50",
+  "color.primitive.coral.600",
+  "color.primitive.coral.750",
+  "color.primitive.graphite.800",
+  "color.primitive.ink.900",
+  "color.primitive.ink.950",
+  "color.primitive.iris.500",
+  "color.primitive.iris.700",
+  "color.primitive.mint.650",
+  "color.primitive.mint.800",
+  "color.primitive.mist.200",
+  "color.primitive.pearl.100",
+  "color.primitive.slate.450",
+  "color.primitive.slate.550",
+  "color.semantic.action.accent",
+  "color.semantic.action.accent-strong",
+  "color.semantic.action.destructive",
+  "color.semantic.action.iris",
+  "color.semantic.action.on-accent",
+  "color.semantic.action.on-destructive",
+  "color.semantic.action.on-iris",
+  "color.semantic.action.primary",
+  "color.semantic.bg.canvas",
+  "color.semantic.bg.elevated",
+  "color.semantic.bg.surface",
+  "color.semantic.border.control",
+  "color.semantic.border.default",
+  "color.semantic.border.strong",
+  "color.semantic.focus.ring",
+  "color.semantic.status.ai",
+  "color.semantic.status.error",
+  "color.semantic.status.info",
+  "color.semantic.status.success",
+  "color.semantic.status.warning",
+  "color.semantic.text.accent",
+  "color.semantic.text.ai",
+  "color.semantic.text.error",
+  "color.semantic.text.info",
+  "color.semantic.text.muted",
+  "color.semantic.text.primary",
+  "color.semantic.text.secondary",
+  "color.semantic.text.success",
+  "color.semantic.text.warning",
+  "density.comfortable.controlPaddingX",
+  "density.comfortable.controlPaddingY",
+  "density.comfortable.fontScale",
+  "density.comfortable.rowHeight",
+  "density.comfortable.stackGap",
+  "density.compact.controlPaddingX",
+  "density.compact.controlPaddingY",
+  "density.compact.fontScale",
+  "density.compact.rowHeight",
+  "density.compact.stackGap",
+  "density.spacious.controlPaddingX",
+  "density.spacious.controlPaddingY",
+  "density.spacious.fontScale",
+  "density.spacious.rowHeight",
+  "density.spacious.stackGap",
+  "icon.color.accent",
+  "icon.color.ai",
+  "icon.color.muted",
+  "icon.color.on-dark",
+  "icon.color.primary",
+  "icon.color.secondary",
+  "icon.color.status.error",
+  "icon.color.status.info",
+  "icon.color.status.success",
+  "icon.color.status.warning",
+  "icon.size.2xl",
+  "icon.size.lg",
+  "icon.size.md",
+  "icon.size.sm",
+  "icon.size.xl",
+  "icon.size.xs",
+  "icon.stroke.at-16",
+  "icon.stroke.at-20",
+  "icon.stroke.at-24-plus",
+  "motion.duration.base",
+  "motion.duration.crawl",
+  "motion.duration.fast",
+  "motion.duration.instant",
+  "motion.duration.slow",
+  "motion.ease.linear",
+  "motion.ease.sharp",
+  "motion.ease.soft",
+  "motion.ease.standard",
+  "motion.preset.drawer.in",
+  "motion.preset.fade.in",
+  "motion.preset.lift.hover",
+  "motion.preset.modal.in",
+  "motion.preset.rise.in",
+  "motion.stagger.max",
+  "opacity.disabled",
+  "opacity.hover",
+  "opacity.muted",
+  "opacity.overlay",
+  "opacity.scrim",
+  "opacity.subtle",
+  "radius.2xl",
+  "radius.full",
+  "radius.lg",
+  "radius.md",
+  "radius.sm",
+  "radius.xl",
+  "radius.xs",
+  "shadow.0",
+  "shadow.1",
+  "shadow.2",
+  "shadow.3",
+  "shadow.4",
+  "shadow.glow.aqua",
+  "shadow.glow.iris",
+  "spacing.0_5",
+  "spacing.1",
+  "spacing.10",
+  "spacing.12",
+  "spacing.16",
+  "spacing.2",
+  "spacing.20",
+  "spacing.24",
+  "spacing.3",
+  "spacing.32",
+  "spacing.4",
+  "spacing.5",
+  "spacing.6",
+  "spacing.8",
+  "typography.font.brand",
+  "typography.font.mono",
+  "typography.font.ui",
+  "typography.scale.body.lg",
+  "typography.scale.body.md",
+  "typography.scale.body.sm",
+  "typography.scale.caption",
+  "typography.scale.code",
+  "typography.scale.display.lg",
+  "typography.scale.display.xl",
+  "typography.scale.heading.h1",
+  "typography.scale.heading.h2",
+  "typography.scale.heading.h3",
+  "typography.scale.heading.h4",
+  "typography.scale.overline",
+  "visualization.axis.color",
+  "visualization.axis.label",
+  "visualization.grid.color",
+  "visualization.highlight.stroke",
+  "visualization.series.1",
+  "visualization.series.2",
+  "visualization.series.3",
+  "visualization.series.4",
+  "visualization.series.5",
+  "visualization.series.6",
+  "visualization.tooltip.background",
+  "visualization.tooltip.radius",
+  "visualization.tooltip.text",
+  "zIndex.base",
+  "zIndex.drawer",
+  "zIndex.dropdown",
+  "zIndex.modal",
+  "zIndex.overlay",
+  "zIndex.raised",
+  "zIndex.sticky",
+  "zIndex.toast",
+  "zIndex.tooltip"
+ ]
+}
+</script>
+<!-- END GENERATED: token-data -->
+<script>
+// ---- token data generated into this page by generate.py (see the block above) ----
+const DATA = JSON.parse(document.getElementById('lk-token-data').textContent);
+const THEME = DATA.theme;          // semantic colors per theme
+const SERIES = DATA.series;        // viz series colors
+const REFS = DATA.refs;            // every component alias in the source: path -> target
+const EXISTING = new Set(DATA.paths);
+
+function hex2rgb(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+function lin(c){c/=255;return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4);}
+function lum(h){const[r,g,b]=hex2rgb(h).map(lin);return .2126*r+.7152*g+.0722*b;}
+function contrast(a,b){const L1=lum(a),L2=lum(b),hi=Math.max(L1,L2),lo=Math.min(L1,L2);return (hi+.05)/(lo+.05);}
+
+function srgb2lin(v){v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);}
+function lin2srgb(v){v=Math.max(0,Math.min(1,v));v=v<=.0031308?v*12.92:1.055*Math.pow(v,1/2.4)-.055;return Math.round(Math.max(0,Math.min(1,v))*255);}
+const M={deuteranopia:[[.367322,.860646,-.227968],[.280085,.672501,.047413],[-.01182,.04294,.968881]],protanopia:[[.152286,1.052583,-.204868],[.114503,.786281,.099216],[-.003882,-.048116,1.051998]],tritanopia:[[1.255528,-.076749,-.178779],[-.078411,.930809,.147602],[.004733,.691367,.3039]]};
+function sim(h,k){const[r,g,b]=hex2rgb(h).map(srgb2lin);const m=M[k];return '#'+[ [0],[1],[2] ].map(i=>lin2srgb(m[i][0]*r+m[i][1]*g+m[i][2]*b).toString(16).padStart(2,'0')).join('');}
+function rgb2lab(h){const[r,g,b]=hex2rgb(h).map(srgb2lin);let X=(r*.4124+g*.3576+b*.1805)/.95047,Y=r*.2126+g*.7152+b*.0722,Z=(r*.0193+g*.1192+b*.9505)/1.08883;const f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116;const fx=f(X),fy=f(Y),fz=f(Z);return[116*fy-16,500*(fx-fy),200*(fy-fz)];}
+function dE(a,b){const l1=rgb2lab(a),l2=rgb2lab(b);return Math.sqrt(l1.reduce((s,v,i)=>s+(v-l2[i])**2,0));}
+
+let totals={pass:0,fail:0};
+
+function checkRefs(){
+  let rows='',ok=0,bad=0;
+  for(const[k,t] of Object.entries(REFS)){
+    const resolves=EXISTING.has(t);
+    if(resolves)ok++;else bad++;
+    rows+=`<tr><td class="mono">${k}</td><td class="mono">→ ${t}</td><td>${resolves?'<span class="pill p-pass">resolves</span>':'<span class="pill p-fail">broken</span>'}</td></tr>`;
+  }
+  totals.pass+=ok;totals.fail+=bad;
+  document.getElementById('ref-result').innerHTML=`<table><tr><th>Component token</th><th>References</th><th>Status</th></tr>${rows}</table><p class="note">${ok} of ${ok+bad} references resolve.</p>`;
+}
+
+function contrastTable(theme,elId){
+  const T=THEME[theme];
+  const bgs=['bg.canvas','bg.surface','bg.elevated'];
+  // text roles need 4.5:1; action/status colors are UI colors (icons, borders, fills) at 3:1
+  const fgs=[['text.primary',4.5],['text.secondary',4.5],['text.muted',4.5],['text.accent',4.5],['text.info',4.5],['text.success',4.5],['text.warning',4.5],['text.error',4.5],['action.accent',3],['action.iris',3],['status.success',3],['status.warning',3],['status.error',3]];
+  let rows='',pass=0,fail=0;
+  for(const[fg,req] of fgs){
+    let cells='';
+    for(const bg of bgs){
+      const cr=contrast(T[fg],T[bg]);
+      const ok=cr>=req; ok?pass++:fail++;
+      cells+=`<td class="num">${cr.toFixed(2)} ${ok?'<span class="pill p-pass">✓</span>':'<span class="pill p-fail">✗</span>'}</td>`;
+    }
+    rows+=`<tr><td class="mono"><span class="swatch-cell" style="background:${T[fg]}"></span>${fg}</td><td class="num">${req}</td>${cells}</tr>`;
+  }
+  // focus ring on canvas
+  const fcr=contrast(T['focus.ring'],T['bg.canvas']);const fok=fcr>=3;fok?pass++:fail++;
+  rows+=`<tr><td class="mono"><span class="swatch-cell" style="background:${T['focus.ring']}"></span>focus.ring</td><td class="num">3.0</td><td class="num" colspan="3">${fcr.toFixed(2)} on canvas ${fok?'<span class="pill p-pass">✓</span>':'<span class="pill p-fail">✗</span>'}</td></tr>`;
+  totals.pass+=pass;totals.fail+=fail;
+  document.getElementById(elId).innerHTML=`<table><tr><th>Foreground</th><th>Need</th><th>on canvas</th><th>on surface</th><th>on elevated</th></tr>${rows}</table><p class="note">${pass} pass · ${fail} fail in ${theme} theme.</p>`;
+}
+
+function colorblind(){
+  const keys=Object.keys(SERIES);
+  let rows='',risky=0,total=0;
+  for(const k of Object.keys(M)){
+    const s={};keys.forEach(i=>s[i]=sim(SERIES[i],k));
+    let minD=999;
+    for(let i=0;i<keys.length;i++)for(let j=i+1;j<keys.length;j++){const d=dE(s[keys[i]],s[keys[j]]);minD=Math.min(minD,d);total++;if(d<15)risky++;}
+    const ok=minD>=15;ok?totals.pass++:totals.fail++;
+    rows+=`<tr><td>${k}</td><td class="num">${minD.toFixed(1)}</td><td>${ok?'<span class="pill p-pass">all pairs distinct</span>':'<span class="pill p-fail">collision</span>'}</td></tr>`;
+  }
+  let sw=Object.entries(SERIES).map(([k,v])=>`<span class="swatch-cell" style="background:${v}" title="series ${k}"></span>`).join('');
+  document.getElementById('cb-result').innerHTML=`<p class="note">Series palette: ${sw}</p><table><tr><th>Simulation</th><th>Min ΔE (worst pair)</th><th>Result</th></tr>${rows}</table><p class="note">${risky} risky pairs out of ${total} tested. Threshold ΔE ≥ 15.</p>`;
+}
+
+function renderSummary(){
+  const total=totals.pass+totals.fail;
+  const pct=total?Math.round(totals.pass/total*100):0;
+  document.getElementById('summary').innerHTML=`
+    <div class="stat"><div class="n">${total}</div><div class="l">Total checks</div></div>
+    <div class="stat"><div class="n" style="color:var(--pass)">${totals.pass}</div><div class="l">Passed</div></div>
+    <div class="stat"><div class="n" style="color:${totals.fail?'var(--fail)':'var(--pass)'}">${totals.fail}</div><div class="l">Failed</div></div>
+    <div class="stat"><div class="n">${pct}%</div><div class="l">Pass rate</div></div>`;
+}
+
+function runAll(){
+  totals={pass:0,fail:0};
+  checkRefs();
+  contrastTable('light','contrast-light');
+  contrastTable('dark','contrast-dark');
+  colorblind();
+  renderSummary();
+  document.getElementById('foot').textContent='LibKa Design System v'+DATA.version+' · verification recomputed client-side from the generated token data';
+}
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);}
+runAll();
+</script>
+</body>
+</html>

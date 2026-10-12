@@ -1,0 +1,21 @@
+{
+  "name": "libka",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "LibKa Design Platform: design tokens, document blocks, renderers, Guard, CLI, MCP server and LibKa Studio.",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "libka": "node packages/cli/src/libka.ts",
+    "studio": "pnpm --filter @libka/studio build"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

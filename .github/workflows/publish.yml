@@ -1,0 +1,149 @@
+# Publishes a release when a v* tag is pushed, after the maintainer approves the `npm` environment:
+#   1. builds the packages from the tag (npm/build.mts --release) and runs the quick start from the packed files;
+#   2. publishes the four npm packages with provenance through trusted publishing (no token is stored anywhere);
+#      a version already on npm (the first one is published by hand) is left as it is;
+#   3. lists the MCP server in the official MCP Registry (signed in with this workflow's GitHub identity);
+#   4. makes a DRAFT GitHub Release with the Claude Desktop extension, the skill .zip and SHA256SUMS, its notes from
+#      CHANGELOG.md. The maintainer reads the draft and publishes it; release immutability then freezes it.
+# Run by hand it is a dry run unless told otherwise: the same build and quick start from the branch, `npm publish
+# --dry-run` for each package (without provenance, which npm gives only to public repositories), the MCP Registry
+# entry validated by the registry, and the release notes printed; nothing is published.
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to publish, such as v2.0.0 (empty for a dry run of the branch)
+        required: false
+        default: ''
+      dry_run:
+        description: Build and check everything, publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      # pnpm version comes from "packageManager" in package.json
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: The tag is the product version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$DRY_RUN" = true ]; then echo "a dry run of $TAG at version $version"; exit 0; fi
+          [ "v$version" = "$TAG" ] || { echo "the tag $TAG is not the product version v$version"; exit 1; }
+      - name: Install (lockfile only)
+        run: pnpm install --frozen-lockfile
+      - name: Build the packages for release
+        run: node npm/build.mts --release
+      - name: The quick start from the packed files
+        run: node npm/smoke.mts
+      # the files the release carries; the npm packages carry their own integrity on npm
+      - name: Checksums
+        working-directory: dist/npm
+        run: sha256sum *.mcpb *.zip > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: |
+            dist/npm/*.tgz
+            dist/npm/*.mcpb
+            dist/npm/*.zip
+            dist/npm/server.json
+            dist/npm/SHA256SUMS
+          retention-days: 30
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: write   # the draft release
+      id-token: write   # npm provenance and trusted publishing, and the MCP Registry sign-in
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: npm with trusted publishing (11.5.1 or newer)
+        run: npm install -g npm@11 && npm --version
+      - name: Publish the npm packages
+        working-directory: release
+        run: |
+          for tgz in *.tgz; do
+            name=$(tar -xOzf "$tgz" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0)).name")
+            version=$(tar -xOzf "$tgz" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0)).version")
+            if [ "$DRY_RUN" = true ]; then
+              npm publish "$tgz" --access public --dry-run
+            elif npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is on npm already: left as it is"
+            else
+              npm publish "$tgz" --access public --provenance
+            fi
+          done
+      - name: List the MCP server in the MCP Registry
+        working-directory: release
+        run: |
+          curl -fsSL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          if [ "$DRY_RUN" = true ]; then ./mcp-publisher validate; exit; fi
+          ./mcp-publisher login github-oidc
+          if ! out=$(./mcp-publisher publish 2>&1); then
+            echo "$out"
+            echo "$out" | grep -qi "already" || exit 1
+            echo "this version is in the registry already"
+          fi
+      - name: A draft GitHub Release with the files and the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          version="$VERSION"
+          awk -v v="$version" '$0 ~ "^## "v"[ (:]" {on=1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ] && [ "$DRY_RUN" = true ]; then echo "::warning::CHANGELOG.md has no section for $version yet"; exit 0; fi
+          [ -s notes.md ] || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          if [ "$DRY_RUN" = true ]; then echo "would make the draft release v$version with these notes:"; cat notes.md; exit 0; fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "the release $TAG exists already: its files are not changed (published releases are immutable)"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "LibKa $version" --notes-file notes.md \
+              release/*.mcpb release/*.zip release/SHA256SUMS
+            echo "draft release $TAG made: read it on GitHub, then publish it"
+          fi
