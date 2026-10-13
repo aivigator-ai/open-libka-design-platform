@@ -32,6 +32,23 @@ class SelfHostedFonts(unittest.TestCase):
             self.assertIn('SIL OPEN FONT LICENSE', text.upper())
 
 
+class CheckFailureOutput(unittest.TestCase):
+    def test_a_failed_run_shows_the_difference_and_the_end(self):
+        """check.py shows the first failure's lines and the last ones: the end alone loses what differed."""
+        import sys
+        sys.path.insert(0, ROOT)
+        from check import failure_lines
+        out = ['ok'] * 100 + [' FAIL  test/a.test.ts > step', 'AssertionError: expected', '- Expected', '+ Received'] + ['log'] * 100 + ['Failed']
+        shown = failure_lines(out)
+        self.assertEqual(shown[:4], [' FAIL  test/a.test.ts > step', 'AssertionError: expected', '- Expected', '+ Received'])
+        self.assertEqual(shown[-1], 'Failed')
+        self.assertIn('…', shown)
+        self.assertEqual(failure_lines(['a', 'b', 'Failed']), ['a', 'b', 'Failed'])
+        # a failure already within the last lines is shown once
+        short = ['ok'] * 50 + [' FAIL  x', 'Failed']
+        self.assertEqual(failure_lines(short), short[-25:])
+
+
 class PinnedActions(unittest.TestCase):
     def test_every_action_is_pinned_to_a_commit(self):
         """A tag can be moved to other code; a commit cannot. Every action is used by its full commit SHA, with the
@@ -55,7 +72,8 @@ def pinned_actions(folders):
                     if not m or m.group(1).startswith('./'):
                         continue
                     found += 1
-                    if not re.fullmatch(r'[\w.-]+/[\w./-]+@[0-9a-f]{40}', m.group(1)) or not re.search(r'#\s*v\d+(\.\d+)*\s*$', line):
+                    # the starter's Guard action names its owner as {{owner}}, filled in when a project is created
+                    if not re.fullmatch(r'[\w.-]+/[\w./-]+@[0-9a-f]{40}', m.group(1).replace('{{owner}}', 'owner')) or not re.search(r'#\s*v\d+(\.\d+)*\s*$', line):
                         loose.append(f'{os.path.relpath(path, ROOT)}:{n}: {line.strip()}')
     return found, loose
 

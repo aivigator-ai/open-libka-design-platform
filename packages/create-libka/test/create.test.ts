@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { build, lint, verify } from '@libka/cli';
 // @ts-expect-error plain JavaScript without types
-import { create, packageName, VERSION } from '../index.mjs';
+import { create, ownerOf, packageName, VERSION } from '../index.mjs';
 
 const here = join(import.meta.dirname, '..');
 const chrome = [process.env.LIBKA_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -21,7 +21,7 @@ describe('create-libka', () => {
     const dir = join(base, 'My Docs');
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
     expect(pkg.name).toBe('my-docs');
-    expect(pkg.devDependencies).toEqual({ '@libka/cli': `^${VERSION}` });
+    expect(pkg.devDependencies).toEqual({ '@libka/cli': VERSION });   // the same version as the workflow's `cli:`
     expect(Object.keys(pkg.scripts)).toEqual(['build', 'check', 'verify', 'doctor']);
     expect(readFileSync(join(dir, '.gitignore'), 'utf8')).toMatch(/^\.libka\/\*\.pem$/m);
     expect(readFileSync(join(dir, '.gitignore'), 'utf8')).not.toMatch(/^\.libka\/?$/m);   // the trusted list is committed
@@ -49,7 +49,24 @@ describe('create-libka', () => {
 
   it('pins every action in the workflow to a commit', () => {
     const yml = readFileSync(join(here, 'templates', 'common', 'github', 'workflows', 'libka.yml'), 'utf8');
-    for (const [, ref] of yml.matchAll(/uses: [\w./-]+@(\S+)/g)) expect(ref).toMatch(/^[0-9a-f]{40}$/);
+    const refs = [...yml.matchAll(/uses: \S+@(\S+)/g)].map((m) => m[1]);
+    expect(refs).toHaveLength(3);
+    for (const ref of refs) expect(ref).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it("checks with the Guard action beside the LibKa repository, running the project's own LibKa version", () => {
+    const dir = join(base, 'ci');
+    create(dir);
+    const yml = readFileSync(join(dir, '.github', 'workflows', 'libka.yml'), 'utf8');
+    expect(yml).not.toMatch(/\{\{/);
+    // a package built without the repository address (as here) names OWNER; a published one its owner
+    expect(yml).toMatch(/uses: OWNER\/open-libka-guard-action@[0-9a-f]{40} # v\d+\.\d+\.\d+$/m);
+    expect(yml).toContain(`cli: '@libka/cli@${VERSION}'`);
+    expect(yml).toMatch(/documents: docs\/\*\.md$/m);
+    // kept also when Guard fails, and no warning when a failed build wrote nothing
+    expect(yml).toMatch(/if: always\(\)[\s\S]*if-no-files-found: ignore/);
+    expect(ownerOf('https://github.com/someone/open-libka-design-platform')).toBe('someone');
+    expect(ownerOf(undefined)).toBe('OWNER');
   });
 
   it.each(['en', 'cs'])('has an example (%s) with no problems', (lang) => {

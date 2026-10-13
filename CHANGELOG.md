@@ -2,6 +2,15 @@
 
 All notable changes to the LibKa Design Platform are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.0.1 (2026-10-13): images in builds, the starter on the Guard action
+
+- **Images in a build:** gallery images are copied with the outputs, as figures always were (they were left out, so a gallery built into another folder showed no pictures). An image outside the document's folder (`../images/a.png`) is copied into the output folder, under `_up/` for each level up, and the outputs point at the copy. This fixes a build writing outside its output folder: 2.0.0 copied such an image to the same relative place beside the output folder, which could be anywhere above it. A missing image is reported on its line, so the Guard action marks it in a pull request. An image whose name has a `%` that starts no escape (`100%.svg`) builds; 2.0.0 stopped with "URI malformed" when it built a Word file.
+- **The MCP server** refuses `libka_build` with both the document's text and a path, where it used to write the text over the file at that path; a document given by its path is only read.
+- **The starter's workflow** checks with the LibKa Guard action: every document in `docs/` is built and checked on every push and pull request, each problem is marked on its line in a pull request, and the workflow names the LibKa version it runs; the starter's `package.json` asks for exactly that version. The outputs are kept from `docs/dist/`, beside the documents, and the workflow no longer runs `npm run verify` (2.0.0's ran `npm run check`, `build` and `verify`, and kept `dist/`).
+- **LibKa Studio** runs on Preact 11.
+- **The Claude Code plugin** has a README that says everything it runs, fetches, reads and writes, and on Windows starts the MCP server with one fixed command line. The guide to AI tools ([`docs/ai-tools.md`](docs/ai-tools.md)) now says what happens to a document's web addresses: the page's Content Security Policy blocks them, and Guard reports each one; 2.0.0 said Chrome loads them.
+- **For contributors:** when a test fails, `check.py` shows the failure's own lines (what was expected and what came), not only the end of the run.
+
 ## 2.0.0 (2026-10-11): the first public release
 
 LibKa was developed in a private repository up to 2.0; this repository starts with it.

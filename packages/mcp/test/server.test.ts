@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,6 +66,15 @@ describe('LibKa MCP server over stdio', () => {
     expect(JSON.parse(schema.contents[0]!.text).title).toBe('LibKa document');
     const prompt = await client.getPrompt({ name: 'convert-to-libka', arguments: { content: 'Notes', kind: 'guide' } });
     expect((prompt.messages[0]!.content as { text: string }).text).toMatch(/into a LibKa document \(guide\)[\s\S]*<content>\nNotes\n<\/content>/);
+  });
+
+  it('never writes the text over a file it was given by path', async () => {
+    const file = join(out, 'mine.md');
+    writeFileSync(file, '# Mine\n');
+    const r = await call('libka_build', { markdown: '# Theirs\n', path: file, outDir: out });
+    expect(r.error).toBe(true);
+    expect(r.text).toBe('Give markdown or path, not both.');
+    expect(readFileSync(file, 'utf8')).toBe('# Mine\n');
   });
 
   it.skipIf(!chrome)('builds a document to a checked, signed web page and slides', async () => {

@@ -80,3 +80,33 @@ describe('commands and extensions', () => {
     expect(blockLead('text\n\n')).toBe('');
   });
 });
+
+describe('the editor in use', () => {
+  it('passes to an editor still open when one closes, whatever order the cleanups run in', async () => {
+    // the project controller needs the browser build; the editor in use is all this needs of it
+    const bridge: { editor: unknown } = { editor: null };
+    vi.doMock('../src/app/project.ts', () => ({ bridge }));
+    const { attach, released } = await import('../src/app/split.ts');
+    type Active = Parameters<typeof attach>[0];
+    const editor = (mode: 'visual' | 'source') => ({ mode, link: () => {} }) as unknown as Active;
+    // the start in Source: a visual editor first; the source editor mounts before the visual one's cleanup runs
+    const visual = editor('visual');
+    bridge.editor = visual;
+    const closeVisual = attach(visual);
+    const source = editor('source');
+    if (!bridge.editor) bridge.editor = source;   // as the source editor does: in Split the visual one stays in use
+    const closeSource = attach(source);
+    closeVisual();
+    released(visual);
+    expect(bridge.editor).toBe(source);
+    // another document: the new source editor mounts before the old one closes
+    const next = editor('source');
+    const closeNext = attach(next);
+    closeSource();
+    released(source);
+    expect(bridge.editor).toBe(next);
+    closeNext();
+    released(next);
+    expect(bridge.editor).toBeNull();
+  });
+});

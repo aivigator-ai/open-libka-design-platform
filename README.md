@@ -12,7 +12,7 @@ LibKa is a design system (W3C DTCG design tokens) and a document platform. You w
 - **Try LibKa Studio in your browser:** https://libka-studio.aivigator.ai/
 - **Documentation:** [`docs/`](docs/README.md), starting with [getting started](docs/getting-started.md) and the [block catalog](docs/blocks.md)
 
-> **Status:** version 2.0.0. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
+> **Status:** version 2.0.1. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
 
 ## Why LibKa
 
@@ -52,7 +52,7 @@ npm run build                          # web page, PDF, slides and Word file in 
 npm run verify                         # the files (the slides too) are the ones that were checked and signed
 ```
 
-The starter has an example document, `npm run check` (the source only, in a couple of seconds, without a browser), a GitHub Actions workflow that builds and checks every push, and a README of next steps. A document chooses its outputs in its front matter, `outputs: [web, pdf, deck, docx]`; without that line it gets the web page and the PDF. Each project signs with its own key, made by its first build in `.libka/` and trusted in `.libka/trusted-keys.json` ([signing keys](docs/admin/signing-keys.md)).
+The starter has an example document, `npm run check` (the source only, in a couple of seconds, without a browser), a GitHub Actions workflow that checks every push and pull request with the LibKa Guard action, marking each problem on its line, and a README of next steps. A document chooses its outputs in its front matter, `outputs: [web, pdf, deck, docx]`; without that line it gets the web page and the PDF. Each project signs with its own key, made by its first build in `.libka/` and trusted in `.libka/trusted-keys.json` ([signing keys](docs/admin/signing-keys.md)).
 
 From a clone of this repository:
 

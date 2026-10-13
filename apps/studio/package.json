@@ -1,6 +1,6 @@
 {
   "name": "@libka/studio",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa Studio: an installable local-first app to write LibKa documents, see them rendered and checked by Guard as you type, with projects, images and version history kept on your device.",
@@ -32,7 +32,7 @@
     "fake-indexeddb": "^6.2.5",
     "fflate": "0.8.3",
     "mermaid": "12.1.0",
-    "preact": "^10.29.8",
+    "preact": "^11.0.1",
     "prosemirror-commands": "1.7.2",
     "prosemirror-dropcursor": "1.8.4",
     "prosemirror-gapcursor": "1.4.1",

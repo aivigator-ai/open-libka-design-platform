@@ -39,7 +39,7 @@ try {
 
   // 2. install the CLI from its tarball (the registry version once published)
   const pkg = JSON.parse(readFileSync(join(project, 'package.json'), 'utf8'));
-  expect(pkg.devDependencies['@libka/cli'] === `^${version}`, `the starter asks for @libka/cli ${pkg.devDependencies['@libka/cli']}, not ^${version}`);
+  expect(pkg.devDependencies['@libka/cli'] === version, `the starter asks for @libka/cli ${pkg.devDependencies['@libka/cli']}, not ${version}`);
   pkg.devDependencies['@libka/cli'] = `file:${cliTgz}`;
   writeFileSync(join(project, 'package.json'), JSON.stringify(pkg, null, 2));
   sh('npm', ['install'], project);

@@ -28,6 +28,15 @@ export function attach(editor: ActiveEditor): () => void {
   };
 }
 
+/**
+ * An editor closed (after its detach): if it was the one in use, an editor still open takes over, or none. Preact can
+ * run a closed editor's cleanup after the next editor's mount (switching modes, opening a document), so the editor
+ * that closes never simply clears the bridge.
+ */
+export function released(editor: ActiveEditor): void {
+  if (bridge.editor === editor) bridge.editor = editors.get('visual') ?? editors.get('source') ?? null;
+}
+
 /** Sends the waiting text to its side now. */
 export function flushSync(): void {
   clearTimeout(timer);

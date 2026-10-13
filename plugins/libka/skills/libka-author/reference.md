@@ -1,6 +1,6 @@
 # LibKa block reference
 
-Generated from the block registry (LibKa 2.0.0). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
+Generated from the block registry (LibKa 2.0.1). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
 
 ## Front matter
 

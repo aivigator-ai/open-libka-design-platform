@@ -52,7 +52,7 @@ node npm/build-plugin.mts                           # the Claude Code plugin (pl
 
 ## Rules
 
-- **Never hand-edit generated files:** `libka-tokens*`, `lk-bridge.css`, `libka.tailwind.*`, `libka-verification.html`, `packages/docx/src/theme.ts`, `docs/blocks.md`, `docs/problem-codes.md`, `docs/acr/*.md`, `packages/render/src/runtimes.ts`, `.claude/skills/libka-author/reference.md`, `plugins/libka/**`, `.claude-plugin/marketplace.json`. Change the source, then regenerate.
+- **Never hand-edit generated files:** `libka-tokens*`, `lk-bridge.css`, `libka.tailwind.*`, `libka-verification.html`, `packages/docx/src/theme.ts`, `docs/blocks.md`, `docs/problem-codes.md`, `docs/acr/*.md`, `packages/render/src/runtimes.ts`, `.claude/skills/libka-author/reference.md`, `plugins/libka/**` (except its hand-written `README.md`), `.claude-plugin/marketplace.json`. Change the source, then regenerate.
 - **Verify and report honestly:** run the tests and `check.py`; run Guard on any page you change; say plainly what failed and what was not verified.
 - **Accessibility wording:** say "passes these automated checks", never "accessible" or "compliant".
 - **English** for code, comments and docs; output and Studio text in English and Czech.

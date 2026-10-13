@@ -1,6 +1,6 @@
 {
   "name": "@libka/docx",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa DOCX: renders a LibKa document as an editable, tagged Word file (real headings, lists, tables, footnotes, alt text, styles from the tokens). Runs in Node and in the browser.",

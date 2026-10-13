@@ -5,8 +5,8 @@
  *   npm create libka@latest [folder] [-- --lang en|cs]
  *
  * Writes into a new (or empty) folder: an example document in English or Czech (docs/guide.md), package.json with
- * npm run build, check, verify and doctor, a GitHub Actions workflow that builds and checks every push, a .gitignore
- * that keeps the signing key out of git, and a README of next steps. It installs nothing and runs nothing; the
+ * npm run build, check, verify and doctor, a GitHub Actions workflow that checks every push and pull request with LibKa Guard, a
+ * .gitignore that keeps the signing key out of git, and a README of next steps. It installs nothing and runs nothing; the
  * README says what to do next. Plain JavaScript without dependencies, so `npm create` starts at once.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
@@ -23,6 +23,10 @@ export const LANGS = ['en', 'cs'];
 /** The LibKa docs on GitHub, from the package's repository field (written by npm/build.mts). */
 const REPO = PKG.repository?.url?.replace(/^git\+/, '').replace(/\.git$/, '');
 export const DOCS = REPO ? `${REPO}/blob/main/docs` : 'docs (in the LibKa repository)';
+/** The Guard action's owner, the LibKa repository's (open-libka-guard-action is beside it); a package built without
+ * the repository address is for testing only, and its workflow names OWNER. */
+export const ownerOf = (repo) => /^https:\/\/github\.com\/([^/]+)\//.exec(repo ?? '')?.[1] ?? 'OWNER';
+const OWNER = ownerOf(REPO);
 
 /** A package name from a folder name: lower case, letters, digits and dashes. */
 export function packageName(folder) {
@@ -43,7 +47,7 @@ function files(lang, name) {
   walk(join(TEMPLATES, lang), join(TEMPLATES, lang));
   // npm leaves .gitignore out of packages, so the templates carry it as "gitignore"; .github is renamed the same way
   return out.map(([p, text]) => [p.replace(/^gitignore$/, '.gitignore').replace(/^github\//, '.github/'),
-    text.replaceAll('{{name}}', name).replaceAll('{{version}}', VERSION).replaceAll('{{docs}}', DOCS)]);
+    text.replaceAll('{{name}}', name).replaceAll('{{version}}', VERSION).replaceAll('{{docs}}', DOCS).replaceAll('{{owner}}', OWNER)]);
 }
 
 /** Writes the project; returns the files written. Refuses a folder that already has files in it. */
@@ -67,7 +71,8 @@ export function create(folder, { lang = 'en' } = {}) {
       verify: 'libka verify dist/guide.html --pdf dist/guide.pdf --docx dist/guide.docx && libka verify dist/guide.deck.html --pdf dist/guide.deck.pdf',
       doctor: 'libka doctor',
     },
-    devDependencies: { '@libka/cli': `^${VERSION}` },
+    // exactly the version the workflow runs in CI (its `cli:`), so a build gives the same result on both
+    devDependencies: { '@libka/cli': VERSION },
   };
   writeFileSync(join(dir, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
   written.push('package.json');

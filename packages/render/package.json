@@ -1,6 +1,6 @@
 {
   "name": "@libka/render",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "license": "Apache-2.0",
   "description": "Renders LibKa documents from the catalog blocks and tokens: manuals and 16:9 decks, each one self-contained HTML file.",

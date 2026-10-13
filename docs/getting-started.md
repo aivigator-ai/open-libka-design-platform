@@ -37,7 +37,7 @@ npm run build
 npm run verify
 ```
 
-The starter also gives you `npm run check`, which checks the source in a couple of seconds without a browser, a GitHub Actions workflow that builds and checks every push, and a README of next steps.
+The starter also gives you `npm run check`, which checks the source in a couple of seconds without a browser, a GitHub Actions workflow that checks every push and pull request with the LibKa Guard action, marking each problem on its line, and a README of next steps.
 
 :::callout[Your signing key]{variant=note}
 The first build makes a signing key in the project's `.libka/` folder and trusts it in `.libka/trusted-keys.json`. The key stays on your computer: the starter's `.gitignore` keeps it out of git. [Signing keys](admin/signing-keys.md) explains what a signature proves and what it does not.

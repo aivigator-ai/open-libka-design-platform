@@ -31,4 +31,4 @@ Dovednost (skill) LibKa a server MCP LibKa umožní Claudovi a dalším nástroj
 
 ## CI
 
-`.github/workflows/libka.yml` sestaví a zkontroluje dokument při každém push na GitHub a výstupy uchová jako artefakt na 14 dní. Po `npm install` commitněte `package-lock.json`, aby CI instalovalo stejné verze.
+`.github/workflows/libka.yml` při každém push a pull requestu na GitHubu sestaví každý dokument ve složce `docs/` pomocí LibKa Guard: Guard zkontroluje každý výstup, v pull requestu označí každý problém na jeho řádku a při jakémkoli nálezu běh selže. Výstupy zapíše vedle dokumentů do `docs/dist/` (`npm run build` zapisuje do `dist/`) a uchová je jako artefakt na 14 dní. Workflow uvádí verzi LibKa, kterou CI spouští (`cli: '@libka/cli@{{version}}'`), stejnou jako `@libka/cli` v `package.json`: když změníte jednu, změňte i druhou.

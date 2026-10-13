@@ -60,6 +60,16 @@ def run_unit_tests():
     return True
 
 
+def failure_lines(out, head=40, tail=25):
+    """What to show of a failed run: the first failure's own lines (what was expected, what came), then the last
+    lines (which package failed). The last lines alone lose the difference when a run has much output."""
+    first = next((i for i, line in enumerate(out) if 'FAIL ' in line or 'AssertionError' in line), None)
+    if first is None or first >= len(out) - tail:
+        return out[-tail:]
+    shown = out[first:min(first + head, len(out) - tail)]
+    return shown + ([] if first + head >= len(out) - tail else ['…']) + out[-tail:]
+
+
 def run_typescript():
     """Type check and test the TypeScript workspace when it is installed (CI runs it separately)."""
     if not (ROOT / 'package.json').is_file():
@@ -82,7 +92,7 @@ def run_typescript():
         out = (proc.stdout + proc.stderr).strip().splitlines()
         if proc.returncode != 0:
             say(BAD, f'TypeScript {task} failed:')
-            for line in out[-25:]:
+            for line in failure_lines(out):
                 print(f'      {line}')
             return False
         summary = next((l.strip() for l in out if l.strip().startswith('Tests ')), '')

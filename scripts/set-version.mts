@@ -53,4 +53,23 @@ const manual = join(root, 'docs', 'design-system', 'manual.md');
 const text = readFileSync(manual, 'utf8');
 const header = text.replace(/^\*\*Version [^*]+\*\* \| \d{4}-\d{2}-\d{2}/m, (m) => arg ? `**Version ${version}** | ${today}` : m.replace(/Version [^*]+/, `Version ${version}`));
 if (header !== text) { writeFileSync(manual, header); changed.push('docs/design-system/manual.md'); }
+// in the public repository only, where the export filled them in: the plugin's README and the citation
+const filled: [string, (t: string) => string][] = [
+  ['plugins/libka/README.md', (t) => t.replace(/@libka\/mcp@\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/g, `@libka/mcp@${version}`)],
+  ['CITATION.cff', (t) => {
+    const v = t.replace(/^version: "[^"]*"/m, `version: "${version}"`);
+    // the release's date is its CHANGELOG heading's, "## X (YYYY-MM-DD): …", as the export takes it; none yet, none changed
+    const heading = existsSync(join(root, 'CHANGELOG.md'))
+      ? readFileSync(join(root, 'CHANGELOG.md'), 'utf8').split('\n').find((line) => line.startsWith(`## ${version} (`)) : undefined;
+    const released = /^## \S+ \((\d{4}-\d{2}-\d{2})\):/.exec(heading ?? '')?.[1];
+    return released ? v.replace(/^date-released: "[^"]*"/m, `date-released: "${released}"`) : v;
+  }],
+];
+for (const [file, set] of filled) {
+  const path = join(root, file);
+  if (!existsSync(path) || readFileSync(path, 'utf8').includes('{{')) continue;
+  const before = readFileSync(path, 'utf8');
+  const after = set(before);
+  if (after !== before) { writeFileSync(path, after); changed.push(file); }
+}
 console.log(`set-version: ${version}${changed.length ? `; wrote ${changed.join(', ')}` : '; every copy already says so'}`);

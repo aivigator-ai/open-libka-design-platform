@@ -298,7 +298,7 @@ export function VisualEditorHost() {
     bridge.editor = editor;
     const detach = split.attach(editor);
     s.selectionTick.value++;
-    return () => { editor.flush(); detach(); if (bridge.editor === editor) bridge.editor = null; visual.editor = null; editor.destroy(); };
+    return () => { editor.flush(); detach(); split.released(editor); if (visual.editor === editor) visual.editor = null; editor.destroy(); };
   }, []);
   const problems = s.problems.value;
   useEffect(() => { visual.editor?.showProblems(problems); }, [problems]);

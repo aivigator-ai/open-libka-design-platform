@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,9 +36,66 @@ describe('libka build', () => {
     expect(result.ok).toBe(false);
     expect(result.problems.join('\n')).toMatch(/bad\.md:3: :::table needs a caption/);
     expect(result.problems.join('\n')).toMatch(/bad\.md:9: image "missing.png" needs alt text/);
+    expect(result.problems.join('\n')).toMatch(/bad\.md:9: image not found: missing\.png/);   // on its line, for the Guard action
     expect(existsSync(join(dir, 'dist', 'bad.html'))).toBe(false);
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('copies every figure and gallery image into the output folder, never outside it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'libka-cli-images-'));
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
+    mkdirSync(join(dir, 'a', 'b'), { recursive: true });
+    mkdirSync(join(dir, 'shared'), { recursive: true });
+    writeFileSync(join(dir, 'a', 'b', 'here.svg'), svg);
+    writeFileSync(join(dir, 'a', 'up.svg'), svg);
+    writeFileSync(join(dir, 'shared', 'two.svg'), svg);
+    const src = join(dir, 'a', 'b', 'doc.md');
+    writeFileSync(src, ['# Images', '', '![A square one level up](../up.svg "One level up")', '',
+      ':::gallery', '![A square beside the document](here.svg "Beside")', '', '![A square two levels up](../../shared/two.svg "Two levels up")', ':::', ''].join('\n'));
+    const outDir = join(dir, 'q', 'r');
+    const result = await build(src, { out: outDir, check: false, outputs: ['web'] });
+    expect(result.problems).toEqual([]);
+    const html = readFileSync(result.html!, 'utf8');
+    expect(html).toContain('src="_up/up.svg"');
+    expect(html).toContain('src="here.svg"');
+    expect(html).toContain('src="_up/_up/shared/two.svg"');
+    expect(existsSync(join(outDir, '_up', 'up.svg'))).toBe(true);
+    expect(existsSync(join(outDir, 'here.svg'))).toBe(true);
+    expect(existsSync(join(outDir, '_up', '_up', 'shared', 'two.svg'))).toBe(true);
+    // what resolve(outDir, href) used to write: beside the output folder
+    expect(existsSync(join(dir, 'q', 'up.svg'))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('builds an image whose name has a "%" that starts no escape, and one with an escaped space', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'libka-cli-percent-'));
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
+    writeFileSync(join(dir, '100%.svg'), svg);
+    writeFileSync(join(dir, 'a b.svg'), svg);
+    writeFileSync(join(dir, '50% off.svg'), svg);
+    writeFileSync(join(dir, 'café.svg'), svg);
+    const src = join(dir, 'doc.md');
+    writeFileSync(src, ['# Images', '', '![A full square](100%.svg "All of it")', '', '![A square with a space](a%20b.svg "Spaced")', '',
+      '![Half a square](50%%20off.svg "Both kinds")', '', '![A square from a café](caf%C3%A9.svg "Escaped letters")', ''].join('\n'));
+    const outDir = join(dir, 'out');
+    const result = await build(src, { out: outDir, check: false, outputs: ['web'] });
+    expect(result.problems).toEqual([]);
+    for (const name of ['100%.svg', 'a b.svg', '50% off.svg', 'café.svg']) expect(existsSync(join(outDir, name)), name).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it.skipIf(!chrome)('puts images from outside the document\'s folder into the Word file too', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'libka-cli-images-docx-'));
+    mkdirSync(join(dir, 'doc'), { recursive: true });
+    writeFileSync(join(dir, 'up.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#226"/></svg>');
+    writeFileSync(join(dir, 'doc', 'doc.md'), '# Images\n\n![A dark rectangle](../up.svg "One level up")\n');
+    const result = await build(join(dir, 'doc', 'doc.md'), { out: join(dir, 'out'), check: false, outputs: ['web', 'docx'] });
+    expect(result.problems).toEqual([]);
+    const files = unzipSync(readFileSync(result.docx!));
+    expect(Object.keys(files).filter((k) => /^word\/media\/.+\.png$/.test(k))).toHaveLength(1);
+    expect(strFromU8(files['word/document.xml']!)).toMatch(/descr="A dark rectangle"/);
+    rmSync(dir, { recursive: true, force: true });
+  }, 120000);
 
   it.skipIf(!chrome)('checks the page with Guard, signs it, and detects later changes', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'libka-cli-signed-'));

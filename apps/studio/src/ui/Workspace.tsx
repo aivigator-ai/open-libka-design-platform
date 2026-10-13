@@ -67,7 +67,7 @@ function SourceEditorHost({ id = 'editor' }: { id?: string }) {
     // in Split the visual editor is active until the author uses this one
     if (!bridge.editor) bridge.editor = active;
     const detach = split.attach(active!);
-    return () => { detach(); if (bridge.editor === active) bridge.editor = null; editor.destroy(); };
+    return () => { detach(); split.released(active); editor.destroy(); };
   }, []);
   // the problems on their lines, and the label in the interface language
   const problems = s.problems.value;

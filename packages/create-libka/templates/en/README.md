@@ -31,4 +31,4 @@ The LibKa skill and the LibKa MCP server let Claude and other AI tools write, ch
 
 ## CI
 
-`.github/workflows/libka.yml` builds and checks the document on every push to GitHub and keeps the outputs as an artifact for 14 days. Commit `package-lock.json` after `npm install`, so CI installs the same versions.
+`.github/workflows/libka.yml` builds every document in `docs/` with LibKa Guard on every push and pull request on GitHub: Guard checks every output, marks each problem on its line in a pull request, and fails the run on any finding. The outputs, written beside the documents in `docs/dist/` (`npm run build` writes to `dist/`), are kept as an artifact for 14 days. The workflow names the LibKa version CI runs (`cli: '@libka/cli@{{version}}'`), the same as `@libka/cli` in `package.json`: when you update one, change the other.

@@ -75,14 +75,16 @@ export function createServer(): McpServer {
       + 'or the outputs given here. Guard checks every output (the pages in Chrome, the PDF with veraPDF, the Word file\'s structure); '
       + 'passing outputs are signed. Returns the files and every Guard finding to fix. Writes files on this machine.',
     inputSchema: {
-      markdown: z.string().optional().describe('The document; or give path instead'),
-      path: z.string().optional().describe('An existing .md file to build (images are found next to it)'),
+      markdown: z.string().optional().describe('The document; or give path instead, not both'),
+      path: z.string().optional().describe('An existing .md file to build, only read (images are found next to it)'),
       name: z.string().optional().describe('File name without extension when markdown is given (default: document)'),
       outDir: z.string().optional().describe('Output folder (default: LIBKA_OUT, or ./libka-out)'),
       outputs: z.array(z.enum(OUTPUTS)).optional().describe('Build these instead of the document\'s own outputs, e.g. ["web", "deck"] to check slide fit quickly'),
     },
   }, async ({ markdown, path, name, outDir, outputs }) => {
     if (!markdown && !path) return { isError: true, content: [{ type: 'text', text: 'Give markdown or path.' }] };
+    // the text goes into the output folder; an existing file is only read, never written over
+    if (markdown && path) return { isError: true, content: [{ type: 'text', text: 'Give markdown or path, not both.' }] };
     const out = resolve(outDir ?? (process.env.LIBKA_OUT || 'libka-out'));
     let source = path ? resolve(path) : join(out, `${(name ?? 'document').replace(/[^\w.-]+/g, '-')}.md`);
     if (markdown) {

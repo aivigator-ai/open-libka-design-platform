@@ -1,6 +1,6 @@
 // The Claude Code plugin and its marketplace file are generated (npm/build-plugin.mts) and committed; the Desktop
 // extension's manifest is a template (npm/mcpb/manifest.json). Both must name what the server really offers.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { pluginFiles } from '../../../npm/build-plugin.mts';
@@ -21,6 +21,20 @@ describe('the Claude Code plugin', () => {
     expect(readFileSync(join(root, 'plugins', 'libka', 'launch.mjs'), 'utf8')).toContain(`'@libka/mcp@${version}'`);
     const market = JSON.parse(readFileSync(join(root, '.claude-plugin', 'marketplace.json'), 'utf8'));
     expect(market.plugins).toEqual([expect.objectContaining({ name: 'libka', source: './plugins/libka', version })]);
+  });
+
+  it("has a README (the plugin directory's requirement) that names every tool and what the plugin runs", () => {
+    // hand-written: an overlay file here, plugins/libka/README.md in the public repository
+    const path = [join(root, 'plugins', 'libka', 'README.md'), join(root, 'public-repo', 'overlay', 'plugins', 'libka', 'README.md')]
+      .find((p) => existsSync(p));
+    expect(path, 'plugins/libka/README.md').toBeDefined();
+    const readme = readFileSync(path!, 'utf8');
+    for (const tool of Object.keys((createServer() as unknown as { _registeredTools: Record<string, unknown> })._registeredTools)) {
+      expect(readme, tool).toContain(`\`${tool}\``);
+    }
+    // the overlay's version is filled in by the export; the public repository's must be this version exactly
+    expect(readme).toContain(path!.includes('overlay') ? '`npx -y @libka/mcp@{{facts.version}}`' : `\`npx -y @libka/mcp@${version}\``);
+    expect(readme.split(/\s+/).length).toBeGreaterThanOrEqual(40);
   });
 });
 

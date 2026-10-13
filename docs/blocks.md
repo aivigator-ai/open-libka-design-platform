@@ -1,7 +1,7 @@
 ---
 title: LibKa blocks
 subtitle: Every block with its syntax, an example, and what it does on the web, in PDF, on slides and in Word
-version: "2.0.0"
+version: "2.0.1"
 status: Generated from the block registry
 lang: en
 references:

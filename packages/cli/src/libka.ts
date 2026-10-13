@@ -28,9 +28,10 @@
  * Chrome: the installed one or the browser at LIBKA_BROWSER. Run: node packages/cli/src/libka.ts ... (or libka
  * from the npm package @libka/cli).
  */
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { normalize as normalizeUrlPath } from 'node:path/posix';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AXE_VERSION, formatReport, guardHtml, launchBrowser, type CheckResult, type GuardReport } from '@libka/guard';
 import { linkTexts, remediate, type RemediateReport } from '@libka/pdf';
@@ -205,14 +206,6 @@ export async function drawDiagrams(doc: LibkaDocument, browser: Browser): Promis
   }
 }
 
-function figures(blocks: Block[]): Extract<Block, { type: 'figure' }>[] {
-  return blocks.flatMap((b) => b.type === 'figure' ? [b]
-    : b.type === 'callout' ? figures(b.body)
-    : b.type === 'steps' ? b.steps.flatMap((s) => figures(s.body))
-    : b.type === 'notes' ? figures(b.body)
-    : b.type === 'list' ? b.items.flatMap(figures) : []);
-}
-
 /** Every block Word gets as a drawing (diagrams, charts, UI specimens), nested ones included, in reading order. */
 export function drawingBlocks(value: unknown): Block[] {
   const out: Block[] = [];
@@ -227,16 +220,29 @@ export function drawingBlocks(value: unknown): Block[] {
   return out;
 }
 
-/** The src of every figure and gallery image, nested ones included. */
-function imageSources(value: unknown, out = new Set<string>()): Set<string> {
-  if (Array.isArray(value)) value.forEach((v) => imageSources(v, out));
+/** Every figure and gallery image (the objects that hold its src), nested ones included, in reading order. */
+function imageRefs(value: unknown, out: { src: string }[] = []): { src: string }[] {
+  if (Array.isArray(value)) value.forEach((v) => imageRefs(v, out));
   else if (value && typeof value === 'object') {
-    const v = value as { type?: string; src?: unknown; alt?: unknown; images?: { src: string }[] };
-    if (v.type === 'figure' && typeof v.src === 'string') out.add(v.src);
-    if (v.type === 'gallery') v.images?.forEach((i) => out.add(i.src));
-    for (const [k, x] of Object.entries(v)) if (k !== 'position' && x && typeof x === 'object') imageSources(x, out);
+    const v = value as { type?: string; src?: unknown; images?: { src: string }[] };
+    if (v.type === 'figure' && typeof v.src === 'string') out.push(v as { src: string });
+    if (v.type === 'gallery') v.images?.forEach((i) => out.push(i));
+    for (const [k, x] of Object.entries(v)) if (k !== 'position' && k !== 'images' && x && typeof x === 'object') imageRefs(x, out);
   }
   return out;
+}
+
+/** The src of every figure and gallery image, nested ones included. */
+function imageSources(value: unknown): Set<string> {
+  return new Set(imageRefs(value).map((r) => r.src));
+}
+
+/**
+ * An image's path as a file path, as a server finds it: each run of escapes is decoded on its own ("%20" is a space,
+ * "%C3%A9" is "é"), and a "%" that starts no escape ("100%.svg") or a run that is no text stays as written.
+ */
+function decodePath(href: string): string {
+  return href.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => { try { return decodeURIComponent(run); } catch { return run; } });
 }
 
 /**
@@ -251,7 +257,7 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
   for (const src of imageSources(doc.blocks)) {
     const href = safeHref(src);
     if (href === null || /^(https?:|mailto:|#|\/|data:)/i.test(href)) continue;
-    const path = resolve(sourceDir, decodeURI(href));
+    const path = resolve(sourceDir, decodePath(href));
     if (!existsSync(path)) continue;
     const data = readFileSync(path);
     const known = sniffPicture(data);
@@ -297,19 +303,39 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
   return { pictures, drawings };
 }
 
-/** Copy relative, local images next to the output; report missing ones. */
-function copyImages(doc: LibkaDocument, sourceDir: string, outDir: string, file: string): string[] {
+/**
+ * Copy the relative, local images of figures and galleries into the output folder; report missing ones on their line.
+ * An image outside the document's folder (`../images/a.png`) would land outside the output folder: it goes to
+ * `_up/images/a.png` inside it instead (one `_up` per level), and the document points at the copy. A build never
+ * writes outside its output folder.
+ */
+function placeImages(doc: LibkaDocument, text: string, sourceDir: string, outDir: string, file: string): string[] {
   const problems: string[] = [];
-  for (const f of figures(doc.blocks)) {
-    const href = safeHref(f.src);
+  const lines = text.split(/\r?\n/);
+  const at = (src: string) => {
+    const i = lines.findIndex((l) => l.includes(`](${src}`));
+    return i < 0 ? file : `${file}:${i + 1}`;
+  };
+  for (const ref of imageRefs(doc.blocks)) {
+    const href = safeHref(ref.src);
     if (href === null || /^(https?:|mailto:|#|\/)/i.test(href)) continue;
-    const from = resolve(sourceDir, href);
-    if (!existsSync(from)) {
-      problems.push(`${file}: image not found: ${f.src}`);
+    const from = resolve(sourceDir, decodePath(href));
+    if (!existsSync(from) || !statSync(from).isFile()) {
+      problems.push(`${at(ref.src)}: image not found: ${ref.src}`);
       continue;
     }
     if (resolve(sourceDir) === resolve(outDir)) continue;
-    const to = resolve(outDir, href);
+    // a browser reads "\" in a path as "/"; leading ".." segments become "_up" folders inside the output folder
+    const parts = normalizeUrlPath(href.replace(/\\/g, '/')).split('/');
+    const up = parts.findIndex((p) => p !== '..');
+    const target = [...parts.slice(0, Math.max(up, 0)).map(() => '_up'), ...parts.slice(Math.max(up, 0))].join('/');
+    const to = resolve(outDir, decodePath(target));
+    const rel = relative(outDir, to);
+    if (up < 0 || !rel || rel.startsWith('..') || isAbsolute(rel)) {
+      problems.push(`${at(ref.src)}: image path leaves the output folder: ${ref.src}`);
+      continue;
+    }
+    if (up > 0) ref.src = target;
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(from, to);
   }
@@ -408,7 +434,7 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
   }
   const outDir = resolve(options.out ?? join(dirname(source), 'dist'));
   mkdirSync(outDir, { recursive: true });
-  messages.push(...copyImages(document, dirname(source), outDir, file));
+  messages.push(...placeImages(document, text, dirname(source), outDir, file));
   if (messages.length) return { ok: false, problems: messages };
 
   const name = basename(source, extname(source));
@@ -492,7 +518,8 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
       // the Word file belongs to the web page: made from the same document, checked, signed in its manifest
       const i = pages.findIndex((p) => p.target === 'manual');
       const out = outputs[i]!;
-      const { pictures, drawings } = await docxPictures(document, dirname(source), async () => (browser ??= await launchBrowser()));
+      // every local image is in the output folder by now (placeImages), at the src the document holds
+      const { pictures, drawings } = await docxPictures(document, outDir, async () => (browser ??= await launchBrowser()));
       const epoch = Number(process.env.SOURCE_DATE_EPOCH);
       const docx = await renderDocx(document, {
         picture: (src) => pictures.get(src), drawing: (b) => drawings.get(b),
