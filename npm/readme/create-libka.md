@@ -7,7 +7,7 @@ npm create libka@latest my-docs
 npm create libka@latest my-docs -- --lang cs     # the example document in Czech
 ```
 
-It writes, into a new folder: an example document (`docs/guide.md`, in English or Czech), `package.json` with `npm run build`, `check`, `verify` and `doctor`, a GitHub Actions workflow that checks every push and pull request with the LibKa Guard action, marking each problem on its line, a `.gitignore` that keeps the signing key out of git, and a README of next steps. It installs nothing and runs nothing.
+It writes, into a new folder: an example document (`docs/guide.md`, in English or Czech), `package.json` with `npm run build`, `check`, `verify` and `doctor`, a GitHub Actions workflow that builds and checks every push and pull request with the LibKa Guard action, marking a problem in the source on its line and a finding in an output on its file, a `.gitignore` that keeps the signing key out of git, and a README of next steps. It installs nothing and runs nothing.
 
 Then:
 

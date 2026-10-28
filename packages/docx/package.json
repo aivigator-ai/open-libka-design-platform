@@ -1,6 +1,6 @@
 {
   "name": "@libka/docx",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa DOCX: renders a LibKa document as an editable, tagged Word file (real headings, lists, tables, footnotes, alt text, styles from the tokens). Runs in Node and in the browser.",
@@ -16,13 +16,13 @@
   "dependencies": {
     "@libka/model": "workspace:*",
     "@libka/render": "workspace:*",
-    "docx": "9.9.0",
+    "docx": "9.10.0",
     "fflate": "0.8.3"
   },
   "devDependencies": {
     "@libka/blocks": "workspace:*",
     "@libka/guard": "workspace:*",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^26.6.4"
+    "@types/node": "^26.6.5"
   }
 }

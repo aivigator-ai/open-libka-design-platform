@@ -1,6 +1,6 @@
 # LibKa for Claude Code
 
-Write documents with Claude that pass automated accessibility checks. This plugin adds two things: the **libka-author** skill, which teaches Claude to write LibKa documents (Markdown with LibKa blocks), and the **LibKa MCP server**, which checks a document and builds it into a web page, an A4 PDF, 16:9 slides and an editable Word file. Every output is checked (axe-core with the WCAG 2.2 A and AA rules; the contrast of every visible text against its real background, 4.5:1, and 7:1 when more contrast is requested; structure rules; reflow at 320 CSS pixels; PDF/UA-1 by veraPDF when it is installed; the Word file's structure), and the outputs that pass are signed.
+Write documents with Claude that pass automated accessibility checks. This plugin adds two things: the **libka-author** skill, which teaches Claude to write LibKa documents in LibKa Markdown (Markdown with LibKa blocks), and the **LibKa MCP server**, which checks a document and builds it into a web page, an A4 PDF, 16:9 slides and an editable Word file. Every output is checked (axe-core with the WCAG 2.2 A and AA rules; the contrast of every visible text against its real background, 4.5:1, and 7:1 when more contrast is requested; structure rules; reflow at 320 CSS pixels; PDF/UA-1 by veraPDF when Java and veraPDF are installed; the Word file's structure), and the outputs that pass are signed.
 
 ## Install
 
@@ -20,7 +20,7 @@ It needs Node.js 22.18 or newer. Building needs Google Chrome (or a Chrome or Ch
 
 ## What the plugin runs, fetches, reads and writes
 
-- **Runs:** `launch.mjs` starts `npx -y @libka/mcp@2.0.1`, the MCP server at exactly this plugin's version. On Windows it goes through the command shell, because `npx` is a `.cmd` file there; the command is fixed.
+- **Runs:** `launch.mjs` starts `npx -y @libka/mcp@2.0.2`, the MCP server at exactly this plugin's version. On Windows it goes through the command shell, because `npx` is a `.cmd` file there; the command is fixed.
 - **Fetches:** the first start downloads that version of [`@libka/mcp`](https://www.npmjs.com/package/@libka/mcp) and its dependencies from the npm registry into npm's cache; later starts use the cache. Nothing else is fetched: a page's Content Security Policy blocks anything a document links by web address, and Guard reports it as a finding.
 - **Starts on this computer:** Chrome without a window, to render and check each output; veraPDF (with Java), when it is installed, to validate PDFs.
 - **Reads:** the documents Claude asks it to check or build and the images they reference; the project's signing key and trusted keys in `.libka/` (or `LIBKA_SIGNING_KEY`); the settings `LIBKA_OUT`, `LIBKA_BROWSER`, `LIBKA_VERAPDF`, `LIBKA_JAVA` and `LIBKA_REQUIRE_VERAPDF` when they are set.

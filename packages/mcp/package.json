@@ -1,6 +1,6 @@
 {
   "name": "@libka/mcp",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa MCP server: AI agents list blocks, read their syntax and schema, check LibKa Markdown and build checked, signed outputs.",
@@ -18,6 +18,6 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4"
+    "@types/node": "^26.6.5"
   }
 }

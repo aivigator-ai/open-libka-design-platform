@@ -7,7 +7,7 @@
  * libka doctor
  * libka --version
  *
- * build   parses a Markdown manual, stops on any problem (file:line: message), copies the images it
+ * build   parses a LibKa Markdown document, stops on any problem (file:line: message), copies the images it
  *         references and makes the outputs the document asks for (front matter "outputs", default web
  *         and pdf); --outputs replaces that list for one run, --pdf, --deck and --docx add to it.
  *         web is one self-contained HTML file, pdf its A4 PDF, docx an editable Word file. Guard
@@ -489,7 +489,8 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
         await printPdf(p.path, outputs[i]!.pdf!, browser);
       }
       if (check) {
-        // every PDF is validated against PDF/UA by veraPDF; a failure leaves the outputs unsigned, like any finding
+        // when Java and veraPDF are found, every PDF is validated against PDF/UA-1; a failure leaves the outputs
+        // unsigned, like any finding (without them the PDF is marked as not validated)
         const ua = pdfuaChecks(outputs.map((o) => o.pdf!));
         if (!ua) {
           const msg = 'PDF/UA not checked: veraPDF was not found (libka doctor says how to install it)';

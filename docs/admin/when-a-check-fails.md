@@ -6,7 +6,7 @@ Each check prints what failed and where. This page says what each kind of failur
 
 | Message starts with | It means | Usual fix |
 |---|---|---|
-| `file.md:12: …` (lint problem) | The Markdown breaks a LibKa rule at that line | Follow the message; the block syntax is in `.claude/skills/libka-author/reference.md` |
+| `file.md:12: …` (lint problem) | The LibKa Markdown breaks a LibKa rule at that line | Follow the message; the block syntax is in `.claude/skills/libka-author/reference.md` |
 | `guard axe: …` | axe-core found a WCAG problem on the rendered page | Change the content (alternative text, link text, heading order). If the block itself renders wrongly, fix its renderer and add a test |
 | `guard contrast: …` | A text is below 4.5:1 (or 7:1 when more contrast is requested) | Never add colours to a document. If a block's colours fail, fix the tokens or the component CSS; the token gates in `generate.py` should then catch it |
 | `guard (deck) structure: slide N … does not fit` | A slide overflows and the build could not continue it | Give the block its own `###`, or shorten it; see the skill's slide section |

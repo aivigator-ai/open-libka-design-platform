@@ -1,6 +1,6 @@
 {
   "name": "libka",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa Design Platform: design tokens, document blocks, renderers, Guard, CLI, MCP server and LibKa Studio.",

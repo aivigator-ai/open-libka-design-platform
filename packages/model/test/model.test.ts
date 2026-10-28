@@ -121,6 +121,16 @@ describe('parse: speaker notes and plain text', () => {
     if (p?.type !== 'paragraph') throw new Error('paragraph expected');
     expect(plainText(p.text)).toBe('Slides are 16:9; the talk starts at 10:30 (ratio a:b).');
   });
+
+  it('keeps text such as 4.5:1 in an image\'s alt text and caption, in a figure and a gallery', () => {
+    const { document, problems } = parse('# T\n\n![Contrast 4.5:1 and 7:1, *note:x* \\:y](images/a.png "Ratio 4.5:1 in a caption")\n\n'
+      + ':::gallery\n![Slides at 16:9](images/b.png "Deck 16:9")\n\n![Time 10:30](images/c.png "At 10:30")\n:::\n');
+    expect(problems).toEqual([]);
+    expect(document.blocks[0]).toEqual({ type: 'figure', src: 'images/a.png', alt: 'Contrast 4.5:1 and 7:1, note:x :y', caption: 'Ratio 4.5:1 in a caption' });
+    const gallery = document.blocks[1];
+    if (gallery?.type !== 'gallery') throw new Error('gallery expected');
+    expect(gallery.images.map((i) => [i.alt, i.caption])).toEqual([['Slides at 16:9', 'Deck 16:9'], ['Time 10:30', 'At 10:30']]);
+  });
 });
 
 describe('parse: output choice', () => {

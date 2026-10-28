@@ -32,6 +32,14 @@ class SelfHostedFonts(unittest.TestCase):
             self.assertIn('SIL OPEN FONT LICENSE', text.upper())
 
 
+class SharedPictures(unittest.TestCase):
+    def test_the_manual_example_shows_the_docs_pipeline_picture(self):
+        """The manual example (also the Studio's sample) has its own copy of the docs' pipeline picture: the same file."""
+        with open(os.path.join(ROOT, 'docs', 'images', 'pipeline.svg'), 'rb') as a, \
+                open(os.path.join(ROOT, 'examples', 'manual', 'images', 'pipeline.svg'), 'rb') as b:
+            self.assertEqual(b.read(), a.read(), 'copy docs/images/pipeline.svg to examples/manual/images/')
+
+
 class CheckFailureOutput(unittest.TestCase):
     def test_a_failed_run_shows_the_difference_and_the_end(self):
         """check.py shows the first failure's lines and the last ones: the end alone loses what differed."""

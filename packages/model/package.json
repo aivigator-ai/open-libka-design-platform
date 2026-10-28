@@ -1,9 +1,9 @@
 {
   "name": "@libka/model",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
-  "description": "LibKa document model: Markdown with directives parsed into typed blocks, with line-numbered problems.",
+  "description": "LibKa document model: LibKa Markdown parsed into typed blocks, with line-numbered problems.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@types/mdast": "^4.0.4",
-    "@types/node": "26.6.4",
+    "@types/node": "26.6.5",
     "ajv": "^8.20.0"
   }
 }

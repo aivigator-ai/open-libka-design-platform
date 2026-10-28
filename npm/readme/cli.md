@@ -1,6 +1,6 @@
 # @libka/cli
 
-LibKa turns one Markdown file into a web page, an A4 PDF, 16:9 slides and an editable Word file. Guard checks every output for accessibility (axe-core WCAG 2.2 A/AA in Chrome, text contrast 4.5:1 and 7:1 in high contrast, LibKa's structure rules, reflow at 320 CSS pixels, PDF/UA-1 with veraPDF, the Word file's structure), and the outputs that pass are signed.
+LibKa turns one LibKa Markdown file (Markdown with LibKa blocks) into a web page, an A4 PDF, 16:9 slides and an editable Word file. Guard checks every output for accessibility (axe-core WCAG 2.2 A/AA in Chrome, text contrast 4.5:1 and 7:1 in high contrast, LibKa's structure rules, reflow at 320 CSS pixels, PDF/UA-1 with veraPDF when Java and veraPDF are installed, the Word file's structure), and the outputs that pass are signed.
 
 ## Start a project
 

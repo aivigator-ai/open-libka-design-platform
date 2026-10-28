@@ -1,7 +1,9 @@
 # Builds every LibKa document in docs/ with LibKa Guard on each push and pull request: Guard checks every output,
-# marks each problem on its line in the pull request, and the job fails on any finding. The outputs are kept as an
-# artifact. The runner has Google Chrome, which Guard needs. It has no veraPDF, so the PDFs are built but not validated
-# against PDF/UA-1, and their manifests say so (libka doctor explains how to add it).
+# marks each problem in the pull request (a problem in the source on its line, a finding in an output on its file),
+# and the job fails on any finding. The outputs are kept as an artifact for 7 days (in a private repository,
+# artifacts count toward the account's Actions storage). The runner has Google Chrome, which Guard needs. It has no
+# veraPDF, so the PDFs are built but not validated against PDF/UA-1, and their manifests say so (libka doctor
+# explains how to add it).
 # A key made here signs the outputs; it is not in .libka/trusted-keys.json, so `libka verify` on these outputs reports it as not trusted.
 # `cli` is the LibKa version CI runs: keep it the same as @libka/cli in package.json.
 # CI writes the outputs beside the documents, in docs/dist/; `npm run build` writes them to dist/.
@@ -22,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build and check with LibKa Guard
-        uses: {{owner}}/open-libka-guard-action@2fac8e9141a3329191b7a50f4bef27646aa9b860 # v2.0.0
+        uses: {{owner}}/open-libka-guard-action@9a770c604804d8255b83e91c2aae0498fa026e76 # v2.0.1
         with:
           documents: docs/*.md
           cli: '@libka/cli@{{version}}'
@@ -32,6 +34,6 @@ jobs:
         with:
           name: libka-outputs
           path: docs/dist/
-          retention-days: 14
+          retention-days: 7
           # a document that fails before any output is written leaves nothing to keep; Guard has said why
           if-no-files-found: ignore

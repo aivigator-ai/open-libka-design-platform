@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BLOCKS, BLOCKS_CS, CHILD_TITLES, DIRECTIVES, EXAMPLES_CS, documentSchema, FALLBACKS, GROUPS, GROUPS_CS, INLINES, INLINES_CS } from '../src/index.ts';
+import { BLOCKS, BLOCKS_CS, CHILD_TITLES, DIRECTIVES, EXAMPLES_CS, blockNamesAsCode, documentSchema, FALLBACKS, GROUPS, GROUPS_CS, INLINES, INLINES_CS } from '../src/index.ts';
 import { catalogMarkdown } from '../src/catalog.ts';
 import { skillReference } from '../src/skill-reference.ts';
 
@@ -91,5 +91,12 @@ describe('block registry', () => {
   it('keeps docs/blocks.md in step with the registry', () => {
     const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
     expect(readFileSync(join(root, 'docs', 'blocks.md'), 'utf8'), 'run node packages/blocks/src/build-catalog.ts').toBe(catalogMarkdown(version));
+  });
+});
+
+describe('blockNamesAsCode', () => {
+  it('makes a named block code, with its label and attributes, and leaves code and other colons as they are', () => {
+    expect(blockNamesAsCode('For terms use :::glossary. Tabs (:::tab[Windows]) or :::toc{depth=3}, ratio 4.5:1, `:::steps` kept.'))
+      .toBe('For terms use `:::glossary`. Tabs (`:::tab[Windows]`) or `:::toc{depth=3}`, ratio 4.5:1, `:::steps` kept.');
   });
 });

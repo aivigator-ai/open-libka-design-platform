@@ -112,7 +112,7 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     await page.click('[data-lang="cs"]');
     expect(await page.getAttribute('html', 'lang')).toBe('cs');
     expect(await page.textContent('#tab-problems')).toContain('Problémy');
-    expect(await page.getAttribute('.cm-content', 'aria-label')).toBe('Zdroj dokumentu (Markdown)');
+    expect(await page.getAttribute('.cm-content', 'aria-label')).toBe('Zdroj dokumentu (LibKa Markdown)');
     await page.click('#theme-toggle');
     expect(await page.getAttribute('html', 'data-theme')).toBe('dark');
     await page.reload();

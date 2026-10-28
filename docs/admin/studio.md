@@ -41,7 +41,7 @@ After a rebuild, an open Studio shows "A new version of the Studio is ready" wit
 
 | What | Where | How long |
 |---|---|---|
-| Documents (one Markdown text each), their images, their versions, the folders they are linked to | IndexedDB of that browser, database `libka-studio`, for the address the Studio was opened on | until the author deletes them, or the browser's site data for that address is cleared |
+| Documents (one LibKa Markdown text each), their images, their versions, the folders they are linked to | IndexedDB of that browser, database `libka-studio`, for the address the Studio was opened on | until the author deletes them, or the browser's site data for that address is cleared |
 | Interface choices: language, theme, contrast, the last open document, editor preferences, the keys of commands, the tour seen, the tutorial's progress | `localStorage`, keys starting `libka-studio:` | the same |
 | A copy on disk | a folder the author picked (Chrome and Edge), or a downloaded `.zip` | the author's own files |
 

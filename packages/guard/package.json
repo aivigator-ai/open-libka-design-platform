@@ -1,6 +1,6 @@
 {
   "name": "@libka/guard",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa Guard: checks rendered output in headless Chrome (axe-core, live contrast in standard and more-contrast mode, LibKa structure rules, reflow at 320 CSS pixels) and signs a manifest of the checks.",
@@ -17,6 +17,6 @@
     "playwright-core": "^1.64.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4"
+    "@types/node": "^26.6.5"
   }
 }

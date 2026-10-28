@@ -120,4 +120,18 @@ Body.
     blocks[0] = schema.nodes.heading!.create({ level: 2 }, schema.text('B'));
     expect(save(schema.nodes.doc!.create(null, blocks), loaded)).toBe(src.replace('## A', '## B'));
   });
+
+  it('writes a changed block\'s colons as they were in links, captions and alt text, and escapes only typed text', () => {
+    const lines = ['![Contrast 4.5:1 and 7:1](images/a.png "Ratio 4.5:1")',
+      'Write to [us](mailto:docs@example.org), [call](tel:+420123) or [read](https://example.org "see:x"), <mailto:docs@example.org>; slides are 16:9.'];
+    for (const src of lines) {
+      const loaded = load(`${src}\n`);
+      // an equal copy that is not the loaded node is written in the canonical style
+      expect(save(schema.nodes.doc!.create(null, copy(loaded.doc.child(0))), null)).toBe(`${src}\n`);
+    }
+    const figure = parse('![Contrast 4.5:1 and 7:1](images/a.png "Ratio 4.5:1")\n').document.blocks[0];
+    expect(figure).toMatchObject({ alt: 'Contrast 4.5:1 and 7:1', caption: 'Ratio 4.5:1' });
+    // text typed in the editor is written so that it is never read as a directive
+    expect(save(schema.nodes.doc!.create(null, schema.nodes.paragraph!.create(null, schema.text('ratio a:b'))), null)).toBe('ratio a\\:b\n');
+  });
 });

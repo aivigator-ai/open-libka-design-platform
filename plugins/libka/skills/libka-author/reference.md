@@ -1,6 +1,6 @@
 # LibKa block reference
 
-Generated from the block registry (LibKa 2.0.1). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
+Generated from the block registry (LibKa 2.0.2). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
 
 ## Front matter
 
@@ -674,7 +674,7 @@ Use it when: Three to five key points a busy reader needs first: the top of a re
 ```markdown
 :::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}
 - Every page passes the accessibility checks before it is signed.
-- One Markdown file gives the web page, the PDF and the slides.
+- One LibKa Markdown file gives the web page, the PDF and the slides.
 - The block catalog is generated, so it never drifts from the tools.
 :::
 ```

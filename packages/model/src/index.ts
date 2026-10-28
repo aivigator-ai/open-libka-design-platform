@@ -1,5 +1,5 @@
 /**
- * LibKa document model: Markdown with directives, parsed into typed blocks.
+ * LibKa document model: LibKa Markdown (Markdown with directives), parsed into typed blocks.
  *
  * Authors write CommonMark + GFM with front matter and a few block directives:
  *
@@ -304,6 +304,7 @@ export function parse(markdown: string): ParseResult {
   const tree = unified().use(remarkParse).use(remarkFrontmatter, ['yaml']).use(remarkGfm).use(remarkDirective)
     .parse(markdown) as Root;
   literalTextDirectives(tree, markdown);
+  literalImageAlt(tree, markdown);
   dropInlineComments(tree);
   const definitions = footnoteDefinitions(tree, problems);
   const ids = new Set<string>();
@@ -667,6 +668,25 @@ function literalTextDirectives(node: { children?: unknown[] }, markdown: string)
     literalTextDirectives(c, markdown);
     return c;
   });
+}
+
+/**
+ * An image's alt text is the plain text of its label, worked out while parsing, so "4.5:1" there came out as
+ * "4.5" (the ":1" was a directive with no text). Read it again from the image's own source without directives
+ * (on one line only: a label across lines in a quote or a list would bring the "> " of the next line with it).
+ */
+export function literalImageAlt(node: { children?: unknown[] }, markdown: string): void {
+  for (const child of node.children ?? []) {
+    const c = child as { type: string; alt?: string | null; position?: { start: { offset?: number }; end: { offset?: number } } };
+    const start = c.position?.start.offset, end = c.position?.end.offset;
+    const source = start !== undefined && end !== undefined ? markdown.slice(start, end) : '';
+    if (c.type === 'image' && source.includes(':') && !source.includes('\n')) {
+      const again = unified().use(remarkParse).use(remarkGfm).parse(source) as Root;
+      const image = (again.children[0] as { children?: { type: string; alt?: string | null }[] } | undefined)?.children?.find((x) => x.type === 'image');
+      if (image) c.alt = image.alt ?? null;
+    }
+    literalImageAlt(child as { children?: unknown[] }, markdown);
+  }
 }
 
 /** The name of an inline directive left open in text (":kbd[" with no closing bracket), not in code. */

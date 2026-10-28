@@ -46,3 +46,13 @@ describe('the Claude Desktop extension', () => {
     expect(manifest.server.mcp_config.env).toEqual({ LIBKA_OUT: '${user_config.out_dir}' });
   });
 });
+
+describe('the MCP Registry entry (npm/build.mts writes server.json)', () => {
+  it('has a description the registry accepts (at most 100 characters) that claims checks, not "accessible"', () => {
+    const block = readFileSync(join(root, 'npm', 'build.mts'), 'utf8').split("'server.json'")[1] ?? '';
+    const description = /description: '([^']*)'/.exec(block)?.[1];
+    expect(description, 'server.json description').toBeDefined();
+    expect(description!.length).toBeLessThanOrEqual(100);
+    expect(description).not.toMatch(/\baccessible\b/i);
+  });
+});

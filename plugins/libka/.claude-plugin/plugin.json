@@ -1,6 +1,6 @@
 {
   "name": "libka",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Write LibKa documents with Claude: the authoring skill and the LibKa MCP server, which checks LibKa Markdown and builds it into a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility and signed.",
   "author": {
     "name": "LibKa"

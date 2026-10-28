@@ -7,7 +7,7 @@ outputs: [web, pdf, deck, docx]
 
 ## Co je tento soubor
 
-Toto je dokument LibKa: Markdown s několika bloky. Jedno sestavení z něj udělá webovou stránku, PDF ve formátu A4, prezentaci 16:9 a upravitelný soubor Wordu a každý z nich před podpisem zkontroluje z hlediska přístupnosti.
+Toto je dokument LibKa napsaný v LibKa Markdownu, tedy v Markdownu s několika bloky LibKa. Jedno sestavení z něj udělá webovou stránku, PDF ve formátu A4, prezentaci 16:9 a upravitelný soubor Wordu a každý z nich před podpisem zkontroluje z hlediska přístupnosti.
 
 :::callout[Změňte cokoli]{variant=tip}
 Upravte tento text a znovu spusťte `npm run build`. Pokud něco chybí, třeba popis obrázku nebo titulek tabulky, sestavení se zastaví a uvede řádek.

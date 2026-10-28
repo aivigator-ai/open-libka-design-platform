@@ -1,7 +1,7 @@
 ---
 title: LibKa blocks
 subtitle: Every block with its syntax, an example, and what it does on the web, in PDF, on slides and in Word
-version: "2.0.1"
+version: "2.0.2"
 status: Generated from the block registry
 lang: en
 references:
@@ -12,7 +12,7 @@ references:
     url: https://www.w3.org/TR/WCAG22/
 ---
 
-A LibKa document is Markdown plus a few blocks. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.
+A LibKa document is written in LibKa Markdown: Markdown plus the blocks below. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.
 
 :::metrics
 - **35** blocks in 8 groups
@@ -84,13 +84,13 @@ Press :kbd[Ctrl+S] to save. See the [release notes](https://example.org/notes) f
 - Link text says where it goes ("release notes", not "click here").
 :::
 :::item[Avoid]
-- Walls of text on a slide: move them into :::notes.
+- Walls of text on a slide: move them into `:::notes`.
 :::
 ::::
 
 ### List
 
-Bulleted (-) or numbered (1.) lists. For instructions use :::steps, for tasks :::checklist.
+Bulleted (-) or numbered (1.) lists. For instructions use `:::steps`, for tasks `:::checklist`.
 
 **Use it when:** Three or more parallel items without an order (bulleted) or with one (numbered, when not instructions).
 
@@ -121,7 +121,7 @@ Bulleted (-) or numbered (1.) lists. For instructions use :::steps, for tasks ::
 
 ### Description list
 
-Terms and their values in two columns, such as "Owner: Docs team". Values may hold links, e-mail addresses and code. For terms the reader learns, use :::glossary.
+Terms and their values in two columns, such as "Owner: Docs team". Values may hold links, e-mail addresses and code. For terms the reader learns, use `:::glossary`.
 
 **Use it when:** Key-value facts read as pairs: document or invoice details, specifications, contact data, CV facts.
 
@@ -152,7 +152,7 @@ Terms and their values in two columns, such as "Owner: Docs team". Values may ho
 :::
 :::item[Avoid]
 - Long paragraphs as values: use headings and text.
-- Data with more than one value per term: use a :::table.
+- Data with more than one value per term: use a `:::table`.
 :::
 ::::
 
@@ -189,7 +189,7 @@ Mention that the checks run on every build.
 
 ### Document status
 
-Status, owner and review dates. Front matter keys status, owner, reviewed and next-review show them under the title and in the footer by themselves; :::doc-status places them as a panel where you want it (and may set them itself).
+Status, owner and review dates. Front matter keys status, owner, reviewed and next-review show them under the title and in the footer by themselves; `:::doc-status` places them as a panel where you want it (and may set them itself).
 
 **Use it when:** Policies, procedures, specifications and any page readers must trust: who owns it, when it was last reviewed, when the next review is due, and whether it is still valid.
 
@@ -233,7 +233,7 @@ Status, owner and review dates. Front matter keys status, owner, reviewed and ne
 
 The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.
 
-**Use it when:** Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep.
+**Use it when:** Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place `:::toc` to choose where they go and how deep.
 
 ```markdown
 :::toc[Contents]{depth=3}
@@ -324,7 +324,7 @@ Images need a text alternative [@wcag22].
 
 ### Release notes
 
-One version with its date and its changes in typed groups. Each release is a level-2 heading with an anchor (#v1-4-0), listed in the contents and its own slide. Groups follow the Keep a Changelog order. A notice about the whole release (a paragraph or a callout, such as a dropped platform) may come before the groups; anything that stops working goes in :::removed, anything still working but going away in :::deprecated. The version is written as the source writes it (3.2.0 or v3.2.0).
+One version with its date and its changes in typed groups. Each release is a level-2 heading with an anchor (#v1-4-0), listed in the contents and its own slide. Groups follow the Keep a Changelog order. A notice about the whole release (a paragraph or a callout, such as a dropped platform) may come before the groups; anything that stops working goes in `:::removed`, anything still working but going away in `:::deprecated`. The version is written as the source writes it (3.2.0 or v3.2.0).
 
 **Use it when:** Release notes or a changelog: what changed in each version, grouped as added, changed, deprecated, removed, fixed and security (Keep a Changelog).
 
@@ -491,7 +491,7 @@ pnpm add @libka/cli
 - **Word:** Every variant, each under its bold label.
 :::
 :::item[Accessibility]
-- The WAI-ARIA tabs pattern, as for :::tabs; without script every variant is shown with its title.
+- The WAI-ARIA tabs pattern, as for `:::tabs`; without script every variant is shown with its title.
 :::
 :::item[Avoid]
 - Variants that differ in more than the tool: write separate steps.
@@ -501,7 +501,7 @@ pnpm add @libka/cli
 
 ### Steps
 
-Numbered instructions, each with a bold title and a description. The text after the bold title is a separate description: write it as a full sentence, or leave it out. To continue a procedure in a second :::steps (on the next slide), start its list at the next number: 4.
+Numbered instructions, each with a bold title and a description. The text after the bold title is a separate description: write it as a full sentence, or leave it out. To continue a procedure in a second `:::steps` (on the next slide), start its list at the next number: 4.
 
 **Use it when:** A task the reader performs in order: "Install", "Configure", "Run". Each step starts with a verb.
 
@@ -596,7 +596,7 @@ Open `Setup.dmg`.
 
 | Attribute | Meaning | Required |
 |---|---|---|
-| `:::tab label` | Tab name in brackets: :::tab[Windows]. | yes |
+| `:::tab label` | Tab name in brackets: `:::tab[Windows]`. | yes |
 
 :::
 
@@ -648,7 +648,7 @@ Yes, every output is one local file.
 
 | Attribute | Meaning | Required |
 |---|---|---|
-| `:::item label` | The question or topic: :::item[Question?]. | yes |
+| `:::item label` | The question or topic: `:::item[Question?]`. | yes |
 
 :::
 
@@ -829,7 +829,7 @@ flowchart LR
 - Shapes and dotted or solid lines carry meaning, not colour.
 :::
 :::item[Avoid]
-- A diagram for a simple linear process: use :::steps.
+- A diagram for a simple linear process: use `:::steps`.
 - Colour statements (style, classDef, linkStyle) and init blocks (reported).
 - Diagrams too detailed to read on a slide: split them.
 :::
@@ -1057,14 +1057,14 @@ Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-a
 ```markdown
 :::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}
 - Every page passes the accessibility checks before it is signed.
-- One Markdown file gives the web page, the PDF and the slides.
+- One LibKa Markdown file gives the web page, the PDF and the slides.
 - The block catalog is generated, so it never drifts from the tools.
 :::
 ```
 
 :::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}
 - Every page passes the accessibility checks before it is signed.
-- One Markdown file gives the web page, the PDF and the slides.
+- One LibKa Markdown file gives the web page, the PDF and the slides.
 - The block catalog is generated, so it never drifts from the tools.
 :::
 
@@ -1331,7 +1331,7 @@ Dates or periods with what happens, in order; each item starts with the date in 
 - "Now" is written; past and planned items are named for screen readers, not shown by color alone.
 :::
 :::item[Avoid]
-- A timeline for steps a reader performs: use :::steps.
+- A timeline for steps a reader performs: use `:::steps`.
 - More than about 6 items on a slide: split it or use a table.
 :::
 ::::

@@ -1,6 +1,6 @@
 {
   "name": "@libka/studio",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa Studio: an installable local-first app to write LibKa documents, see them rendered and checked by Guard as you type, with projects, images and version history kept on your device.",
@@ -48,9 +48,9 @@
   },
   "devDependencies": {
     "@guidepup/guidepup": "0.35.0",
-    "@guidepup/setup": "0.29.1",
+    "@guidepup/setup": "0.29.2",
     "@libka/cli": "workspace:*",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
     "playwright-core": "^1.64.0"
   }

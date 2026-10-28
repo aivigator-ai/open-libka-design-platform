@@ -2,35 +2,35 @@
 
 [![check](https://github.com/aivigator-ai/open-libka-design-platform/actions/workflows/check.yml/badge.svg)](https://github.com/aivigator-ai/open-libka-design-platform/actions/workflows/check.yml) [![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE) [![Node.js 22.18 or newer](https://img.shields.io/badge/node-%E2%89%A522.18-blue)](docs/admin/environment.md)
 
-**Write a document once in Markdown. Get a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility, with a signed record of what was checked.**
+**Write a document once in LibKa Markdown. Get a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility, with a signed record of what was checked.**
 
-LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one Markdown file with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (35 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
+LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one file in LibKa Markdown, Markdown extended with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (35 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
 
-![How LibKa builds a document: a Markdown file is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output (axe-core WCAG 2.2, contrast, structure, reflow at 320 px, veraPDF PDF/UA-1, Word structure); outputs that pass get a signed manifest and a conformance report](docs/images/pipeline.svg)
+![How LibKa builds a document: a LibKa Markdown file is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output (axe-core WCAG 2.2, contrast, structure, reflow at 320 px, veraPDF PDF/UA-1, Word structure); outputs that pass get a signed manifest and a conformance report](docs/images/pipeline.svg)
 
 - **Website:** https://libka.aivigator.ai/
 - **Try LibKa Studio in your browser:** https://libka-studio.aivigator.ai/
 - **Documentation:** [`docs/`](docs/README.md), starting with [getting started](docs/getting-started.md) and the [block catalog](docs/blocks.md)
 
-> **Status:** version 2.0.1. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
+> **Status:** version 2.0.2. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
 
 ## Why LibKa
 
 Markdown publishing tools already turn one source into web pages, PDFs and slides. LibKa's difference is that it **checks every output and says exactly what it checked**:
 
 - **The rules that can be automated are enforced; the rest is listed for a person:** blocks carry their accessibility rules (an image cannot go in without alternative text), the build stops on problems with `file:line` messages, Guard measures the rendered result in Chrome, not the source, and the conformance report names what a person still has to review.
-- **The PDF is repaired and validated:** Chrome's tagged PDFs are repaired for PDF/UA-1 and validated by veraPDF, the PDF Association's reference validator, on every rule a machine can check (the rest of PDF/UA, such as a meaningful reading order, needs a person).
+- **The PDF is repaired and validated:** Chrome's tagged PDFs are repaired for PDF/UA-1 and, when Java and veraPDF are installed, validated by veraPDF, the PDF Association's reference validator, on every rule a machine can check (the rest of PDF/UA, such as a meaningful reading order, needs a person).
 - **Every output gets a record:** a signed manifest of the checks and a WCAG 2.2 / EN 301 549 conformance report per build.
 - **A design system, not a theme:** colours, type and spacing come from DTCG tokens whose contrast the token build gates, in light, dark and high contrast.
-- **Visual editing for people who never touch Markdown,** with the same checks live in LibKa Studio, while the Markdown stays the single source.
+- **Visual editing for people who never touch Markdown,** with the page and Word checks live in LibKa Studio, while the LibKa Markdown stays the single source.
 
 LibKa is a good fit for manuals, guides, policies, reports and decks that must be accessible and consistent. It is not a page-layout tool: you choose blocks, not positions.
 
 ## LibKa Studio
 
-![LibKa Studio in Split mode: the visual editor, the Markdown source and the live preview side by side, with no problems found](docs/images/studio-split.png)
+![LibKa Studio in Split mode: the visual editor, the LibKa Markdown source and the live preview side by side, with no problems found](docs/images/studio-split.png)
 
-An installable web app that keeps documents on your own device: a visual editor, a source editor, or both side by side; a live preview of the web page, phone, A4 and slides; the same Guard checks while you type, with one-click fixes where a fix is safe and plain-word explanations otherwise; versions, a command palette, English and Czech, light, dark and high contrast, offline once opened. The Studio has its own accessibility self-audit ([`docs/acr/studio.md`](docs/acr/studio.md)), tested with the keyboard alone, NVDA, forced colours, reflow and touch emulation.
+An installable web app that keeps documents on your own device: a visual editor, a source editor, or both side by side; a live preview of the web page, phone, A4 and slides; the page and Word checks while you type, with one-click fixes where a fix is safe and plain-word explanations otherwise; versions, a command palette, English and Czech, light, dark and high contrast, offline once opened. The Studio has its own accessibility self-audit ([`docs/acr/studio.md`](docs/acr/studio.md)), tested with the keyboard alone, NVDA, forced colours, reflow and touch emulation.
 
 Run it locally: `npx -y @libka/cli studio`, and open the address it prints.
 
@@ -52,7 +52,7 @@ npm run build                          # web page, PDF, slides and Word file in 
 npm run verify                         # the files (the slides too) are the ones that were checked and signed
 ```
 
-The starter has an example document, `npm run check` (the source only, in a couple of seconds, without a browser), a GitHub Actions workflow that checks every push and pull request with the LibKa Guard action, marking each problem on its line, and a README of next steps. A document chooses its outputs in its front matter, `outputs: [web, pdf, deck, docx]`; without that line it gets the web page and the PDF. Each project signs with its own key, made by its first build in `.libka/` and trusted in `.libka/trusted-keys.json` ([signing keys](docs/admin/signing-keys.md)).
+The starter has an example document, `npm run check` (the source only, in a couple of seconds, without a browser), a GitHub Actions workflow that builds and checks every push and pull request with the LibKa Guard action, marking a problem in the source on its line and a finding in an output on its file, and a README of next steps. A document chooses its outputs in its front matter, `outputs: [web, pdf, deck, docx]`; without that line it gets the web page and the PDF. Each project signs with its own key, made by its first build in `.libka/` and trusted in `.libka/trusted-keys.json` ([signing keys](docs/admin/signing-keys.md)).
 
 From a clone of this repository:
 
@@ -64,7 +64,7 @@ node packages/cli/src/libka.ts build examples/manual/guide.md     # the outputs 
 
 ## Writing documents
 
-A document is Markdown with front matter and blocks:
+A document is written in LibKa Markdown: Markdown with front matter and LibKa blocks. The file stays `.md` and opens in any text editor; only LibKa renders the blocks, other Markdown viewers show them as plain `:::` lines.
 
 ```markdown
 ---
@@ -93,7 +93,7 @@ Keep the box: the Wi-Fi password is on its label.
 ## What every output gets
 
 - **Checks in a real browser:** axe-core with the WCAG 2.2 A and AA rules; the contrast of every visible text against its real background, 4.5:1 and 7:1 when the reader asks for more contrast; LibKa's structure rules; a page that fits a 320-pixel-wide screen without scrolling sideways (reflow); slides that must fit; a strict Content Security Policy.
-- **A PDF validated against PDF/UA-1** (ISO 14289-1) by veraPDF: every rule a machine can check.
+- **A PDF validated against PDF/UA-1** (ISO 14289-1) by veraPDF: every rule a machine can check, when Java and veraPDF are installed (otherwise the manifest, the conformance report and `verify` say the PDF was not validated).
 - **A Word file with real structure:** headings, lists, footnotes, tables whose header row repeats, pictures with alternative text, the document language; Guard checks its structure and contrast.
 - **A signed manifest:** the source, the LibKa version, the hashes of every output and every check result. It proves the files are the ones that were checked and which checks ran; [what it does not prove](docs/admin/signing-keys.md#what-a-signature-proves-and-what-it-does-not) is written down too.
 - **A conformance report** listing all 55 WCAG 2.2 A/AA success criteria with their EN 301 549 clauses: checked automatically, failed, needs a person, or not applicable.
@@ -114,11 +114,11 @@ Keep the box: the Wi-Fi password is on its label.
 |---|---|
 | `tokens/`, `libka.resolver.json`, `generate.py` | The DTCG design tokens and their build: CSS, SCSS, Tailwind ([`docs/tokens.md`](docs/tokens.md), [the design-system manual](docs/design-system/manual.md)) |
 | `packages/blocks` | The block registry, the catalog and skill-reference generators |
-| `packages/model` | Markdown to typed blocks, with problems by line, each with a code and safe fixes ([`docs/problem-codes.md`](docs/problem-codes.md)) |
+| `packages/model` | LibKa Markdown to typed blocks, with problems by line, each with a code and safe fixes ([`docs/problem-codes.md`](docs/problem-codes.md)) |
 | `packages/render` | Web page, slides, charts, slide fitting, Content Security Policy, typography, the block styles |
 | `packages/guard` | The browser checks, the Word file checks, the WCAG / EN 301 549 mapping, the signed manifest |
 | `packages/pdf`, `packages/docx` | PDF/UA repair and veraPDF validation; the Word file |
-| `packages/editor` | Visual editing: the ProseMirror schema, the lossless round-trip with Markdown, the block commands |
+| `packages/editor` | Visual editing: the ProseMirror schema, the lossless round-trip with LibKa Markdown, the block commands |
 | `packages/cli`, `packages/mcp` | `libka build \| lint \| check \| verify \| studio \| doctor`; the MCP server |
 | `packages/create-libka` | The starter, `npm create libka` |
 | `npm/`, `plugins/libka`, `.claude-plugin/` | The npm packages' build and the quick-start test; the Claude Code plugin and its marketplace file |

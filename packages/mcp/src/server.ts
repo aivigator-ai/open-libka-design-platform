@@ -36,8 +36,8 @@ const guide = () => readFileSync(SKILL, 'utf8').replace(/^---[\s\S]*?---\n/, '')
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: 'libka', version: VERSION }, {
-    instructions: 'LibKa turns one Markdown file into a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility. To write a LibKa document: read libka://guide, '
-      + 'pick blocks with libka_list_blocks and libka_get_block, write the Markdown, then call libka_check until it has no problems and libka_build until Guard passes.',
+    instructions: 'LibKa turns one LibKa Markdown file (Markdown with LibKa blocks) into a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility. To write a LibKa document: read libka://guide, '
+      + 'pick blocks with libka_list_blocks and libka_get_block, write the LibKa Markdown, then call libka_check until it has no problems and libka_build until Guard passes.',
   });
 
   server.registerTool('libka_list_blocks', {
@@ -71,8 +71,8 @@ export function createServer(): McpServer {
 
   server.registerTool('libka_build', {
     title: 'Build a LibKa document',
-    description: 'Write the Markdown to a folder and build it: the outputs the document asks for in its front matter (outputs: web, pdf, deck, docx; default web and pdf), '
-      + 'or the outputs given here. Guard checks every output (the pages in Chrome, the PDF with veraPDF, the Word file\'s structure); '
+    description: 'Write the LibKa Markdown to a folder and build it: the outputs the document asks for in its front matter (outputs: web, pdf, deck, docx; default web and pdf), '
+      + 'or the outputs given here. Guard checks every output (the pages in Chrome, the PDF with veraPDF when Java and veraPDF are installed, the Word file\'s structure); '
       + 'passing outputs are signed. Returns the files and every Guard finding to fix. Writes files on this machine.',
     inputSchema: {
       markdown: z.string().optional().describe('The document; or give path instead, not both'),

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" role="img" aria-labelledby="t d">
   <title id="t">How LibKa builds a document</title>
-  <desc id="d">A Markdown file with LibKa blocks is linted, then built into a web page, a PDF, slides and a Word file. Guard checks each output: axe-core with the WCAG 2.2 rules, contrast, structure and reflow at 320 CSS pixels in Chrome, veraPDF for PDF/UA-1, and the Word file's structure. Outputs that pass get a signed manifest and a conformance report.</desc>
+  <desc id="d">A LibKa Markdown file is linted, then built into a web page, a PDF, slides and a Word file. Guard checks each output: axe-core with the WCAG 2.2 rules, contrast, structure and reflow at 320 CSS pixels in Chrome, veraPDF for PDF/UA-1, and the Word file's structure. Outputs that pass get a signed manifest and a conformance report.</desc>
   <style>
     rect { fill: #FFFFFF; stroke: #B0B9C8; stroke-width: 1.5; }
     rect.guard { fill: #E6F4F6; stroke: #056F7D; }
@@ -11,7 +11,7 @@
   <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:#056F7D;stroke:none"/></marker></defs>
 
   <rect x="10" y="110" width="150" height="80" rx="12"/>
-  <text x="85" y="146">guide.md</text><text class="small" x="85" y="166">Markdown + LibKa blocks</text>
+  <text x="85" y="146">guide.md</text><text class="small" x="85" y="166">LibKa Markdown</text>
 
   <rect x="200" y="110" width="150" height="80" rx="12"/>
   <text x="275" y="146">Lint</text><text class="small" x="275" y="166">problems by line, with fixes</text>

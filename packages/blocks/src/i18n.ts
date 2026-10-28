@@ -468,7 +468,7 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
   },
   summary: {
     useWhen: 'Tři až pět hlavních bodů, které zaneprázdněný čtenář potřebuje jako první: začátek zprávy, návrhu nebo dlouhé stránky. Když je napsala AI, označte je source=ai a uveďte, kdo je zkontroloval.',
-    example: ':::summary[Hlavní body]{source=ai reviewed-by="Vedoucí dokumentace"}\n- Každá stránka projde kontrolami přístupnosti, než je podepsána.\n- Z jednoho souboru Markdown vznikne webová stránka, PDF i snímky.\n- Katalog bloků se generuje, takže se nikdy nerozejde s nástroji.\n:::',
+    example: ':::summary[Hlavní body]{source=ai reviewed-by="Vedoucí dokumentace"}\n- Každá stránka projde kontrolami přístupnosti, než je podepsána.\n- Z jednoho souboru v LibKa Markdownu vznikne webová stránka, PDF i snímky.\n- Katalog bloků se generuje, takže se nikdy nerozejde s nástroji.\n:::',
   },
   cta: {
     useWhen: 'Jediný další krok na konci oddílu, stránky nebo prezentace: spustit výukový kurz, domluvit si ukázku, stáhnout šablonu.',

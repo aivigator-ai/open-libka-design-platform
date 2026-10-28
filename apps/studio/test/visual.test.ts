@@ -87,7 +87,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
 
   it('an edit rewrites only its own block; switching modes keeps the place', async () => {
     const page = await open();
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.type(' Edited here.');
     const after = (await settled(page)).source;
     const changed = lines(after).filter((l, i) => l !== lines(example)[i]);
@@ -115,14 +115,14 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     await page.waitForFunction(() => /moved/.test(document.querySelector('#announcer')?.textContent ?? ''));
     expect(await page.textContent('#announcer')).toMatch(/^Callout moved to position \d+ of \d+/);
     let src = (await settled(page)).source;
-    expect(src.indexOf(':::callout[You need')).toBeLessThan(src.indexOf('You write a manual as one Markdown file'));
+    expect(src.indexOf(':::callout[You need')).toBeLessThan(src.indexOf('You write a manual as one LibKa Markdown file'));
     // the block (and every other) is still written exactly as before, only in another order
     expect(src.length).toBe(example.length);
     await page.keyboard.press('Control+z');
     src = (await settled(page)).source;
     expect(src).toBe(example);
     // a run of blocks: the heading above and the callout, duplicated, then deleted again
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Control+d');
@@ -135,7 +135,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
 
   it('inserts a block with "/", typing straight into the menu, and the result parses without problems', async () => {
     const page = await open();
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.press('Enter');
     await page.keyboard.type('/summary');   // typed at once: the keys before the menu's focus go to its search too
     await page.waitForSelector('#st-insert');
@@ -202,19 +202,19 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
 
   it('the handle\'s menu changes a block\'s type and copies it as Markdown; the palette inserts by click and by drag', async () => {
     const page = await open();
-    const para = page.locator('.ed-root > p', { hasText: 'You write a manual as one Markdown file' });
+    const para = page.locator('.ed-root > p', { hasText: 'You write a manual as one LibKa Markdown file' });
     await para.hover();
-    await page.locator('.ed-handles:has(+ p:has-text("You write a manual as one Markdown file")) .ed-grip').click();
+    await page.locator('.ed-handles:has(+ p:has-text("You write a manual as one LibKa Markdown file")) .ed-grip').click();
     await page.waitForSelector('#st-blockmenu');
     await page.click('#st-blockmenu [data-item="type"]');
     await page.click('#st-blockmenu [data-item="type-heading3"]');
     let src = (await settled(page)).source;
-    expect(src).toContain('### You write a manual as one Markdown file.');
+    expect(src).toContain('### You write a manual as one LibKa Markdown file.');
     await page.locator('.ed-root h3', { hasText: 'You write a manual' }).click();
     await page.keyboard.press('Escape');
     await page.keyboard.press('Shift+F10');
     await page.click('#st-blockmenu [data-item="copy"]');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('### You write a manual as one Markdown file. LibKa turns it into a self-contained web page and, if you ask for them, an A4 PDF, a slide deck and an editable Word file. Colors, type and spacing come from the LibKa tokens, so you never set them yourself.');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('### You write a manual as one LibKa Markdown file. LibKa turns it into a self-contained web page and, if you ask for them, an A4 PDF, a slide deck and an editable Word file. Colors, type and spacing come from the LibKa tokens, so you never set them yourself.');
     // the palette: a click inserts after the selected block
     await page.click('.st-palette-item[data-block="statement"]');
     src = (await settled(page)).source;
@@ -280,7 +280,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     expect(await page.getAttribute('.st-visual', 'data-handles')).toBe('always');
     expect(await page.$eval('.st-format-bold .st-format-text', (el) => (el as HTMLElement).offsetWidth)).toBeLessThanOrEqual(1);   // icons only (the word stays for screen readers)
     // Markdown shortcuts off: "## " stays text
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.press('Enter');
     await page.keyboard.type('## not a heading');
     expect((await settled(page)).source).toContain('\\## not a heading');
@@ -302,7 +302,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
 
   it('Markdown shortcuts make blocks as you type; new documents follow the default mode', async () => {
     const page = await open();
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.press('Enter');
     await page.keyboard.type('## A new section');
     await page.keyboard.press('Enter');
@@ -339,7 +339,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     await page.fill('.st-dialog input', 'Before');
     await page.click('.st-dialog button[type="submit"]');
     await page.waitForSelector('.st-version[data-kind="named"]');
-    await caretIn(page, 'You write a manual as one Markdown file');
+    await caretIn(page, 'You write a manual as one LibKa Markdown file');
     await page.keyboard.type(' Later text.');
     await settled(page);
     await page.click('.st-version[data-kind="named"] button:has-text("Restore")');

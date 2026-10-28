@@ -124,6 +124,11 @@ jobs:
           echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
           tar -xzf mcp-publisher.tar.gz mcp-publisher
           if [ "$DRY_RUN" = true ]; then ./mcp-publisher validate; exit; fi
+          # the registry checks the version on npm, which shows a new version only after a minute or more
+          for i in $(seq 1 30); do
+            npm view "@libka/mcp@${TAG#v}" version >/dev/null 2>&1 && break
+            echo "waiting for npm to show @libka/mcp@${TAG#v} ($i)"; sleep 20
+          done
           ./mcp-publisher login github-oidc
           if ! out=$(./mcp-publisher publish 2>&1); then
             echo "$out"

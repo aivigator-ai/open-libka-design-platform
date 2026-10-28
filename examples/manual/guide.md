@@ -1,6 +1,6 @@
 ---
 title: Writing a LibKa manual
-subtitle: From one Markdown file to a web page, a PDF, slides and a Word file that pass the LibKa checks
+subtitle: From one LibKa Markdown file to a web page, a PDF, slides and a Word file that pass the LibKa checks
 version: "0.1"
 date: "2026-10-03"
 status: Draft
@@ -10,7 +10,7 @@ outputs: [web, pdf, deck, docx]
 
 ## Before you start
 
-You write a manual as one Markdown file. LibKa turns it into a self-contained web page and, if you ask for them, an A4 PDF, a slide deck and an editable Word file. Colors, type and spacing come from the LibKa tokens, so you never set them yourself.
+You write a manual as one LibKa Markdown file. LibKa turns it into a self-contained web page and, if you ask for them, an A4 PDF, a slide deck and an editable Word file. Colors, type and spacing come from the LibKa tokens, so you never set them yourself.
 
 :::callout[You need Node.js 22.18 or newer]{variant=info}
 Install the workspace once with `npx --yes pnpm@12.8.1 install` in the repository folder. The PDF uses the Chrome already installed on your computer.
@@ -31,7 +31,7 @@ Show the four steps on screen; the build command is the only thing people need t
 
 ### How a manual is built
 
-![Diagram: the Markdown source is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output, and the outputs that pass get a signed manifest and a conformance report](images/pipeline.svg "How a manual is built: lint, build, check, sign")
+![Diagram: the LibKa Markdown source is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output, and the outputs that pass get a signed manifest and a conformance report](images/pipeline.svg "How a manual is built: lint, build, check, sign")
 
 ## Blocks you can use
 

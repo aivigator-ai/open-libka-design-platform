@@ -1,11 +1,11 @@
 ---
 name: libka-author
-description: Turn any content (documents, notes, transcripts, web pages, spreadsheets, CSV or JSON data, outlines or ideas) into a LibKa document, the Markdown that LibKa builds into a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility. Use it when someone asks for a LibKa manual, guide, report, proposal, policy, release notes, case study or slide deck; asks to convert or restructure content "for LibKa"; or asks to write, check or repair LibKa Markdown.
+description: Turn any content (documents, notes, transcripts, web pages, spreadsheets, CSV or JSON data, outlines or ideas) into a LibKa document, the LibKa Markdown that LibKa builds into a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility. Use it when someone asks for a LibKa manual, guide, report, proposal, policy, release notes, case study or slide deck; asks to convert or restructure content "for LibKa"; or asks to write, check or repair LibKa Markdown.
 ---
 
 # Writing LibKa documents
 
-LibKa takes one Markdown file with front matter and blocks. It builds a web page, a PDF, slides and a Word file from it, and checks every output for accessibility (WCAG 2.2 AA, and 7:1 contrast in high-contrast mode). Your job is to turn the user's content into that Markdown so it passes the checks the first time and uses the block that fits each piece of content.
+LibKa takes one LibKa Markdown file: Markdown with front matter and LibKa blocks. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. It builds a web page, a PDF, slides and a Word file from it, and checks every output for accessibility (WCAG 2.2 AA, and 7:1 contrast in high-contrast mode). Your job is to turn the user's content into that LibKa Markdown so it passes the checks the first time and uses the block that fits each piece of content.
 
 The exact syntax of every block is in [reference.md](reference.md). It is generated from the block registry, so it is always what the tools accept. Read the "Choose a block" table and the sections of the blocks you use. Never invent syntax. For content listed under "Content without a block", write what the table says.
 
@@ -43,11 +43,11 @@ The exact syntax of every block is in [reference.md](reference.md). It is genera
    - related links → `::::cards`;
    - interface descriptions → `:::ui` specimens;
    - presenter talk → `:::notes`.
-4. **Write the Markdown.** Follow reference.md exactly, including its "Syntax details": one more colon per nesting level, single quotes around attribute values that contain double quotes, and heading ids for in-page links.
+4. **Write the LibKa Markdown.** Follow reference.md exactly, including its "Syntax details": one more colon per nesting level, single quotes around attribute values that contain double quotes, and heading ids for in-page links.
 5. **Check and repair until clean.**
-   - **With the LibKa MCP server** (tools `libka_check`, `libka_build`): call `libka_check` with the Markdown, fix every problem, repeat. Then call `libka_build` with `outputs: ["web", "deck"]` (the slides show what does not fit), fix any Guard finding, repeat; finish with one `libka_build` without `outputs`, which makes what the front matter asks for.
+   - **With the LibKa MCP server** (tools `libka_check`, `libka_build`): call `libka_check` with the LibKa Markdown, fix every problem, repeat. Then call `libka_build` with `outputs: ["web", "deck"]` (the slides show what does not fit), fix any Guard finding, repeat; finish with one `libka_build` without `outputs`, which makes what the front matter asks for.
    - **Without it,** with the LibKa command: `npx libka` in a project that has `@libka/cli` (one made with `npm create libka`), `npx -y @libka/cli` anywhere else, or `node packages/cli/src/libka.ts` inside the LibKa repository. Run `libka lint <file.md>` until it reports no problems; act on its hints where they point to a natural break (a slide hint means the build would shrink or continue the slide, so split it yourself with `###` when the content has a better place to break). Then run `libka build <file.md> --outputs web,deck` while you repair (the slides show what does not fit), and finally `libka build <file.md>`, which makes what the front matter asks for; the files go to `dist/` next to the file, or to `--out <folder>`. If the build cannot start Chrome, `libka doctor` says what is missing.
-   - **With neither** (a chat without tools): write the Markdown by reference.md alone, and say that it is unchecked: the user checks it with `libka lint` or in LibKa Studio.
+   - **With neither** (a chat without tools): write the LibKa Markdown by reference.md alone, and say that it is unchecked: the user checks it with `libka lint` or in LibKa Studio.
    - Guard findings tell you what to change. A slide that does not fit holds a block the build cannot split: give that block its own `###`, and when it holds one table, comparison, chart, diagram or code group plus a sentence, fold the sentence into the caption or give it its own `###`. Moving text into `:::notes` removes it from the web page and the PDF as well, so do that only for presenter talk. A contrast or alt-text problem means fixing the content, never adding colors.
 6. **Deliver.** Hand over the `.md` file. Say which outputs were built and checked, and whether anything could not be represented.
 

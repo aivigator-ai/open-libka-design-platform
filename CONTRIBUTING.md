@@ -1,6 +1,6 @@
 # Contributing to LibKa
 
-Thank you for helping. LibKa turns one Markdown file into a web page, PDF, slides and Word file, checks each one for accessibility and records what it checked; every contribution keeps that promise intact.
+Thank you for helping. LibKa turns one LibKa Markdown file into a web page, PDF, slides and Word file, checks each one for accessibility and records what it checked; every contribution keeps that promise intact.
 
 ## Before you start
 

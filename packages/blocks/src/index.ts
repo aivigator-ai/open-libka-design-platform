@@ -365,7 +365,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     name: 'summary', title: 'Summary', group: 'highlight',
     useWhen: 'Three to five key points a busy reader needs first: the top of a report, a proposal or a long page. Mark it source=ai when an AI wrote it, with the person who checked it.',
     summary: 'Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-assisted, reviewed by …" label.',
-    example: ':::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}\n- Every page passes the accessibility checks before it is signed.\n- One Markdown file gives the web page, the PDF and the slides.\n- The block catalog is generated, so it never drifts from the tools.\n:::',
+    example: ':::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}\n- Every page passes the accessibility checks before it is signed.\n- One LibKa Markdown file gives the web page, the PDF and the slides.\n- The block catalog is generated, so it never drifts from the tools.\n:::',
     attributes: {
       source: { description: 'Who wrote the summary: human (default) or ai.', values: ['human', 'ai'] },
       'reviewed-by': { description: 'Name of the person who checked an AI summary, optionally with the role (required with source=ai).' },
@@ -582,6 +582,14 @@ export { FALLBACKS, type Fallback } from './fallbacks.ts';
 export { BLOCKS_CS, CHILD_TITLES, EXAMPLES_CS, GROUPS_CS, INLINES_CS, type CzechAttribute, type CzechBlock } from './i18n.ts';
 
 export const block = (name: string): BlockDefinition | undefined => BLOCKS.find((b) => b.name === name);
+
+/**
+ * The registry's prose for a page: a block it names (":::steps", with its label and attributes as in
+ * ":::tab[Windows]" or ":::toc{depth=3}") becomes code; code it already has stays as it is.
+ */
+export const blockNamesAsCode = (text: string): string =>
+  text.split(/(`[^`]*`)/).map((part, i) => (i % 2 ? part
+    : part.replace(/(^|[\s(])(:::[a-z][a-z-]*(?:\[[^\]\n]*\])?(?:\{[^}\n]*\})?)/g, '$1`$2`'))).join('');
 
 /** The whole document model as one JSON Schema (2020-12), for AI tools that write LibKa documents. */
 export function documentSchema(): Record<string, unknown> {

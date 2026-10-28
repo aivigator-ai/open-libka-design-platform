@@ -1,6 +1,6 @@
 # {{name}}
 
-LibKa documents: each Markdown file in `docs/` builds into a web page, an A4 PDF, 16:9 slides and an editable Word file, checked for accessibility and signed.
+LibKa documents: each LibKa Markdown file in `docs/` builds into a web page, an A4 PDF, 16:9 slides and an editable Word file, checked for accessibility and signed.
 
 ## First steps
 
@@ -31,4 +31,4 @@ The LibKa skill and the LibKa MCP server let Claude and other AI tools write, ch
 
 ## CI
 
-`.github/workflows/libka.yml` builds every document in `docs/` with LibKa Guard on every push and pull request on GitHub: Guard checks every output, marks each problem on its line in a pull request, and fails the run on any finding. The outputs, written beside the documents in `docs/dist/` (`npm run build` writes to `dist/`), are kept as an artifact for 14 days. The workflow names the LibKa version CI runs (`cli: '@libka/cli@{{version}}'`), the same as `@libka/cli` in `package.json`: when you update one, change the other.
+`.github/workflows/libka.yml` builds every document in `docs/` with LibKa Guard on every push and pull request on GitHub: Guard checks every output, marks each problem in a pull request (a problem in the source on its line, a finding in an output on its file), and fails the run on any finding. The outputs, written beside the documents in `docs/dist/` (`npm run build` writes to `dist/`), are kept as an artifact for 7 days. The workflow runs in your repository: in a public repository GitHub's standard runners and artifact storage are free; in a private one, its minutes and the stored artifacts count toward your account's Actions minutes and storage (change `retention-days` in the workflow to keep the outputs for a shorter or longer time). The workflow names the LibKa version CI runs (`cli: '@libka/cli@{{version}}'`), the same as `@libka/cli` in `package.json`: when you update one, change the other.

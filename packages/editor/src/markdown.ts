@@ -10,6 +10,7 @@
 import type {
   Blockquote, Code, FootnoteDefinition, Heading, List, ListItem, Nodes, Paragraph, PhrasingContent, Root, RootContent, Table, TableCell, TableRow, Text, Yaml,
 } from 'mdast';
+import { literalImageAlt } from '@libka/model';
 import type { ContainerDirective, LeafDirective, TextDirective } from 'mdast-util-directive';
 import { directiveToMarkdown } from 'mdast-util-directive';
 import { frontmatterToMarkdown } from 'mdast-util-frontmatter';
@@ -41,11 +42,21 @@ class Unsupported extends Error {}
 
 const parser = unified().use(remarkParse).use(remarkFrontmatter, ['yaml']).use(remarkGfm).use(remarkDirective);
 
+/**
+ * The directive writer escapes ":" before a letter or digit anywhere in text ("a\:b"), so it is not read as a
+ * directive. Destinations, titles and an image's alt text are never read for directives (the model reads alt text
+ * without them): there "mailto:docs@example.org" and "4.5:1" stay as written.
+ */
+const directives = directiveToMarkdown({ preferUnquoted: true, quoteSmart: true });
+const NO_DIRECTIVES = ['autolink', 'destinationLiteral', 'destinationRaw', 'reference', 'titleQuote', 'titleApostrophe', 'image'];
+directives.unsafe = directives.unsafe?.map((u) => u.character === ':' && [u.inConstruct].flat().includes('phrasing')
+  ? { ...u, notInConstruct: NO_DIRECTIVES as typeof u.notInConstruct } : u);
+
 /** The canonical style for changed blocks: the conventions LibKa's own documents use. */
 const WRITE: Options = {
   bullet: '-', emphasis: '*', strong: '*', fence: '`', fences: true, rule: '-', listItemIndent: 'one', incrementListMarker: true, resourceLink: false,
   // the plugins are built against neighbouring versions of the writer's types; at run time they are plain objects
-  extensions: [directiveToMarkdown({ preferUnquoted: true, quoteSmart: true }), gfmToMarkdown(), frontmatterToMarkdown(['yaml'])] as unknown as NonNullable<Options['extensions']>,
+  extensions: [directives, gfmToMarkdown(), frontmatterToMarkdown(['yaml'])] as unknown as NonNullable<Options['extensions']>,
   handlers: {
     // a GitHub alert's marker ("> [!TIP]") is written as it is, not escaped as a link's bracket ("\[!TIP]")
     text(node: Text, parent, state, info) {
@@ -140,6 +151,7 @@ function convert(n: RootContent, src: string): PMNode {
 /** Loads LibKa Markdown for editing. */
 export function load(source: string): Loaded {
   const root = parser.parse(source) as Root;
+  literalImageAlt(root, source);
   const origins: Origin[] = [];
   const lines = new Map<PMNode, number>();
   lineMap = lines;

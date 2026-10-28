@@ -136,7 +136,7 @@ describe('libka build', () => {
     // the SVG figure is a PNG picture in the Word file, with the figure's alt text
     const files = unzipSync(docx);
     expect(Object.keys(files).filter((k) => /^word\/media\/.+\.png$/.test(k))).toHaveLength(1);
-    expect(strFromU8(files['word/document.xml']!)).toMatch(/<wp:docPr id="1" name="Picture 1" descr="Diagram: the Markdown source is linted/);
+    expect(strFromU8(files['word/document.xml']!)).toMatch(/<wp:docPr id="1" name="Picture 1" descr="Diagram: the LibKa Markdown source is linted/);
     const manifest = JSON.parse(readFileSync(result.manifest!, 'utf8'));
     expect(manifest.outputs.docx).toMatch(/^[0-9a-f]{64}$/);
     expect(readFileSync(result.conformance!, 'utf8')).toMatch(/subtitle: Web page and Word file, WCAG 2\.2/);

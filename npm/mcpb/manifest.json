@@ -3,7 +3,7 @@
   "name": "libka",
   "display_name": "LibKa",
   "version": "{{version}}",
-  "description": "Write, check and build LibKa documents: one Markdown file to a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility and signed.",
+  "description": "Write, check and build LibKa documents: one LibKa Markdown file to a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility and signed.",
   "long_description": "LibKa gives Claude its block catalog and its checks. Claude lists the blocks, reads their syntax, checks LibKa Markdown line by line and builds it: Guard checks every output in Chrome (axe-core WCAG 2.2 A/AA, contrast in standard and high-contrast mode, structure rules, reflow at 320 CSS pixels, slide fit) and the outputs that pass are signed. Building needs Google Chrome on this computer; the files are written into the output folder you choose. Its server is tested with Node.js on Windows and Ubuntu; macOS is not tested.",
   "author": { "name": "{{author}}" },
   "repository": { "type": "git", "url": "{{repository}}" },

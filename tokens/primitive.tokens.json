@@ -4,9 +4,9 @@
     "org.libka": {
       "brand": {
         "name": "LibKa",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "type": "universal-template",
-        "date": "2026-10-13",
+        "date": "2026-10-28",
         "note": "All contrast and colorblind values are verified by computation: the contrast gates in generate.py on every build, and libka-verification.html."
       }
     }

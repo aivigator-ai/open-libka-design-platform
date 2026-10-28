@@ -1,6 +1,6 @@
 {
   "name": "@libka/contrast",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "WCAG 2.2 contrast math shared by LibKa tools (the TypeScript home of the checks the Python build runs today).",

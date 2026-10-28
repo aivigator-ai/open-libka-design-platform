@@ -4,7 +4,7 @@ subtitle: Install LibKa, start a project and build your first document into a we
 lang: en
 ---
 
-LibKa turns one Markdown file into a web page, an A4 PDF, 16:9 slides and an editable Word file. Every output is checked for accessibility before it is signed: the pages in a real browser, the PDF against PDF/UA, the Word file's structure. This page takes you from nothing to your first checked document.
+LibKa turns one LibKa Markdown file into a web page, an A4 PDF, 16:9 slides and an editable Word file. Every output is checked for accessibility before it is signed: the pages in a real browser, the PDF against PDF/UA-1 (with Java and veraPDF installed, see below), the Word file's structure. This page takes you from nothing to your first checked document.
 
 ## What you need
 
@@ -37,7 +37,7 @@ npm run build
 npm run verify
 ```
 
-The starter also gives you `npm run check`, which checks the source in a couple of seconds without a browser, a GitHub Actions workflow that checks every push and pull request with the LibKa Guard action, marking each problem on its line, and a README of next steps.
+The starter also gives you `npm run check`, which checks the source in a couple of seconds without a browser, a GitHub Actions workflow that builds and checks every push and pull request with the LibKa Guard action, marking a problem in the source on its line and a finding in an output on its file, and a README of next steps.
 
 :::callout[Your signing key]{variant=note}
 The first build makes a signing key in the project's `.libka/` folder and trusts it in `.libka/trusted-keys.json`. The key stays on your computer: the starter's `.gitignore` keeps it out of git. [Signing keys](admin/signing-keys.md) explains what a signature proves and what it does not.
@@ -45,7 +45,7 @@ The first build makes a signing key in the project's `.libka/` folder and trusts
 
 ## Write a document
 
-A document is Markdown with front matter and blocks. Front matter names the document, its language and the outputs it wants:
+A document is written in LibKa Markdown: Markdown with front matter and LibKa blocks. The file stays `.md` and opens in any text editor; only LibKa renders the blocks, other Markdown viewers show them as plain `:::` lines. Front matter names the document, its language and the outputs it wants:
 
 ```markdown title="router.md"
 ---
@@ -77,7 +77,7 @@ A build stops on any finding and leaves the unsigned files for you to inspect. E
 
 ## Edit visually
 
-LibKa Studio is an installable web app with a visual editor, a source editor, or both side by side, a live preview and the same checks while you type. Your documents stay on your own device. Run it locally with `npx -y @libka/cli studio` and open the address it prints, or try it without installing anything in the hosted copy linked from the [README](../README.md).
+LibKa Studio is an installable web app with a visual editor, a source editor, or both side by side, a live preview and the page and Word checks while you type. Your documents stay on your own device. Run it locally with `npx -y @libka/cli studio` and open the address it prints, or try it without installing anything in the hosted copy linked from the [README](../README.md).
 
 ## Write with AI tools
 

@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "LibKa for Claude Code: the authoring skill and the MCP server.",
-    "version": "2.0.1"
+    "version": "2.0.2"
   },
   "plugins": [
     {
       "name": "libka",
       "source": "./plugins/libka",
       "description": "Write LibKa documents with Claude: the authoring skill and the LibKa MCP server, which checks LibKa Markdown and builds it into a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility and signed.",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "license": "Apache-2.0",
       "keywords": [
         "documents",

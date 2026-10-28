@@ -189,7 +189,7 @@ delete cliDeps.mermaid;   // a browser script, shipped as a file above
 cliDeps['axe-core'] = installedVersion('axe-core');
 const sortedCliDeps = Object.fromEntries(Object.entries(cliDeps).sort(([a], [b]) => a.localeCompare(b)));
 writeFileSync(join(cli, 'package.json'), JSON.stringify({
-  name: '@libka/cli', ...common('LibKa: one Markdown file to a web page, A4 PDF, 16:9 slides and Word file, each checked for accessibility by Guard and signed. The libka command.', ['accessibility', 'wcag', 'pdf-ua', 'markdown', 'documentation', 'slides', 'docx']),
+  name: '@libka/cli', ...common('LibKa: one LibKa Markdown file to a web page, A4 PDF, 16:9 slides and Word file, each checked for accessibility by Guard and signed. The libka command.', ['accessibility', 'wcag', 'pdf-ua', 'markdown', 'documentation', 'slides', 'docx']),
   type: 'module', bin: { libka: 'dist/libka.js' }, exports: { '.': './dist/libka.js', './package.json': './package.json' },
   files: ['dist', 'assets', 'README.md', 'LICENSE', 'NOTICE'], dependencies: sortedCliDeps,
 }, null, 2) + '\n');
@@ -210,13 +210,14 @@ writeFileSync(join(mcp, 'package.json'), JSON.stringify({
 }, null, 2) + '\n');
 readme('mcp', mcp);
 legalFiles(mcp, 'mcp');
-// the MCP Registry's entry (mcp-publisher publish, from dist/npm/), only when the registry name is known
+// the MCP Registry's entry (mcp-publisher publish, from dist/npm/), only when the registry name is known; its
+// description has at most 100 characters (the registry's schema)
 if (meta.mcpName) {
   writeFileSync(join(out, 'server.json'), JSON.stringify({
     $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
     name: meta.mcpName,
     title: 'LibKa',
-    description: 'Write accessible documents: one Markdown file to checked, signed web pages, PDFs, slides, Word.',
+    description: 'One LibKa Markdown file to web pages, PDFs, slides and Word files, each checked and signed.',
     ...(meta.repository ? { repository: { url: meta.repository, source: 'github' } } : {}),
     version: VERSION,
     packages: [{ registryType: 'npm', identifier: '@libka/mcp', version: VERSION, transport: { type: 'stdio' } }],

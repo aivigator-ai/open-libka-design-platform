@@ -1,5 +1,5 @@
 # LibKa Design System Manual
-**Version 2.0.1** | 2026-10-13
+**Version 2.0.2** | 2026-10-28
 
 ---
 

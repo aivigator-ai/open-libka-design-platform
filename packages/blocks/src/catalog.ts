@@ -4,7 +4,7 @@
  * `node packages/blocks/src/build-catalog.ts` writes docs/blocks.md; libka build turns it into the
  * catalog page, checked by Guard like any manual.
  */
-import { BLOCKS, GROUPS, INLINES, type AttributeSpec, type BlockGroup } from './index.ts';
+import { BLOCKS, GROUPS, INLINES, blockNamesAsCode, type AttributeSpec, type BlockGroup } from './index.ts';
 
 /** A fence one backtick longer than any run inside the text. */
 const fence = (text: string) => '`'.repeat(Math.max(3, ...[...text.matchAll(/`+/g)].map((m) => m[0].length + 1)));
@@ -14,7 +14,7 @@ const code = (s: string) => `\`${s.replace(/`/g, '')}\``;
 
 function attributes(title: string, attrs: Record<string, AttributeSpec>, prefix = ''): string[] {
   return Object.entries(attrs).map(([name, a]) =>
-    `| ${code(prefix + name)} | ${cell(a.description)}${a.values ? ` One of: ${a.values.map(code).join(', ')}.` : ''} | ${a.required ? 'yes' : 'no'} |`);
+    `| ${code(prefix + name)} | ${cell(blockNamesAsCode(a.description))}${a.values ? ` One of: ${a.values.map(code).join(', ')}.` : ''} | ${a.required ? 'yes' : 'no'} |`);
 }
 
 export function catalogMarkdown(version: string): string {
@@ -28,7 +28,7 @@ export function catalogMarkdown(version: string): string {
     ...BLOCKS.flatMap((b) => (b.frontMatter ? [b.frontMatter] : [])),
     '---',
     '',
-    'A LibKa document is Markdown plus a few blocks. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.',
+    'A LibKa document is written in LibKa Markdown: Markdown plus the blocks below. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.',
     '',
     ':::metrics',
     `- **${BLOCKS.length}** blocks in ${Object.keys(GROUPS).length} groups`,
@@ -49,7 +49,7 @@ export function catalogMarkdown(version: string): string {
     if (!list.length) continue;
     out.push('', `## ${GROUPS[group]}`);
     for (const b of list) {
-      out.push('', `### ${b.title}`, '', b.summary, '', `**Use it when:** ${b.useWhen}`, '');
+      out.push('', `### ${b.title}`, '', blockNamesAsCode(b.summary), '', `**Use it when:** ${blockNamesAsCode(b.useWhen)}`, '');
       const f = fence(b.example);
       if (b.frontMatter) out.push('In the front matter:', '', '```yaml', b.frontMatter, '```', '', 'In the text:', '');
       out.push(`${f}markdown`, b.example, f, '');
@@ -63,15 +63,15 @@ export function catalogMarkdown(version: string): string {
         out.push('', `:::table{caption="${b.title}: attributes"}`, '', '| Attribute | Meaning | Required |', '|---|---|---|', ...rows, '', ':::');
       }
       out.push('', '::::accordion',
-        ':::item[In each output]', `- **Web:** ${b.targets.web}`, `- **PDF:** ${b.targets.pdf}`, `- **Slides:** ${b.targets.deck}`, `- **Word:** ${b.targets.docx}`, ':::',
-        ':::item[Accessibility]', ...b.a11y.map((a) => `- ${a}`), ':::',
-        ':::item[Avoid]', ...b.antiPatterns.map((a) => `- ${a}`), ':::',
+        ':::item[In each output]', ...(['web', 'pdf', 'deck', 'docx'] as const).map((t) => `- **${{ web: 'Web', pdf: 'PDF', deck: 'Slides', docx: 'Word' }[t]}:** ${blockNamesAsCode(b.targets[t])}`), ':::',
+        ':::item[Accessibility]', ...b.a11y.map((a) => `- ${blockNamesAsCode(a)}`), ':::',
+        ':::item[Avoid]', ...b.antiPatterns.map((a) => `- ${blockNamesAsCode(a)}`), ':::',
         '::::');
     }
   }
   out.push('', '## Inside text', '');
   for (const i of INLINES) {
-    out.push(`### ${i.title}`, '', i.summary, '', '```markdown', i.example, '```', '', i.example, '');
+    out.push(`### ${i.title}`, '', blockNamesAsCode(i.summary), '', '```markdown', i.example, '```', '', i.example, '');
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
 }

@@ -1,7 +1,7 @@
 /**
  * From the source to what the author sees: parse, draw diagrams, render the page and the deck, fit the slides as the
  * build does, then run Guard. Uses the real packages: @libka/model parses, @libka/render renders, and the Guard rules
- * from @libka/guard/scan check in the browser with axe-core. The only thing the Studio does not do is sign.
+ * from @libka/guard/scan check in the browser with axe-core. The Studio does not validate PDFs with veraPDF or sign.
  */
 import { batch } from '@preact/signals';
 import { parse, type Block, type LibkaDocument, type Problem } from '@libka/model';

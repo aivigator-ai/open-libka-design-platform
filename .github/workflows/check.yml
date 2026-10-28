@@ -2,12 +2,15 @@
 # the check that no generated file is stale (the TypeScript workspace is not installed in this job, so check.py
 # skips it; its browser stage runs only where check.extra.json names a self-check page). "typescript" installs
 # the workspace and runs the type check and every TypeScript test, the Chrome ones included.
+# A push to main that changes only docs/ or top-level Markdown runs nothing. Actions minutes are counted only in
+# private repositories, so there a push to main runs Ubuntu alone; tags, pull requests and runs by hand test Windows too.
 name: check
 
 on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore: ['docs/**', '*.md']
   pull_request:
   workflow_dispatch:
 
@@ -26,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'push' && github.ref_type == 'branch' && github.event.repository.private && '["ubuntu-24.04"]' || '["ubuntu-24.04", "windows-latest"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The build scripts need Python 3.12+; 3.14 is the version the maintainers use. No dependencies.
@@ -44,7 +47,7 @@ jobs:
         with:
           name: self-check-${{ matrix.os }}
           path: check-artifacts/
-          retention-days: 14
+          retention-days: 3
 
   # Ubuntu is pinned so that a new ubuntu-latest image cannot break a release; ubuntu-next.yml tries
   # ubuntu-latest weekly, and the pin moves once it passes.

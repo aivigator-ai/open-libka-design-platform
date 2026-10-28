@@ -1,6 +1,6 @@
 # LibKa: instructions for AI coding agents
 
-LibKa is a design system (W3C DTCG tokens) and a document platform. One Markdown file with LibKa blocks becomes a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility (the front matter `outputs` chooses). Guard checks every output (in Chrome: axe-core WCAG 2.2 A/AA, text contrast 4.5:1 and 7:1 in high contrast, structure rules, reflow at 320 CSS pixels; veraPDF for the PDF; the Word file's structure), and outputs that pass are signed. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; it applies to agents too.
+LibKa is a design system (W3C DTCG tokens) and a document platform. One LibKa Markdown file (Markdown with LibKa blocks) becomes a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility (the front matter `outputs` chooses). Guard checks every output (in Chrome: axe-core WCAG 2.2 A/AA, text contrast 4.5:1 and 7:1 in high contrast, structure rules, reflow at 320 CSS pixels; veraPDF for the PDF; the Word file's structure), and outputs that pass are signed. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; it applies to agents too.
 
 ## Commands
 
@@ -37,12 +37,12 @@ node npm/build-plugin.mts                           # the Claude Code plugin (pl
 
 - **`tokens/*.tokens.json` + `libka.resolver.json`:** the DTCG source of truth. `generate.py` validates it (with contrast gates for text, buttons and badges) and writes `libka-tokens.css`, `lk-bridge.css` (from `libka_bridge.py`), the SCSS, the Tailwind themes, parts of the manual and the verification page.
 - **`packages/blocks`:** the block registry, the single definition of every block, its Czech text (`i18n.ts`), what to write for content without a block (`fallbacks.ts`), the catalog and skill-reference generators.
-- **`packages/model`:** Markdown to typed blocks; problems by line, each with a code and, where safe, fixes; a sample document per code.
+- **`packages/model`:** LibKa Markdown to typed blocks; problems by line, each with a code and, where safe, fixes; a sample document per code.
 - **`packages/render`:** the web page (`index.ts`), the deck (`deck.ts`), slide fitting (`fit.ts`), the Content Security Policy (`csp.ts`), Czech typography, charts, UI specimens, the page runtime, and the block styles (`src/components.css`, tokens only).
 - **`packages/guard`:** in-page rules (`scan.ts`), Chrome checks, the Word file checks, the WCAG 2.2 / EN 301 549 mapping and the signed manifest.
 - **`packages/pdf`:** PDF/UA-1 repair of Chrome's PDFs and veraPDF validation.
 - **`packages/docx`:** the Word file, byte-identical packaging, LibreOffice conversion.
-- **`packages/editor`:** visual editing: the ProseMirror schema, the lossless Markdown round-trip, the block commands, fixes applied to text.
+- **`packages/editor`:** visual editing: the ProseMirror schema, the lossless LibKa Markdown round-trip, the block commands, fixes applied to text.
 - **`packages/cli`**, **`packages/mcp`:** `libka build|lint|check|verify|studio|doctor`, and the MCP server; `packages/cli/src/assets.ts` finds the shipped files in the repository or the npm package, and a document's project (its `.libka/` signing key and trusted keys).
 - **`packages/create-libka`:** the starter (`npm create libka`), with its templates.
 - **`npm/`:** the npm build (`build.mts`: `@libka/cli`, `@libka/mcp`, `@libka/tokens`, `create-libka`, the skill `.zip`, the Claude Desktop extension), the quick-start test from the packed files (`smoke.mts`), the packages' READMEs and the extension's manifest; `build-plugin.mts` writes the Claude Code plugin (`plugins/libka`) and `.claude-plugin/marketplace.json`.

@@ -1,6 +1,6 @@
 {
   "name": "@libka/editor",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa visual editing: the ProseMirror schema of LibKa documents and the lossless round-trip with LibKa Markdown (untouched blocks byte for byte, changed blocks in one canonical style). Runs in Node and in the browser.",
@@ -33,6 +33,6 @@
   },
   "devDependencies": {
     "@types/mdast": "4.0.4",
-    "@types/node": "26.6.4"
+    "@types/node": "26.6.5"
   }
 }

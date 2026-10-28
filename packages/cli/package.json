@@ -1,9 +1,9 @@
 {
   "name": "@libka/cli",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "license": "Apache-2.0",
-  "description": "libka build, check, verify: Markdown manual in, checked and signed HTML (and PDF via Chrome) out.",
+  "description": "libka build, check, verify: a LibKa Markdown document in, a checked and signed web page, PDF, slides and Word file out.",
   "type": "module",
   "exports": {
     ".": "./src/libka.ts",
@@ -26,7 +26,7 @@
     "playwright-core": "^1.64.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "fflate": "0.8.3",
     "pdf-lib": "1.17.1"
   }

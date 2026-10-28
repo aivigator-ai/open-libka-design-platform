@@ -17,7 +17,7 @@ LibKa reaches AI tools in two parts, and most routes use both:
 
 :::
 
-The version in every command below is the one this page belongs to (2.0.1); use the same version for the server and the skill.
+The version in every command below is the one this page belongs to (2.0.2); use the same version for the server and the skill.
 
 ## Claude Code
 
@@ -33,16 +33,16 @@ or from a terminal: `claude plugin marketplace add aivigator-ai/open-libka-desig
 **Without the plugin:** add the server and copy the skill yourself.
 
 ```bash
-claude mcp add libka -- npx -y @libka/mcp@2.0.1              # macOS, Linux
-claude mcp add libka -- cmd /c npx -y @libka/mcp@2.0.1       # Windows
+claude mcp add libka -- npx -y @libka/mcp@2.0.2              # macOS, Linux
+claude mcp add libka -- cmd /c npx -y @libka/mcp@2.0.2       # Windows
 ```
 
 Add `--scope project` to share it through the project's `.mcp.json`, or `--scope user` for every project. For the skill, copy the folder [`.claude/skills/libka-author`](../.claude/skills/libka-author) into your project's `.claude/skills/` (or into `~/.claude/skills/` for every project).
 
 ## Claude Desktop
 
-1. Download `libka-2.0.1.mcpb` from [the release on GitHub](https://github.com/aivigator-ai/open-libka-design-platform/releases/tag/v2.0.1) and open it: Claude Desktop shows what the extension does and asks for an **output folder**, where LibKa writes the documents it builds (by default `LibKa` in your Documents folder). The extension carries the server and everything it needs; it uses Chrome from your computer. What is tested: its server, run with Node.js on Windows and Ubuntu, building and signing a page; installing the extension in Claude Desktop is not tested.
-2. Download `libka-author-skill-2.0.1.zip` from the same release and add it where Claude Desktop lists your skills (Settings).
+1. Download `libka-2.0.2.mcpb` from [the release on GitHub](https://github.com/aivigator-ai/open-libka-design-platform/releases/tag/v2.0.2) and open it: Claude Desktop shows what the extension does and asks for an **output folder**, where LibKa writes the documents it builds (by default `LibKa` in your Documents folder). The extension carries the server and everything it needs; it uses Chrome from your computer. What is tested: its server, run with Node.js on Windows and Ubuntu, building and signing a page; installing the extension in Claude Desktop is not tested.
+2. Download `libka-author-skill-2.0.2.zip` from the same release and add it where Claude Desktop lists your skills (Settings).
 
 Ask for a LibKa document: Claude writes it with the skill, checks and builds it with the extension, and the files appear in the output folder.
 
@@ -51,21 +51,21 @@ Ask for a LibKa document: Claude writes it with the skill, checks and builds it 
 ```json
 {
   "mcpServers": {
-    "libka": { "command": "npx", "args": ["-y", "@libka/mcp@2.0.1"], "env": { "LIBKA_OUT": "/path/to/your/LibKa folder" } }
+    "libka": { "command": "npx", "args": ["-y", "@libka/mcp@2.0.2"], "env": { "LIBKA_OUT": "/path/to/your/LibKa folder" } }
   }
 }
 ```
 
-On Windows, use `"command": "cmd"` and `"args": ["/c", "npx", "-y", "@libka/mcp@2.0.1"]`. Restart Claude Desktop afterwards.
+On Windows, use `"command": "cmd"` and `"args": ["/c", "npx", "-y", "@libka/mcp@2.0.2"]`. Restart Claude Desktop afterwards.
 
 ## Claude in the browser
 
-Upload `libka-author-skill-2.0.1.zip` (from [the release](https://github.com/aivigator-ai/open-libka-design-platform/releases/tag/v2.0.1)) where claude.ai lists your skills (Settings); skills need code execution to be turned on. Claude then writes LibKa documents in the chat, but it cannot run LibKa's checks there: build and check the result yourself, with `npx -y @libka/cli build <file.md>` or in LibKa Studio (`npx -y @libka/cli studio`).
+Upload `libka-author-skill-2.0.2.zip` (from [the release](https://github.com/aivigator-ai/open-libka-design-platform/releases/tag/v2.0.2)) where claude.ai lists your skills (Settings); skills need code execution to be turned on. Claude then writes LibKa documents in the chat, but it cannot run LibKa's checks there: build and check the result yourself, with `npx -y @libka/cli build <file.md>` or in LibKa Studio (`npx -y @libka/cli studio`).
 
 ## The Claude API and the Agent SDK
 
 - **The skill:** upload the `libka-author` folder through the Skills API (Anthropic's documentation: "Agent Skills" in the Claude Developer Platform docs), or, with the Agent SDK, keep it in the project's `.claude/skills/` folder, where the SDK finds skills.
-- **The server:** start it as a stdio MCP server where your code runs: command `npx`, arguments `-y @libka/mcp@2.0.1`. Set `LIBKA_OUT` to the folder for the outputs. Building needs Chrome on that machine; listing and checking do not.
+- **The server:** start it as a stdio MCP server where your code runs: command `npx`, arguments `-y @libka/mcp@2.0.2`. Set `LIBKA_OUT` to the folder for the outputs. Building needs Chrome on that machine; listing and checking do not.
 
 ## Other MCP clients
 
@@ -74,7 +74,7 @@ Most MCP clients take the same settings:
 ```json
 {
   "mcpServers": {
-    "libka": { "command": "npx", "args": ["-y", "@libka/mcp@2.0.1"], "env": { "LIBKA_OUT": "/path/to/your/LibKa folder" } }
+    "libka": { "command": "npx", "args": ["-y", "@libka/mcp@2.0.2"], "env": { "LIBKA_OUT": "/path/to/your/LibKa folder" } }
   }
 }
 ```

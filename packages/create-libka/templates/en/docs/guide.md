@@ -7,7 +7,7 @@ outputs: [web, pdf, deck, docx]
 
 ## What this file is
 
-This is a LibKa document: Markdown with a few blocks. One build turns it into a web page, an A4 PDF, 16:9 slides and an editable Word file, and checks each of them for accessibility before signing them.
+This is a LibKa document in LibKa Markdown: Markdown with a few LibKa blocks. One build turns it into a web page, an A4 PDF, 16:9 slides and an editable Word file, and checks each of them for accessibility before signing them.
 
 :::callout[Change anything]{variant=tip}
 Edit this text, then run `npm run build` again. If something is missing, such as a picture's description or a table's caption, the build stops and names the line.

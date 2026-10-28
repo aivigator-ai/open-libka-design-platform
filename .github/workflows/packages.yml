@@ -1,13 +1,19 @@
 # LibKa's npm packages: built once (npm/build.mts), then the quick start runs from the packed files alone on fresh
 # Windows and Ubuntu runners (npm/smoke.mts): create a project, install, doctor, check, build with Guard, verify,
 # the MCP server, the tokens and the Claude Desktop extension's server. Nothing is published.
+# A push to main that changes only docs/ or top-level Markdown runs nothing. Actions minutes are counted only in
+# private repositories, so there a push to main tests the quick start on Ubuntu alone; tags, pull requests, runs
+# by hand and the Monday run test both systems.
 name: packages
 
 on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore: ['docs/**', '*.md']
   pull_request:
+  schedule:
+    - cron: '30 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -34,10 +40,11 @@ jobs:
       - name: Build and pack the packages, the skill and the Desktop extension
         run: node npm/build.mts
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        # about 60 MB, needed only by the quick-start jobs of the same run: kept one day (storage counts too)
         with:
           name: packages
           path: dist/npm/
-          retention-days: 14
+          retention-days: 1
 
   # a fresh runner with only Node.js and Chrome (both come with the image): no workspace, no pnpm
   quick-start:
@@ -48,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'push' && github.ref_type == 'branch' && github.event.repository.private && '["ubuntu-24.04"]' || '["ubuntu-24.04", "windows-latest"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

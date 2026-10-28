@@ -1,6 +1,6 @@
 # {{name}}
 
-Dokumenty LibKa: každý soubor Markdown ve složce `docs/` se sestaví do webové stránky, PDF ve formátu A4, prezentace 16:9 a upravitelného souboru Wordu, zkontrolovaných z hlediska přístupnosti a podepsaných.
+Dokumenty LibKa: každý soubor v LibKa Markdownu ve složce `docs/` se sestaví do webové stránky, PDF ve formátu A4, prezentace 16:9 a upravitelného souboru Wordu, zkontrolovaných z hlediska přístupnosti a podepsaných.
 
 ## První kroky
 
@@ -31,4 +31,4 @@ Dovednost (skill) LibKa a server MCP LibKa umožní Claudovi a dalším nástroj
 
 ## CI
 
-`.github/workflows/libka.yml` při každém push a pull requestu na GitHubu sestaví každý dokument ve složce `docs/` pomocí LibKa Guard: Guard zkontroluje každý výstup, v pull requestu označí každý problém na jeho řádku a při jakémkoli nálezu běh selže. Výstupy zapíše vedle dokumentů do `docs/dist/` (`npm run build` zapisuje do `dist/`) a uchová je jako artefakt na 14 dní. Workflow uvádí verzi LibKa, kterou CI spouští (`cli: '@libka/cli@{{version}}'`), stejnou jako `@libka/cli` v `package.json`: když změníte jednu, změňte i druhou.
+`.github/workflows/libka.yml` při každém push a pull requestu na GitHubu sestaví každý dokument ve složce `docs/` pomocí LibKa Guard: Guard zkontroluje každý výstup, v pull requestu označí každý problém (problém ve zdroji na jeho řádku, nález ve výstupu u jeho souboru) a při jakémkoli nálezu běh selže. Výstupy zapíše vedle dokumentů do `docs/dist/` (`npm run build` zapisuje do `dist/`) a uchová je jako artefakt na 7 dní. Workflow běží ve vašem repozitáři: ve veřejném repozitáři jsou standardní runnery GitHubu i úložiště artefaktů zdarma; v soukromém se minuty workflow i uložené artefakty započítávají do minut a úložiště Actions vašeho účtu (dobu uchování výstupů změníte hodnotou `retention-days` ve workflow). Workflow uvádí verzi LibKa, kterou CI spouští (`cli: '@libka/cli@{{version}}'`), stejnou jako `@libka/cli` v `package.json`: když změníte jednu, změňte i druhou.
