@@ -291,8 +291,9 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     // select by character: with line wrapping, Shift+Home finds the line's start from the drawn layout, which a
     // loaded machine may not have measured yet
     for (let i = 0; i < 'Read the guide.'.length; i++) await page.keyboard.press('Shift+ArrowLeft');
-    // with nothing selected Ctrl+K opens the command palette: wait until the editor has drawn the selection
-    await page.waitForFunction(() => getSelection()?.toString() === 'Read the guide.');
+    // with nothing selected Ctrl+K opens the command palette: wait until the editor holds the selection Ctrl+K reads
+    // (its own state, not the page's drawn selection, which a loaded machine may draw later or not at all)
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: { selection: string } }).libkaStudio.selection === 'Read the guide.');
     await page.keyboard.press('Control+k');
     await page.waitForSelector('.st-dialog--prompt[open]');
     await page.fill('.st-dialog--prompt input', 'guide.md');

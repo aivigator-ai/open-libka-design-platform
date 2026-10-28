@@ -303,7 +303,8 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
       const box = (await p.boundingBox())!;
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + 40, y: box.y + 10 }] });
-      await page.waitForTimeout(800);
+      // hold until the menu opens, as a person does: on a loaded machine the press timer can fire after a fixed wait
+      await page.waitForSelector('#st-blockmenu [role="menuitem"]', { timeout: 10000 });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForTimeout(300);
       expect(await page.locator('#st-blockmenu [role="menuitem"]').count()).toBeGreaterThan(5);

@@ -112,7 +112,8 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     await page.click('[data-lang="cs"]');
     expect(await page.getAttribute('html', 'lang')).toBe('cs');
     expect(await page.textContent('#tab-problems')).toContain('Problémy');
-    expect(await page.getAttribute('.cm-content', 'aria-label')).toBe('Zdroj dokumentu (LibKa Markdown)');
+    // the source editor takes its new label with its next update, a moment after the page's language
+    await expect.poll(() => page.getAttribute('.cm-content', 'aria-label')).toBe('Zdroj dokumentu (LibKa Markdown)');
     await page.click('#theme-toggle');
     expect(await page.getAttribute('html', 'data-theme')).toBe('dark');
     await page.reload();
