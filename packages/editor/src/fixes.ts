@@ -11,7 +11,7 @@ import { load, save } from './markdown.ts';
 import { schema } from './schema.ts';
 
 /** Fixes that change the text here (the others are the caller's: fields, the front matter). */
-export const appliesToText = (fix: Fix): boolean => fix.kind !== 'field' && fix.kind !== 'set-front-matter';
+export const appliesToText = (fix: Fix): boolean => fix.kind !== 'field' && fix.kind !== 'set-front-matter' && fix.kind !== 'remove-front-matter';
 
 const directive = (n: PMNode) => n.type === schema.nodes.directive || n.type === schema.nodes.leaf_directive;
 

@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { Key } from '../i18n.ts';
 import { registry, type Extension } from '../state/commands.ts';
 import * as s from '../state/store.ts';
+import { showPanel } from '../state/layout.ts';
 import { t } from '../state/text.ts';
 import { openTutorial } from './project.ts';
 import { startTour } from '../ui/Tour.tsx';
@@ -82,7 +83,7 @@ function TutorialPanel() {
 export const tutorial: Extension = {
   id: 'core.tutorial',
   commands: [
-    { id: 'tutorial.open', title: 'tut.openCommand', run: async () => { await openTutorial(); s.panelTab.value = 'tutorial'; } },
+    { id: 'tutorial.open', title: 'tut.openCommand', run: async () => { await openTutorial(); showPanel('tutorial'); } },
     { id: 'tour.start', title: 'tour.startCommand', run: () => startTour() },
     { id: 'a11y.open', title: 'a11y.title', run: () => { s.dialog.value = { kind: 'accessibility' }; } },
     { id: 'about.open', title: 'about.title', run: () => { s.dialog.value = { kind: 'about' }; } },

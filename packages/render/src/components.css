@@ -79,6 +79,14 @@
   letter-spacing: var(--lk-type-caption-tracking);
   color: var(--lk-text-muted);
 }
+/* the AI label: a sentence, never colour alone */
+.lk-doc-ai {
+  margin: var(--lk-space-2) 0 0;
+  font-size: var(--lk-type-body-sm-size);
+  line-height: var(--lk-type-body-sm-line);
+  color: var(--lk-text-secondary);
+}
+.lk-ai-badge { margin: 0; }
 
 /* ── card ───────────────────────────────────────────────────────── */
 .lk-card {
@@ -150,6 +158,9 @@
   padding: var(--lk-density-control-pad-y) var(--lk-density-control-pad-x);
   height: var(--lk-density-row-height);
 }
+/* revision history: the version and date stay on one line */
+.lk-revisions .lk-revisions-version, .lk-revisions .lk-revisions-date { white-space: nowrap; }
+.lk-revisions td.lk-revisions-version { color: var(--lk-text-primary); font-weight: 600; }
 
 /* ── callout ────────────────────────────────────────────────────── */
 .lk-callout {
@@ -482,6 +493,91 @@
 .lk-compare-body { display: flex; flex-direction: column; gap: var(--lk-space-2); color: var(--lk-text-secondary); }
 .lk-compare-body > * { margin: 0; }
 
+/* ── pros and cons ──────────────────────────────────────────────── */
+.lk-pros-cons { display: flex; flex-direction: column; gap: var(--lk-space-3); }
+.lk-pros-cons-title { margin: 0; font-weight: 600; color: var(--lk-text-heading); }
+.lk-pros-cons-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--lk-space-4); }
+.lk-pros-cons-side {
+  display: flex; flex-direction: column; gap: var(--lk-space-2);
+  padding: var(--lk-space-4); background: var(--lk-bg-surface);
+  border: 1px solid var(--lk-border-default); border-top: 4px solid var(--lk-status-success); border-radius: var(--lk-radius-md);
+}
+.lk-pros-cons-side--pros { border-top-color: var(--lk-status-success); }
+.lk-pros-cons-side--cons { border-top-color: var(--lk-status-error); }
+.lk-pros-cons-kind { margin: 0; font-size: var(--lk-type-caption-size); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--lk-text-success); }
+.lk-pros-cons-side--cons .lk-pros-cons-kind { color: var(--lk-text-error); }
+.lk-pros-cons-side > ul { margin: 0; }
+
+/* ── process (flow) ─────────────────────────────────────────────── */
+.lk-process { display: flex; flex-direction: column; gap: var(--lk-space-3); container-type: inline-size; }
+.lk-process-title { margin: 0; font-weight: 600; color: var(--lk-text-heading); }
+.lk-process-list { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--lk-space-8); }
+.lk-process-stage {
+  counter-increment: list-item;   /* a flex item is not a list item, so it advances the counter itself */
+  position: relative; flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: var(--lk-space-2);
+  padding: var(--lk-space-3) var(--lk-space-4) var(--lk-space-4);
+  background: var(--lk-bg-surface); border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md);
+}
+.lk-process-stage::before {
+  content: counter(list-item);
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--lk-radius-full); background: var(--lk-accent-bg); border: 1px solid var(--lk-accent-border);
+  color: var(--lk-text-accent); font-weight: 700; font-size: var(--lk-type-body-sm-size);
+}
+/* the arrow to the next stage: a drawn chevron in the gap, no text */
+.lk-process-stage:not(:last-child)::after {
+  content: ""; position: absolute; top: 50%; right: calc(-1 * var(--lk-space-8) / 2 - 6px);
+  width: 10px; height: 10px; border-top: 3px solid var(--lk-action-accent-strong); border-right: 3px solid var(--lk-action-accent-strong);
+  transform: translateY(-50%) rotate(45deg);
+}
+.lk-process .lk-process-stage { max-width: none; }   /* beats the manual's line length for list items */
+.lk-process-body { color: var(--lk-text-primary); }
+.lk-process-body > * { margin: 0; }
+.lk-process-again { margin: 0; font-size: var(--lk-type-body-sm-size); font-weight: 600; color: var(--lk-text-secondary); }
+/* stacked with arrows down when the process's own box is too narrow for a row: sooner with five or six stages (on the
+   page's column, about 51rem, five boxes break a long word such as "Zaregistrování" mid-word, so they stack there) */
+@container (max-width: 34rem) {
+  .lk-process-list { flex-direction: column; gap: var(--lk-space-6); }
+  .lk-process-stage:not(:last-child)::after { top: auto; right: auto; left: 50%; bottom: calc(-1 * var(--lk-space-6) / 2 - 6px); transform: translateX(-50%) rotate(135deg); }
+}
+@container (max-width: 54rem) {
+  .lk-process-list--long { flex-direction: column; gap: var(--lk-space-6); }
+  .lk-process-list--long .lk-process-stage:not(:last-child)::after { top: auto; right: auto; left: 50%; bottom: calc(-1 * var(--lk-space-6) / 2 - 6px); transform: translateX(-50%) rotate(135deg); }
+}
+
+/* ── matrix ─────────────────────────────────────────────────────── */
+.lk-matrix { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "title title" "y grid" ". x"; gap: var(--lk-space-3); }
+.lk-matrix-title { grid-area: title; margin: 0; font-weight: 600; color: var(--lk-text-heading); }
+.lk-matrix-axis { margin: 0; font-size: var(--lk-type-caption-size); font-weight: 600; color: var(--lk-text-secondary); text-align: center; }
+.lk-matrix .lk-matrix-axis { max-width: none; }   /* beats the manual's line length for paragraphs, so the axis centres on the grid */
+.lk-matrix-axis--x { grid-area: x; }
+.lk-matrix-axis--y { grid-area: y; align-self: center; writing-mode: vertical-rl; transform: rotate(180deg); }
+.lk-matrix-grid { grid-area: grid; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lk-space-3); }
+.lk-matrix-q {
+  display: flex; flex-direction: column; gap: var(--lk-space-2);
+  padding: var(--lk-space-4); background: var(--lk-bg-surface);
+  border: 1px solid var(--lk-border-default); border-top: 4px solid var(--lk-action-accent-strong); border-radius: var(--lk-radius-md);
+}
+.lk-matrix--swot .lk-matrix-q--1 { border-top-color: var(--lk-status-success); }
+.lk-matrix--swot .lk-matrix-q--2 { border-top-color: var(--lk-status-error); }
+.lk-matrix--swot .lk-matrix-q--3 { border-top-color: var(--lk-status-info); }
+.lk-matrix--swot .lk-matrix-q--4 { border-top-color: var(--lk-status-warning); }
+.lk-matrix-label { margin: 0; font-weight: 700; color: var(--lk-text-heading); }
+.lk-matrix-body { display: flex; flex-direction: column; gap: var(--lk-space-2); color: var(--lk-text-secondary); }
+.lk-matrix-body > * { margin: 0; }
+@media (max-width: 560px) {
+  .lk-matrix { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "y" "x" "grid"; gap: var(--lk-space-2); }
+  .lk-matrix-axis { text-align: start; }
+  .lk-matrix-axis--y { writing-mode: horizontal-tb; transform: none; }
+  .lk-matrix-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* Chrome tags rotated text inside an artifact, which PDF/UA forbids: in print the y axis is written above the grid */
+@media print {
+  .lk-matrix { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "y" "grid" "x"; }
+  .lk-matrix-axis--y { writing-mode: horizontal-tb; transform: none; }
+}
+
 /* ── quote ──────────────────────────────────────────────────────── */
 .lk-quote { margin: 0; padding-left: var(--lk-space-5); border-left: 4px solid var(--lk-action-accent-strong); }
 .lk-quote blockquote { margin: 0; font-family: var(--lk-font-brand); font-size: var(--lk-type-body-lg-size); line-height: 1.5; color: var(--lk-text-primary); }
@@ -511,13 +607,26 @@
 }
 
 /* ── key figures ────────────────────────────────────────────────── */
-.lk-metrics { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--lk-space-4); }
+/* data-fit (from the renderer) is the longest word of the figures in em: a column is at least wide enough for it
+   at 1.75rem, and a figure shrinks from 2.25rem to fit its cell, so "184,000" never breaks inside. */
+.lk-metrics {
+  --lk-metric-size: 2.25rem; --lk-metric-fit: 2;
+  list-style: none; margin: 0; padding: 0; display: grid; gap: var(--lk-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(10rem, calc(var(--lk-metric-fit) * 1.75rem + 2 * var(--lk-space-5) + 2px))), 1fr));
+}
+.lk-metrics[data-fit="2.5"] { --lk-metric-fit: 2.5; } .lk-metrics[data-fit="3"] { --lk-metric-fit: 3; } .lk-metrics[data-fit="3.5"] { --lk-metric-fit: 3.5; }
+.lk-metrics[data-fit="4"] { --lk-metric-fit: 4; } .lk-metrics[data-fit="4.5"] { --lk-metric-fit: 4.5; } .lk-metrics[data-fit="5"] { --lk-metric-fit: 5; }
+.lk-metrics[data-fit="5.5"] { --lk-metric-fit: 5.5; } .lk-metrics[data-fit="6"] { --lk-metric-fit: 6; } .lk-metrics[data-fit="6.5"] { --lk-metric-fit: 6.5; }
+.lk-metrics[data-fit="7"] { --lk-metric-fit: 7; } .lk-metrics[data-fit="7.5"] { --lk-metric-fit: 7.5; } .lk-metrics[data-fit="8"] { --lk-metric-fit: 8; }
+.lk-metrics[data-fit="8.5"] { --lk-metric-fit: 8.5; } .lk-metrics[data-fit="9"] { --lk-metric-fit: 9; } .lk-metrics[data-fit="9.5"] { --lk-metric-fit: 9.5; }
+.lk-metrics[data-fit="10"] { --lk-metric-fit: 10; }
 .lk-metrics > li {
+  container-type: inline-size;
   display: flex; flex-direction: column; gap: var(--lk-space-1);
   padding: var(--lk-space-4) var(--lk-space-5); background: var(--lk-bg-surface);
   border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md);
 }
-.lk-metric-value { font-family: var(--lk-font-brand); font-size: 2.25rem; font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--lk-text-heading); }
+.lk-metric-value { font-family: var(--lk-font-brand); font-size: min(var(--lk-metric-size), 100cqi / var(--lk-metric-fit)); font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--lk-text-heading); }
 .lk-metric-label { color: var(--lk-text-secondary); }
 
 /* ── gallery ────────────────────────────────────────────────────── */
@@ -592,7 +701,7 @@
   .lk-tabs-panel[hidden] { display: flex !important; }
   .lk-video video, .lk-video-play { display: none; }
   .lk-video-print { display: block; }
-  .lk-code, .lk-compare-item, .lk-metrics > li, .lk-chart, .lk-accordion-item, .lk-glossary > div, .lk-card { break-inside: avoid; }
+  .lk-code, .lk-compare-item, .lk-pros-cons, .lk-process, .lk-matrix, .lk-metrics > li, .lk-chart, .lk-accordion-item, .lk-glossary > div, .lk-card { break-inside: avoid; }
 }
 
 /* ══ UI specimens (manual section 10) ═════════════════════════════
@@ -765,6 +874,9 @@ textarea.lk-ui-input { resize: vertical; }
 .lk-doc-status-list > div { display: flex; flex-direction: column; gap: var(--lk-space-0_5); }
 .lk-doc-status-list dt { font-size: var(--lk-type-caption-size); font-weight: var(--lk-type-caption-weight); letter-spacing: var(--lk-type-caption-tracking); color: var(--lk-text-muted); }
 .lk-doc-status-list dd { margin: 0; color: var(--lk-text-primary); }
+/* the authors where :::byline stands */
+.lk-byline { margin: 0; font-size: var(--lk-type-body-sm-size); color: var(--lk-text-secondary); }
+.lk-byline-label { font-weight: var(--lk-type-caption-weight); color: var(--lk-text-primary); }
 .lk-doc-banner {
   display: flex; flex-direction: column; gap: var(--lk-space-1); padding: var(--lk-space-4) var(--lk-space-5); border-radius: var(--lk-radius-sm);
   border: 1px solid color-mix(in srgb, var(--lk-status-error) 35%, transparent);
@@ -812,13 +924,21 @@ textarea.lk-ui-input { resize: vertical; }
 .lk-cta .lk-cta-link--secondary:hover { background: var(--lk-bg-elevated); }
 .lk-cta .lk-cta-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lk-cta .lk-cta-link:focus-visible { outline: 3px solid var(--lk-focus-ring); outline-offset: 2px; }
-.lk-cta-url { display: none; font-family: var(--lk-font-mono); font-size: var(--lk-type-body-sm-size); color: var(--lk-text-secondary); overflow-wrap: anywhere; }
+.lk-cta-url, .lk-download-url { display: none; font-family: var(--lk-font-mono); font-size: var(--lk-type-body-sm-size); color: var(--lk-text-secondary); overflow-wrap: anywhere; }
+
+/* ── download ───────────────────────────────────────────────────── */
+.lk-download { display: flex; flex-direction: column; gap: var(--lk-space-1); padding: var(--lk-space-3) var(--lk-space-5); background: var(--lk-bg-surface); border: 1px solid var(--lk-border-default); border-left: 4px solid var(--lk-border-strong); border-radius: var(--lk-radius-md); }
+.lk-download > p { margin: 0; }
+.lk-download-action { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--lk-space-1) var(--lk-space-4); }
+.lk-download-link { font-weight: var(--lk-type-heading-h4-weight); }
+.lk-download-details { font-weight: var(--lk-type-body-md-weight); color: var(--lk-text-secondary); }
+.lk-download-text { color: var(--lk-text-secondary); max-width: 60ch; }
 
 @media print {
-  .lk-summary, .lk-doc-status, .lk-doc-banner, .lk-cta, .lk-dl-list > div { break-inside: avoid; }
+  .lk-summary, .lk-doc-status, .lk-doc-banner, .lk-cta, .lk-download, .lk-dl-list > div { break-inside: avoid; }
   .lk-section { break-after: avoid; }
   .lk-section--page { break-before: page; margin-top: 0; }
-  .lk-cta-url { display: inline; }
+  .lk-cta-url, .lk-download-url { display: inline; }
 }
 
 /* ══ Navigation and sources ════════════════════════════════════
@@ -841,7 +961,7 @@ textarea.lk-ui-input { resize: vertical; }
 /* a 24px target (WCAG 2.5.8) even next to another link; the negative margins keep the line spacing */
 .lk-fn-ref a { display: inline-block; box-sizing: border-box; min-width: 24px; min-height: 24px; padding: 6px 2px 6px 1px; margin: -6px 0; line-height: 12px; text-align: left; text-decoration-thickness: 1px; }
 .lk-cite { white-space: nowrap; }
-.lk-notes, .lk-references { display: flex; flex-direction: column; gap: var(--lk-space-3); }
+.lk-notes, .lk-references, .lk-revisions-section { display: flex; flex-direction: column; gap: var(--lk-space-3); }
 .lk-notes-list, .lk-references-list {
   margin: 0; padding-left: var(--lk-space-6); display: grid; gap: var(--lk-space-2);
   font-size: var(--lk-type-body-sm-size); line-height: var(--lk-type-body-sm-line); color: var(--lk-text-secondary);
@@ -922,9 +1042,20 @@ textarea.lk-ui-input { resize: vertical; }
 .lk-release-group--security { border-left-color: var(--lk-status-error); }
 .lk-release-group--security .lk-release-kind { color: var(--lk-text-error); }
 
+/* ── decision ───────────────────────────────────────────────────── */
+.lk-decision { display: flex; flex-direction: column; gap: var(--lk-space-4); }
+.lk-decision-meta { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--lk-space-2) var(--lk-space-4); color: var(--lk-text-secondary); }
+.lk-decision-intro { display: flex; flex-direction: column; gap: var(--lk-space-2); font-weight: 600; color: var(--lk-text-primary); }
+.lk-decision-intro > * { margin: 0; }
+.lk-decision-part { display: flex; flex-direction: column; gap: var(--lk-space-2); padding-left: var(--lk-space-4); border-left: 3px solid var(--lk-border-strong); }
+.lk-decision-kind { margin: 0; font-size: var(--lk-type-heading-h4-size); line-height: var(--lk-type-heading-h4-line); letter-spacing: var(--lk-type-heading-h4-tracking); font-weight: var(--lk-type-heading-h4-weight); color: var(--lk-text-heading); }
+.lk-decision-body { display: flex; flex-direction: column; gap: var(--lk-space-2); color: var(--lk-text-secondary); }
+.lk-decision-body > * { margin: 0; }
+.lk-decision-body ul { padding-left: var(--lk-space-6); display: grid; gap: var(--lk-space-1); }
+
 @media print {
-  .lk-timeline-item, .lk-release-group { break-inside: avoid; }
-  .lk-release-title { break-after: avoid; }
+  .lk-timeline-item, .lk-release-group, .lk-decision-part { break-inside: avoid; }
+  .lk-release-title, .lk-decision-title, .lk-decision-meta, .lk-decision-kind { break-after: avoid; }
 }
 .lk-mark-note { color: var(--lk-text-secondary); }
 

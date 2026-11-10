@@ -9,12 +9,17 @@ import { useState } from 'preact/hooks';
 import type { Node as PMNode } from 'prosemirror-model';
 import { NodeSelection } from 'prosemirror-state';
 import { blockInfo, BlockSelection, changeType, conversionsFor, inlineText, isFigure, objectRange, schema, selectedObject, type BlockInfo, type LocalAttribute } from '@libka/editor';
-import { OUTPUTS, outputsOf, type Problem } from '@libka/model';
+import { aiReminders, DATE_FORMATS, OUTPUTS, outputsOf, type Problem } from '@libka/model';
+import { settingTitle } from '@libka/blocks';
+import { toggleOutput } from '../core/outputs.ts';
+import type { Key } from '../i18n.ts';
 import * as s from '../state/store.ts';
 import { t } from '../state/text.ts';
 import { bridge, currentText } from '../app/project.ts';
-import { frontMatter, withField } from '../core/frontmatter.ts';
-import { blockItems, visual } from './Visual.tsx';
+import { aiFields, authorText, authorValue, frontMatter, withAiField, withField, type FieldValue } from '../core/frontmatter.ts';
+import { blockItems, selectedLine, visual } from './Visual.tsx';
+import { showBlockChecks } from '../state/layout.ts';
+import { forPlace, placeAt, placesOf } from '../core/checklist.ts';
 import { applyQuickFix, fixLabel } from '../app/fixes.ts';
 
 const APPEARANCE = new Set(['variant', 'theme', 'layout', 'break', 'style']);
@@ -28,16 +33,21 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-/** One property: a label, the control its kind calls for, the registry's help, and "Required" in words. */
-function Field({ id, label, spec, value, files, onCommit }: {
-  id: string; label: string; spec: LocalAttribute | undefined; value: string | undefined; files: string[]; onCommit(v: string | null): void;
+/**
+ * One property: its plain name with the key the Markdown uses beside it (`fileKey`, also read as part of its
+ * description), the control its kind calls for, the registry's help, and "Required" in words.
+ */
+function Field({ id, label, fileKey, spec, value, files, onCommit }: {
+  id: string; label: string; fileKey?: string; spec: LocalAttribute | undefined; value: string | undefined; files: string[]; onCommit(v: string | null): void;
 }) {
   // a value's label in the interface language (the value itself is what the Markdown says)
   const named = (v: string) => spec?.labels?.[v] ?? v;
   const required = Boolean(spec?.required);
   const missing = required && !value;
   const help = spec?.description;
-  const describedBy = [help ? `${id}-help` : '', missing ? `${id}-req` : ''].filter(Boolean).join(' ') || undefined;
+  // (the key only when it says something the name does not: "Title" for `title` would repeat itself)
+  const key = fileKey && fileKey.toLowerCase() !== label.toLowerCase() ? fileKey : undefined;
+  const describedBy = [key ? `${id}-key` : '', help ? `${id}-help` : '', missing ? `${id}-req` : ''].filter(Boolean).join(' ') || undefined;
   const common = { id, 'aria-describedby': describedBy, 'aria-invalid': missing ? 'true' as const : undefined };
   let control: ComponentChildren;
   if (spec?.kind === 'flag') {
@@ -75,7 +85,10 @@ function Field({ id, label, spec, value, files, onCommit }: {
   const isGroup = Boolean(spec?.values && spec.values.length <= 4 && spec.kind !== 'flag');
   return (
     <div class="st-field-row" data-kind={spec?.kind ?? (spec?.values ? 'choice' : 'text')}>
-      {isGroup ? <span class="st-field-label" id={`${id}-label`}>{label}</span> : <label class="st-field-label" for={id} id={`${id}-label`}>{label}</label>}
+      <span class="st-field-head">
+        {isGroup ? <span class="st-field-label" id={`${id}-label`}>{label}</span> : <label class="st-field-label" for={id} id={`${id}-label`}>{label}</label>}
+        {key ? <span class="st-field-key" id={`${id}-key`}><span class="st-visually-hidden">{t('field.key', { key: '' })}</span><code>{key}</code></span> : null}
+      </span>
       {control}
       {missing ? <span class="st-field-required" id={`${id}-req`}>{t('insp.required')}</span> : null}
       {help ? <span class="st-field-help" id={`${id}-help`}>{help}</span> : null}
@@ -131,44 +144,63 @@ function DocumentProperties() {
   const fm = frontMatter(source);
   const meta = s.doc.value?.meta;
   if (fm === null) return <p class="st-empty">{t('insp.yamlError')}</p>;
-  const set = (key: string, value: string | string[] | null) => {
+  const set = (key: string, value: FieldValue | null) => {
     const text = currentText();
     const next = withField(text, key, value);
     if (next !== null && next !== text) bridge.editor?.replaceAll(next);
   };
-  const str = (k: string) => (fm[k] === undefined || fm[k] === null ? undefined : String(fm[k]));
+  // the authors are one line in the field ("Ann Novak (Security lead); Petr Svoboda"), a list in the front matter
+  const str = (k: string) => (fm[k] === undefined || fm[k] === null ? undefined : k === 'author' ? authorText(fm[k]) : String(fm[k]));
+  const commit = (k: string, v: string | null) => set(k, k === 'author' ? authorValue(v ?? '') : v);
   const fields: [string, LocalAttribute][] = [
     ['title', { description: t('doc.titleHelp'), required: true }],
     ['subtitle', { description: t('doc.subtitleHelp') }],
     ['lang', { description: t('doc.langHelp'), required: true, values: ['en', 'cs'] }],
+    ['author', { description: t('doc.authorHelp') }],
     ['version', { description: t('doc.versionHelp') }],
     ['date', { description: t('doc.dateHelp'), kind: 'date' }],
+    ['date-format', { description: t('doc.dateFormatHelp'), values: [...DATE_FORMATS], labels: { long: t('doc.dateLong'), short: t('doc.dateShort'), iso: t('doc.dateIso') } }],
     ['status', { description: t('doc.statusHelp') }],
     ['owner', { description: t('doc.ownerHelp') }],
     ['reviewed', { description: t('doc.reviewedHelp'), kind: 'date' }],
     ['next-review', { description: t('doc.nextReviewHelp'), kind: 'date' }],
   ];
   const want = outputsOf(meta ?? {});
+  // how AI took part: the author's declaration, recorded in the manifest; the label shows only when turned on
+  const ai = aiFields(fm.ai);
+  const setAi = (field: 'use' | 'reviewed-by' | 'label', value: string | boolean | null) => {
+    const text = currentText();
+    const next = withAiField(text, field, value);
+    if (next !== null && next !== text) bridge.editor?.replaceAll(next);
+  };
+  const reminders = s.doc.value ? aiReminders(s.doc.value) : [];
   return (
     <div class="st-inspector" data-target="document">
       <header class="st-insp-head"><h3 class="st-insp-title">{t('insp.documentTitle')}</h3><p class="st-insp-sub">{t('insp.documentNote')}</p></header>
       <Section id="doc-main" title={t('insp.content')}>
-        {fields.map(([k, spec]) => <Field key={k} id={`docprop-${k}`} label={k} spec={spec} value={str(k)} files={[]} onCommit={(v) => set(k, v)} />)}
+        {fields.map(([k, spec]) => <Field key={k} id={`docprop-${k}`} label={t(`field.${k}` as Key)} fileKey={k} spec={spec} value={str(k)} files={[]} onCommit={(v) => commit(k, v)} />)}
+      </Section>
+      <Section id="doc-ai" title={t('ai.title')}>
+        <Field id="docprop-ai-use" label={t('field.ai')} fileKey="ai" files={[]} value={ai.use} onCommit={(v) => setAi('use', v)}
+          spec={{ description: t('ai.useHelp'), values: ['ai-assisted', 'ai-generated'], labels: { 'ai-assisted': t('ai.assisted'), 'ai-generated': t('ai.generated') } }} />
+        {ai.use ? <>
+          <Field id="docprop-ai-reviewed-by" label={t('field.reviewed-by')} fileKey="reviewed-by" files={[]} value={ai.reviewedBy} onCommit={(v) => setAi('reviewed-by', v)} spec={{ description: t('ai.reviewedHelp') }} />
+          <Field id="docprop-ai-show" label={t('field.ai-label')} fileKey="label" files={[]} value={ai.label ? '' : undefined} onCommit={(v) => setAi('label', v !== null)} spec={{ description: t('ai.labelHelp'), kind: 'flag' }} />
+        </> : null}
+        {reminders.length ? <p class="st-insp-sub" role="note">{t('ai.reminder')}</p> : null}
       </Section>
       <Section id="doc-outputs" title={t('outputs.title')}>
-        <fieldset class="st-checks">
+        <fieldset class="st-checks" id="doc-outputs-list" aria-describedby="doc-outputs-note">
           <legend class="st-visually-hidden">{t('outputs.title')}</legend>
           {OUTPUTS.map((o) => (
-            <label key={o}><input type="checkbox" checked={want.includes(o)} onChange={(e) => {
-              const on = new Set(want);
-              if (e.currentTarget.checked) on.add(o); else on.delete(o);
-              if (!e.currentTarget.checked && o === 'web') { on.delete('pdf'); on.delete('docx'); }
-              if (e.currentTarget.checked && (o === 'pdf' || o === 'docx')) on.add('web');
-              if (!on.size) { e.currentTarget.checked = true; return; }
-              set('outputs', OUTPUTS.filter((x) => on.has(x)));
+            <label key={o}><input type="checkbox" value={o} checked={want.includes(o)} onChange={(e) => {
+              const next = toggleOutput(want, o, e.currentTarget.checked);
+              if (!next) { e.currentTarget.checked = true; return; }   // a document needs at least one output
+              set('outputs', next);
             }} /> {t(`outputs.${o}`)}</label>
           ))}
         </fieldset>
+        <p class="st-field-help" id="doc-outputs-note">{t('outputs.note')}</p>
       </Section>
     </div>
   );
@@ -206,7 +238,7 @@ function BlockProperties({ node, parent, pos, info }: { node: PMNode; parent: PM
   const figure = isFigure(node) ? node.firstChild! : null;
   const label = node.type === schema.nodes.directive && node.firstChild?.type === schema.nodes.directive_label ? node.firstChild : null;
   const problems = problemsAt(pos);
-  const field = (k: string, sp: LocalAttribute | undefined) => <Field key={k} id={`attr-${k}`} label={k} spec={sp} value={attrs[k]} files={files} onCommit={(val) => setAttr(k, val)} />;
+  const field = (k: string, sp: LocalAttribute | undefined) => <Field key={k} id={`attr-${k}`} label={sp?.title ?? k} fileKey={k} spec={sp} value={attrs[k]} files={files} onCommit={(val) => setAttr(k, val)} />;
   return (
     <div class="st-inspector" data-target={info.key}>
       <header class="st-insp-head">
@@ -248,11 +280,26 @@ function BlockProperties({ node, parent, pos, info }: { node: PMNode; parent: PM
       })()}
       {settings.length || unknown.length ? <Section id="settings" title={t('insp.settings')}>{settings.map(([k, sp]) => field(k, sp))}{unknown.map((k) => field(k, undefined))}</Section> : null}
       {appearance.length ? <Section id="appearance" title={t('insp.appearance')}>{appearance.map(([k, sp]) => field(k, sp))}</Section> : null}
-      <Section id="problems" title={t('insp.problems')}>
-        {problems.length ? <ul class="st-insp-problems">{problems.map((p, i) => <li key={i}>{p.message}<FixButtons problem={p} /></li>)}</ul> : <p class="st-empty st-empty--ok">{t('insp.noProblems')}</p>}
-      </Section>
+      <BlockChecks />
+
       <Actions />
     </div>
+  );
+}
+
+/** The block's checks: how many items Checks has for it, and the way there (Checks keeps the one list). */
+function BlockChecks() {
+  const place = placeAt(placesOf(s.doc.value), selectedLine()) ?? 'document';
+  const items = forPlace(s.checklist.value, place).flatMap((g) => g.items);
+  const fix = items.filter((i) => i.kind === 'fix').length;
+  const advice = items.length - fix;
+  return (
+    <Section id="problems" title={t('insp.problems')}>
+      {items.length ? <>
+        <p class="st-insp-checks" id="insp-checks">{[fix ? t('checks.toFix', { n: fix }) : '', advice ? t('checks.adviceCount', { n: advice }) : ''].filter(Boolean).join(' · ')}</p>
+        <button type="button" class="st-btn st-btn--small" id="insp-to-checks" aria-describedby="insp-checks" onClick={() => showBlockChecks()}>{t('insp.toChecks')}</button>
+      </> : <p class="st-empty st-empty--ok">{t('insp.noProblems')}</p>}
+    </Section>
   );
 }
 
@@ -282,9 +329,9 @@ function InlineProperties({ node, pos }: { node: PMNode; pos: number }) {
         {def ? <p class="st-insp-sub">{def.summary}</p> : null}
       </header>
       <Section id="content" title={t('insp.content')}>
-        <Field id="inline-label" label="label" spec={{ description: def?.summary ?? '', required: true }} value={node.attrs.label ?? undefined} files={[]}
+        <Field id="inline-label" label={settingTitle(node.attrs.name, 'label')?.[s.lang.value] ?? 'label'} spec={{ description: def?.summary ?? '', required: true }} value={node.attrs.label ?? undefined} files={[]}
           onCommit={(v) => setAttrs(pos, { label: v ?? '' })} />
-        {node.attrs.name === 'badge' ? <Field id="inline-variant" label="variant" spec={{ description: t('insp.badgeHelp'), values: BADGE_VARIANTS }} value={attrs.variant}
+        {node.attrs.name === 'badge' ? <Field id="inline-variant" label={settingTitle('badge', 'variant')?.[s.lang.value] ?? 'variant'} fileKey="variant" spec={{ description: t('insp.badgeHelp'), values: BADGE_VARIANTS }} value={attrs.variant}
           files={[]} onCommit={(v) => { const next = { ...attrs }; if (v === null) delete next.variant; else next.variant = v; setAttrs(pos, { attributes: next }); }} /> : null}
       </Section>
     </div>

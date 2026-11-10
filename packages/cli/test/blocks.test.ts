@@ -141,6 +141,13 @@ describe('libka lint', () => {
     expect(r.hints).toEqual([expect.stringMatching(/^slide 3 \("Long"\) has about 1\d\d words/)]);
   });
 
+  it('hints at what no output shows on its line, and the document still builds', async () => {
+    const { lint } = await import('../src/libka.ts');
+    const r = lint('---\ntitle: T\n---\n\n## A\n\nText.\n\n---\n\n## B\n\nMore.\n');
+    expect(r.ok).toBe(true);
+    expect(r.hints).toEqual([expect.stringMatching(/^line 9: a horizontal rule \(---\) shows in no output/)]);
+  });
+
   it('hints at crowded callouts and at a review date that has passed', async () => {
     const { lint } = await import('../src/libka.ts');
     const three = ':::callout[A]{variant=info}\nx\n:::\n\n> [!TIP]\n> y\n\n::::tabs\n:::tab[A]\n> [!NOTE]\n> z\n:::\n:::tab[B]\nw\n:::\n::::';

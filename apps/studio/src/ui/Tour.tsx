@@ -16,13 +16,15 @@ interface TourStep { target: string | null; title: Key; text: Key }
 
 const STEPS: TourStep[] = [
   { target: null, title: 'tour.welcome', text: 'tour.welcomeText' },
+  // (on a phone the modes and File are in ⋯: a list finds the first that is drawn)
+  { target: '.st-layout, #more-menu', title: 'tour.layout', text: 'tour.layoutText' },
   { target: '.st-mode', title: 'tour.modes', text: 'tour.modesText' },
   { target: '#editor', title: 'tour.editor', text: 'tour.editorText' },
-  { target: '.st-blocks', title: 'tour.blocks', text: 'tour.blocksText' },
-  { target: '.st-preview-pane', title: 'tour.preview', text: 'tour.previewText' },
-  { target: '.st-panel .st-tabs', title: 'tour.panel', text: 'tour.panelText' },
+  { target: '#insert-block', title: 'tour.blocks', text: 'tour.blocksText' },
+  { target: '#stage', title: 'tour.preview', text: 'tour.previewText' },
+  { target: '#companion .st-side-head', title: 'tour.panel', text: 'tour.panelText' },
   { target: '#status-chip', title: 'tour.status', text: 'tour.statusText' },
-  { target: '#file-menu', title: 'tour.file', text: 'tour.fileText' },
+  { target: '#export-menu, #more-menu', title: 'tour.file', text: 'tour.fileText' },
   { target: null, title: 'tour.palette', text: 'tour.paletteText' },
 ];
 

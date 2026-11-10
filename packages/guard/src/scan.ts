@@ -13,10 +13,21 @@ export const AXE_TAGS: readonly string[] = ['wcag2a', 'wcag2aa', 'wcag21a', 'wca
  */
 export const AXE_RULES_OFF: Readonly<Record<string, { enabled: false }>> = { 'color-contrast': { enabled: false } };
 
+export interface Violation {
+  rule: string;
+  message: string;
+  target: string;
+  /**
+   * The source line of the block the element is in, when the page marks its blocks (`data-lk-line`, which only
+   * LibKa Studio's own render writes; a build never does, so its reports have no line).
+   */
+  line?: number;
+}
+
 export interface ScanResult {
   checked: number;
   skipped: number;
-  violations: { rule: string; message: string; target: string }[];
+  violations: Violation[];
   /** WCAG success criteria the scan exercised ("1.4.3"). */
   covered?: string[];
 }
@@ -89,7 +100,9 @@ export function scanContrast({ normal, large }: ContrastArgs): ScanResult {
     return result;
   };
   const checkedEls = new Set<Element>();
-  const violations: { rule: string; message: string; target: string }[] = [];
+  const violations: Violation[] = [];
+  // (each function here stands alone: the block's source line, where the page marks it)
+  const at = (el: Element | null | undefined) => { const n = Number(el?.closest('[data-lk-line]')?.getAttribute('data-lk-line')); return n ? { line: n } : {}; };
   let skipped = 0;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let t = walker.nextNode(); t; t = walker.nextNode()) {
@@ -121,7 +134,7 @@ export function scanContrast({ normal, large }: ContrastArgs): ScanResult {
     const r = ratio(over([fg[0], fg[1], fg[2], fg[3] * opacity], bg), bg);
     if (r < need - 0.005) {
       violations.push({ rule: 'contrast', target: describe(el),
-        message: `${r.toFixed(2)}:1 for ${isLarge ? 'large' : 'normal'} text, needs ${need}:1 ("${t.textContent.trim().slice(0, 40)}")` });
+        message: `${r.toFixed(2)}:1 for ${isLarge ? 'large' : 'normal'} text, needs ${need}:1 ("${t.textContent.trim().slice(0, 40)}")`, ...at(el) });
     }
   }
   return { checked: checkedEls.size, skipped, violations };
@@ -129,16 +142,17 @@ export function scanContrast({ normal, large }: ContrastArgs): ScanResult {
 
 /* ---- runs inside the page: LibKa structure rules ---- */
 export function scanStructure(): ScanResult {
-  const violations: { rule: string; message: string; target: string }[] = [];
+  const violations: Violation[] = [];
+  const at = (el: Element | null | undefined) => { const n = Number(el?.closest('[data-lk-line]')?.getAttribute('data-lk-line')); return n ? { line: n } : {}; };
   let checked = 0;
   document.querySelectorAll('table').forEach((t, i) => {
     checked++;
-    if (!t.querySelector('caption')?.textContent?.trim()) violations.push({ rule: 'table-caption', target: `table:nth-of-type(${i + 1})`, message: 'table has no caption' });
-    t.querySelectorAll('th').forEach((th) => { if (!th.getAttribute('scope')) violations.push({ rule: 'table-header-scope', target: 'th', message: `header "${th.textContent?.trim()}" has no scope` }); });
+    if (!t.querySelector('caption')?.textContent?.trim()) violations.push({ rule: 'table-caption', target: `table:nth-of-type(${i + 1})`, message: 'table has no caption', ...at(t) });
+    t.querySelectorAll('th').forEach((th) => { if (!th.getAttribute('scope')) violations.push({ rule: 'table-header-scope', target: 'th', message: `header "${th.textContent?.trim()}" has no scope`, ...at(th) }); });
   });
   document.querySelectorAll('figure').forEach((f) => {
     checked++;
-    if (!f.querySelector('figcaption')?.textContent?.trim()) violations.push({ rule: 'figure-caption', target: 'figure', message: 'figure has no caption' });
+    if (!f.querySelector('figcaption')?.textContent?.trim()) violations.push({ rule: 'figure-caption', target: 'figure', message: 'figure has no caption', ...at(f) });
   });
   // Charts: every label inside its drawing (an SVG cuts off what is outside, in every output)
   document.querySelectorAll('svg.lk-chart-svg').forEach((svg) => {
@@ -150,14 +164,14 @@ export function scanStructure(): ScanResult {
     });
     if (out.length) {
       violations.push({ rule: 'chart-text-clipped', target: `#${svg.closest('.lk-chart')?.id ?? ''}`,
-        message: `chart "${svg.querySelector('title')?.textContent ?? ''}": ${out.length} label(s) cut off at the edge, such as "${out[0]!.textContent}"` });
+        message: `chart "${svg.querySelector('title')?.textContent ?? ''}": ${out.length} label(s) cut off at the edge, such as "${out[0]!.textContent}"`, ...at(svg) });
     }
   });
   document.body.querySelectorAll('[style]').forEach((el) => {
     // an empty attribute styles nothing (tools such as screenshot capture leave one behind)
     if (!el.getAttribute('style')!.trim()) return;
     checked++;
-    violations.push({ rule: 'no-inline-style', target: el.tagName.toLowerCase() + (el.classList[0] ? `.${el.classList[0]}` : ''), message: 'inline style attribute (colors and spacing come from tokens)' });
+    violations.push({ rule: 'no-inline-style', target: el.tagName.toLowerCase() + (el.classList[0] ? `.${el.classList[0]}` : ''), message: 'inline style attribute (colors and spacing come from tokens)', ...at(el) });
   });
   // Decks: every slide's content must fit inside the slide's padding (1280×720 canvas).
   document.querySelectorAll('.lk-deck-frame > .lk-slide').forEach((slide, i) => {
@@ -177,7 +191,9 @@ export function scanStructure(): ScanResult {
     if (over > 1) {
       const title = el.parentElement?.dataset.title ?? '';
       violations.push({ rule: 'slide-overflow', target: `#${el.parentElement?.id ?? ''}`,
-        message: `slide ${i + 1} ("${title}") does not fit: ${Math.round(over)}px too much; split it with ### or shorten it (text moved into :::notes leaves the web page and PDF too)` });
+        message: `slide ${i + 1} ("${title}") does not fit: ${Math.round(over)}px too much; split it with ### or shorten it (text moved into :::notes leaves the web page and PDF too)`,
+        // (a slide holds several blocks: it belongs with its first one)
+        ...at(el.querySelector('[data-lk-line]')) });
     }
   });
   return { checked, skipped: 0, violations };
@@ -203,8 +219,9 @@ export function scanReflow(): ScanResult {
   const first = Array.from(document.body.querySelectorAll('*')).find((el) => past(el) && !inOwnBox(el) && !Array.from(el.children).some(past));
   const target = first ? first.tagName.toLowerCase() + (first.classList[0] ? `.${first.classList[0]}` : '') : 'page';
   const text = (first?.textContent ?? '').trim().slice(0, 40);
+  const line = Number(first?.closest('[data-lk-line]')?.getAttribute('data-lk-line'));
   return { checked: 1, skipped: 0, violations: [{ rule: 'reflow', target,
-    message: `at ${width} CSS pixels wide the page scrolls sideways by ${over}px${text ? ` ("${text}")` : ''}: long text needs a place to break, a wide element a scrolling box of its own (WCAG 1.4.10)` }] };
+    message: `at ${width} CSS pixels wide the page scrolls sideways by ${over}px${text ? ` ("${text}")` : ''}: long text needs a place to break, a wide element a scrolling box of its own (WCAG 1.4.10)`, ...(line ? { line } : {}) }] };
 }
 
 /** Let running transitions finish (even 0.01ms ones under reduced motion), at most 1 s, so styles are final. */

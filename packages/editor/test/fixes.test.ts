@@ -24,8 +24,9 @@ const CASES: [string, string, string][] = [
   ['heading-skipped', '#### Skipped', '### Skipped'],
   ['summary-numbered', ':::summary\n1. One\n2. Two\n3. Three\n:::', ':::summary\n- One\n- Two\n- Three\n:::'],
   ['summary-reviewed-by', ':::summary{reviewed-by="Ann"}\n- One\n- Two\n- Three\n:::', ':::summary{reviewed-by=Ann source=ai}\n- One\n- Two\n- Three\n:::'],
-  ['unknown-attribute', '::::tabs\n:::tab[A]{icon=x}\nOne.\n:::\n:::tab[B]\nTwo.\n:::\n::::', '::::tabs\n:::tab[A]\nOne.\n:::\n\n:::tab[B]\nTwo.\n:::\n::::'],
-  ['invalid-value', ':::ui{caption="Buttons"}\n::button[Save]{variant=primry}\n:::', ':::ui{caption=Buttons}\n::button[Save]{variant=primary}\n:::'],
+  ['unknown-attribute', '::::tabs\n:::tab[A]{icon=x}\nOne.\n:::\n:::tab[B]\nTwo.\n:::\n::::', '::::tabs\n:::tab[A]\nOne.\n:::\n:::tab[B]\nTwo.\n:::\n::::'],
+  // the block around a fixed child keeps its own writing (the quotes), only the fixed line is written anew
+  ['invalid-value', ':::ui{caption="Buttons"}\n::button[Save]{variant=primry}\n:::', ':::ui{caption="Buttons"}\n::button[Save]{variant=primary}\n:::'],
 ];
 
 describe('applying fixes', () => {

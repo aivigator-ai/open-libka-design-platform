@@ -35,7 +35,7 @@ const REMARKS: Readonly<Record<string, [Level, string]>> = {
   '2.1.2': ['Partially Supports', 'No component is known to trap focus; this has not been audited for every component.'],
   '2.1.4': ['Supports', 'The web page has no single-character shortcuts. The slides\' letter keys (N, O, P, F, D, C) can be turned off with the Letter shortcuts button, and the choice is remembered in the browser; arrows, Home, End and Space keep working.'],
   '2.2.1': ['Not Applicable', 'LibKa outputs have no time limits; slides never advance on their own.'],
-  '2.2.2': ['Supports', 'Nothing moves on its own; motion follows the reduced-motion preference.'],
+  '2.2.2': ['Supports', 'Nothing moves on its own; motion follows the reduced-motion preference. The one thing that updates on its own is the timer in the slides\' presenter view, which opens only when the presenter asks for it (P or the presenter-view button) and is essential to it.'],
   '2.3.1': ['Partially Supports', 'LibKa itself adds nothing that flashes; videos and animated images an author adds are not checked for flashes.'],
   '2.4.1': ['Supports', 'The web page starts with a skip link to its content and has landmarks; the slides have main, navigation and complementary landmarks and a heading on every slide; the PDF and the Word file have tagged headings.'],
   '2.4.2': ['Supports', 'A title is required; the PDF shows its title instead of the file name, and the Word file has it in its properties.'],

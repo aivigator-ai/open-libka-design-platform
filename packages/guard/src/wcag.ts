@@ -126,27 +126,59 @@ export function conformance(report: GuardReport, facts: ContentFacts): Conforman
   return out;
 }
 
-/** A readable report of one output's conformance: a LibKa document. `pdfuaSkipped` says why the PDF was not validated. */
-export function conformanceMarkdown(name: string, target: 'manual' | 'deck', c: Conformance, pdf: boolean, docx = false, pdfuaSkipped?: string): string {
-  const status = (sc: string) => (c.failed.includes(sc) ? 'failed' : c.checked.includes(sc) ? 'checked automatically' : c.notApplicable.includes(sc) ? 'not applicable' : 'needs a person');
+/** The report's text in English and Czech; the criteria keep WCAG's English names (there is no official Czech WCAG 2.x). */
+const REPORT = {
+  en: {
+    title: 'Accessibility checks', slides: 'Slides', page: 'Web page', word: 'Word file', and: 'and', standards: 'WCAG 2.2 level AA and EN 301 549 v4.1.1',
+    checked: 'criteria checked automatically', failed: 'failed', review: 'need a person', na: 'not applicable',
+    status: { checked: 'checked automatically', failed: 'failed', review: 'needs a person', na: 'not applicable' },
+    note: 'Automated checks cover part of each criterion they test. "Checked automatically" means those checks ran and passed, not that the criterion is fully met; a person reviews the rest before claiming conformance.',
+    skippedTitle: 'The PDF was not validated',
+    skipped: (reason: string, from: string) => `PDF/UA-1 was not checked: ${reason}. The statuses below come from the checks of the ${from}; the PDF's own tags, reading order and alternative text are not covered. Build again with veraPDF installed to check them.`,
+    fromSlides: 'slides', fromPage: 'web page', fromWord: ' and the Word file', reasons: {} as Record<string, string>,
+    caption: (name: string) => `WCAG 2.2 A and AA success criteria for ${name}`,
+    head: '| Criterion | Level | EN 301 549 clause | Status |',
+  },
+  cs: {
+    title: 'Kontroly přístupnosti', slides: 'Snímky', page: 'Webová stránka', word: 'dokument Word', and: 'a', standards: 'WCAG 2.2 na úrovni AA a EN 301 549 v4.1.1',
+    // the metrics labels are the statuses, without a noun: a label stands after any count (0, 1, 2–4, 5+), and "kritérií" fits only some
+    checked: 'ověřeno automaticky', failed: 'neprošlo', review: 'posoudí člověk', na: 'netýká se',
+    status: { checked: 'ověřeno automaticky', failed: 'neprošlo', review: 'posoudí člověk', na: 'netýká se' },
+    note: 'Automatické kontroly pokrývají jen část každého kritéria, které testují. „Ověřeno automaticky“ znamená, že tyto kontroly proběhly a prošly, ne že je kritérium plně splněno; zbytek posoudí člověk a teprve potom lze prohlásit shodu. Názvy kritérií zůstávají anglické, protože oficiální český překlad WCAG 2.2 neexistuje.',
+    skippedTitle: 'PDF nebylo ověřeno',
+    skipped: (reason: string, from: string) => `PDF/UA-1 se nekontrolovalo: ${reason}. Stavy níže vycházejí z kontrol ${from}; tagy, pořadí čtení a alternativní texty samotného PDF jimi pokryty nejsou. Sestavte dokument znovu s nainstalovaným veraPDF, aby se zkontrolovaly i ony.`,
+    fromSlides: 'snímků', fromPage: 'webové stránky', fromWord: ' a dokumentu Word', reasons: { 'veraPDF was not found': 'veraPDF nebyl nalezen' } as Record<string, string>,
+    caption: (name: string) => `Kritéria úspěšnosti WCAG 2.2 úrovní A a AA pro dokument „${name}“`,
+    head: '| Kritérium | Úroveň | Článek EN 301 549 | Stav |',
+  },
+};
+
+/**
+ * A readable report of one output's conformance: a LibKa document in the document's language (English or Czech).
+ * `pdfuaSkipped` says why the PDF was not validated.
+ */
+export function conformanceMarkdown(name: string, target: 'manual' | 'deck', c: Conformance, pdf: boolean, docx = false, pdfuaSkipped?: string, lang = 'en'): string {
+  const cs = lang.toLowerCase().startsWith('cs');
+  const T = cs ? REPORT.cs : REPORT.en;
+  const status = (sc: string) => T.status[c.failed.includes(sc) ? 'failed' : c.checked.includes(sc) ? 'checked' : c.notApplicable.includes(sc) ? 'na' : 'review'];
   const rows = WCAG22.map((x) => `| ${x.sc} ${x.title} | ${x.level} | ${enClause(x.sc, 'web')}${pdf || docx ? `, ${enClause(x.sc, 'document')}` : ''} | ${status(x.sc)} |`);
-  const documents = [pdf ? 'PDF' : '', docx ? 'Word file' : ''].filter(Boolean);
-  const what = [target === 'deck' ? 'Slides' : 'Web page', ...documents];
+  const documents = [pdf ? 'PDF' : '', docx ? T.word : ''].filter(Boolean);
+  const what = [target === 'deck' ? T.slides : T.page, ...documents];
   return [
-    '---', `title: "Accessibility checks: ${name}"`, `subtitle: ${what.length > 1 ? `${what.slice(0, -1).join(', ')} and ${what[what.length - 1]}` : what[0]}, WCAG 2.2 level AA and EN 301 549 v4.1.1`, 'lang: en', '---', '',
+    '---', `title: "${T.title}: ${name}"`, `subtitle: ${what.length > 1 ? `${what.slice(0, -1).join(', ')} ${T.and} ${what[what.length - 1]}` : what[0]}, ${T.standards}`, `lang: ${cs ? 'cs' : 'en'}`, '---', '',
     ':::metrics',
-    `- **${c.checked.length}** criteria checked automatically`,
-    `- **${c.failed.length}** failed`,
-    `- **${c.review.length}** need a person`,
-    `- **${c.notApplicable.length}** not applicable`,
+    `- **${c.checked.length}** ${T.checked}`,
+    `- **${c.failed.length}** ${T.failed}`,
+    `- **${c.review.length}** ${T.review}`,
+    `- **${c.notApplicable.length}** ${T.na}`,
     ':::', '',
-    'Automated checks cover part of each criterion they test. "Checked automatically" means those checks ran and passed, not that the criterion is fully met; a person reviews the rest before claiming conformance.', '',
+    T.note, '',
     ...(pdf && pdfuaSkipped ? [
-      ':::callout[The PDF was not validated]{variant=warning}',
-      `PDF/UA-1 was not checked: ${pdfuaSkipped}. The statuses below come from the checks of the ${target === 'deck' ? 'slides' : 'web page'}${docx ? ' and the Word file' : ''}; the PDF's own tags, reading order and alternative text are not covered. Build again with veraPDF installed to check them.`,
+      `:::callout[${T.skippedTitle}]{variant=warning}`,
+      T.skipped(T.reasons[pdfuaSkipped] ?? pdfuaSkipped, `${target === 'deck' ? T.fromSlides : T.fromPage}${docx ? T.fromWord : ''}`),
       ':::', '',
     ] : []),
-    `:::table{caption="WCAG 2.2 A and AA success criteria for ${name}"}`, '',
-    '| Criterion | Level | EN 301 549 clause | Status |', '|---|---|---|---|', ...rows, '', ':::', '',
+    `:::table{caption="${T.caption(name)}"}`, '',
+    T.head, '|---|---|---|---|', ...rows, '', ':::', '',
   ].join('\n');
 }

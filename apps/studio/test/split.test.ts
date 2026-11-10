@@ -10,6 +10,12 @@ import { fileURLToPath } from 'node:url';
 import type { Browser, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { serveStatic, type Served } from '@libka/cli/src/serve.ts';
+
+/** The interface language, chosen in View ▾. */
+async function chooseLang(page: Page, l: string): Promise<void> {
+  await page.click('#view-menu > summary');
+  await page.click(`#view-menu button[data-lang="${l}"]`);
+}
 import { guardPage, launchBrowser, type GuardReport } from '@libka/guard';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -124,6 +130,7 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
   it('offers Split on wide screens only (a narrower window shows the document in Visual)', async () => {
     const page = await open({ mode: 'split', width: 1100 });
     expect(await page.locator('.st-mode [data-mode="split"]').count()).toBe(0);
+    expect(await page.locator('#split-toggle').count()).toBe(0);   // View ▾ offers it only on a wide window
     expect(await page.locator('.st-split').count()).toBe(0);
     expect(await page.isVisible('.ed-root')).toBe(true);
     await page.setViewportSize({ width: 1600, height: 900 });
@@ -131,10 +138,10 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     await page.context().close();
   }, 90000);
 
-  it('applies every kind of text fix from the Problems tab in Source mode, each one undoable step', async () => {
+  it('applies every kind of text fix from Checks in Source mode, each one undoable step', async () => {
     const page = await open({ mode: 'source' });
     const doc = [
-      '---', 'title: Fixes', 'lang: en', 'outputs: [web, slides]', '---', '',
+      '---', 'title: Fixes', 'lang: en', 'marp: true', 'theme: gaia', 'outputs: [web, slides]', '---', '',
       '## Start', '',
       ':::calout[Heads up]{variant=info}', 'Text.', ':::', '',
       ':::callout[Note]{varient=warning}', 'More.', ':::', '',
@@ -146,10 +153,12 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     ].join('\n');
     await setSource(page, doc);
     // the checks' messages are English in both interfaces, and say so (WCAG 3.1.2)
+    await page.click('#tab-checks');
     await page.waitForSelector('.st-item-msg');
     expect(await page.$$eval('.st-item-msg', (els) => [...new Set(els.map((e) => e.getAttribute('lang')))])).toEqual(['en']);
     const fixes: [string, string, (src: string) => boolean][] = [
       ['outputs-unknown', 'set-front-matter', (src) => src.includes('outputs: [web, deck]')],
+      ['marp-file', 'remove-front-matter', (src) => !src.includes('marp:') && !src.includes('theme:') && src.includes('lang: en')],
       ['block-unknown', 'rename-block', (src) => src.includes(':::callout[Heads up]{variant=info}')],
       ['unknown-attribute', 'rename-attribute', (src) => src.includes(':::callout[Note]{variant=warning}')],
       ['unknown-attribute', 'remove-attribute', (src) => src.includes(':::callout[Colour]{variant=info}')],
@@ -160,8 +169,8 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     ];
     for (const [code, kind, ok] of fixes) {
       const before = (await hook(page)).source;
-      await page.click('#tab-problems');
-      const row = page.locator('#tp-problems .st-item-row', { has: page.locator(`.st-fix[data-fix="${kind}"]`) }).first();
+      await page.click('#tab-checks');
+      const row = page.locator('#checks-list .st-item-row', { has: page.locator(`.st-fix[data-fix="${kind}"]`) }).first();
       await row.locator(`.st-fix[data-fix="${kind}"]`).click();
       const after = (await settled(page)).source;
       expect(ok(after), `${code} ${kind}:\n${after}`).toBe(true);
@@ -188,26 +197,34 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     await page.context().close();
   }, 90000);
 
-  it('in Visual mode: problem marks on blocks, fixes in the Inspector, and fields to fill (never made-up text)', async () => {
+  it('in Visual mode: problem marks on blocks open Checks on the block, its fixes, and fields to fill (never made-up text)', async () => {
     const page = await open({ mode: 'source' });
     await setSource(page, '---\ntitle: Visual fixes\nlang: en\n---\n\n## Start\n\n:::callout{variant=info}\nNo title yet.\n:::\n\n![](images/pipeline.svg "")\n');
     await page.click('.st-mode [data-mode="visual"]');
     await page.waitForSelector('.ed-root');
     await page.waitForSelector('.ed-problem-mark');
     expect(await page.locator('.ed-problem-mark').count()).toBe(2);
-    // the picture's mark: its fixes in the Inspector take the author to the empty fields
+    // the picture's mark: Checks on that block (This block), its fixes take the author to the empty fields
     await page.locator('.ed-problem-mark').last().click();
-    await page.waitForSelector('#tp-inspector .st-fix');
-    expect(await page.locator('#tp-inspector .st-fix').allTextContents()).toEqual(['Write the alt text', 'Write the caption']);
-    await page.locator('#tp-inspector .st-fix', { hasText: 'Write the alt text' }).click();
+    await page.waitForSelector('#checks-list .st-fix');
+    expect(await page.getAttribute('#checks-block', 'aria-pressed')).toBe('true');
+    expect(await page.locator('#checks-list .st-fix').allTextContents()).toEqual(['Write the alt text', 'Write the caption']);
+    // the focus is on the first fix, ready for Enter
+    await page.waitForFunction(() => document.activeElement?.classList.contains('st-fix'));
+    // Properties points there instead of keeping its own copy
+    await page.click('#tab-properties');
+    expect(await page.textContent('#insp-checks')).toBe('2 to fix');
+    await page.click('#insp-to-checks');
+    await page.locator('#checks-list .st-fix', { hasText: 'Write the alt text' }).click();
     await page.waitForFunction(() => document.activeElement?.id === 'img-alt');
     expect(await page.inputValue('#img-alt')).toBe('');
     await page.keyboard.type('The pipeline from Markdown to outputs');
     await page.keyboard.press('Tab');
     expect((await settled(page)).source).toContain('![The pipeline from Markdown to outputs](images/pipeline.svg');
     // the callout's missing title: the cursor goes into an empty title to write
-    await page.click('#tab-problems');
-    await page.locator('#tp-problems .st-fix', { hasText: 'Write the title' }).click();
+    await page.click('#tab-checks');
+    await page.click('#checks-all');
+    await page.locator('#checks-list .st-fix', { hasText: 'Write the title' }).click();
     await page.waitForTimeout(150);
     await page.keyboard.type('Read this first');
     expect((await settled(page)).source).toContain(':::callout[Read this first]{variant=info}\nNo title yet.\n:::');
@@ -218,13 +235,17 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     const page = await open({ mode: 'source' });
     await setSource(page, '---\ntitle: Chart\nlang: en\noutputs: [web]\n---\n\n## One\n\n:::chart{type=bar caption="Sales by region"}\n| Region | Sales |\n|---|---|\n| A region with an extremely long name that will never fit in any chart label area at all | 10 |\n| B | 20 |\n:::\n');
     await page.waitForFunction(() => document.querySelector('#status-chip')?.getAttribute('data-state') === 'fix', null, { timeout: 60000 });
-    await page.click('#tab-guard');
-    const explain = page.locator('#tp-guard .st-explain').first();
+    await page.click('#tab-checks');
+    const row = page.locator('#checks-list .st-item-row[data-rule="chart-text-clipped"]');
+    const explain = row.locator('.st-explain');
     await explain.waitFor();
     expect(await explain.textContent()).toMatch(/Why it matters: A chart's labels must be readable in full\.How to fix it: Shorten the labels/);
-    await page.locator('#tp-guard .st-gotext').first().click();
+    // placed on its block by the line the Studio's render marks: the chart under "One", failing on the web page
+    expect(await page.textContent('#checks-list .st-checks-place')).toBe('One › Chart');
+    expect(await row.locator('.st-item-tags').textContent()).toBe('Web and PDF');
+    await row.locator('.st-item').click();
     await page.waitForFunction(() => /^Ln (9|1[0-4]),/.test(document.querySelector('#sb-position')?.textContent ?? ''));
-    await page.click('button[data-lang="cs"]');
+    await chooseLang(page, 'cs');
     expect(await explain.textContent()).toMatch(/^Proč na tom záleží: Popisky grafu musí být čitelné celé\./);
     await page.context().close();
   }, 120000);
@@ -249,7 +270,7 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     expect((await settled(page)).source).toMatch(/## Before you publish\n\n:::checklist\n/);
     // a setting
     await page.keyboard.press('F1');
-    await page.keyboard.type('focus mode');
+    await page.keyboard.type('focus');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.st-work[data-focus="true"]');
     await page.keyboard.press('Control+Shift+f');
@@ -260,7 +281,7 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     await page.waitForSelector('.st-dialog--prefs[open]');
     await closeDialog(page);
     // a document of the library
-    await page.click('#file-menu summary');
+    await page.click('#library-toggle');
     await page.click('[data-command="project.new"]');
     await page.waitForFunction(() => (window as unknown as { libkaStudio: { project: { name: string } } }).libkaStudio.project?.name === 'untitled.md');
     await page.keyboard.press('F1');
@@ -311,7 +332,7 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     const row = page.locator('.st-keys-edit tr[data-command="palette.open"]');
     await row.locator('button', { hasText: 'Change' }).click();
     await page.keyboard.press('Control+s');
-    expect(await row.locator('[role="status"]').textContent()).toBe('Ctrl+S is already used by: Save. Choose other keys.');
+    expect(await row.locator('[role="status"]').textContent()).toBe('Ctrl+S is already used by: Save now. Choose other keys.');
     await row.locator('button', { hasText: 'Change' }).click();
     await page.keyboard.press('Control+b');
     expect(await row.locator('[role="status"]').textContent()).toBe('Ctrl+B is already used by: the editors. Choose other keys.');
@@ -334,12 +355,17 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
 
   it('works in Czech: names, summaries and help from the registry; search in either language, accents optional', async () => {
     const page = await open({ lang: 'cs' });
-    expect(await page.locator('.st-palette-item[data-block="callout"]').textContent()).toBe('Zvýraznění');
+    // "+ Blok" opens the block picker, with each block's name and drawing
+    await page.click('#insert-block');
+    expect(await page.locator('#st-insert .st-insert-opt[data-block="callout"] .st-insert-name').textContent()).toBe('Zvýraznění');
+    expect(await page.locator('#st-insert .st-insert-opt[data-block="callout"] svg.st-thumb').count()).toBe(1);
+    await page.click('#st-insert-close');
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('insert-block');
     expect(await page.locator('.ed-directive[data-name="callout"]').first().getAttribute('aria-label')).toBe('Zvýraznění');
-    await caretIn(page, 'Install the workspace once');
+    await caretIn(page, 'Run LibKa with');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    await page.click('#tab-inspector');
+    await page.click('#tab-properties');
     expect(await page.textContent('.st-insp-title')).toBe('Zvýraznění');
     expect(await page.textContent('#attr-variant-help')).toBe('Význam sdělení.');
     expect(await page.textContent('.st-insp-section select#attr-variant option[value="warning"], .st-seg-option:has(input[value="warning"]) span')).toMatch(/Varování/);
@@ -367,9 +393,14 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
         await closeDialog(page);
         await page.click('.st-mode [data-mode="source"]');
         await setSource(page, '---\ntitle: G\nlang: en\noutputs: [web]\n---\n\n## One\n\n:::calout[T]{variant=info}\nX.\n:::\n\n:::chart{type=bar caption="Sales"}\n| Region | Sales |\n|---|---|\n| A region with an extremely long name that will never fit in any chart label area at all | 10 |\n| B | 20 |\n:::\n');
-        await page.click('#tab-problems');
+        await page.click('#tab-checks');
       }],
-      ['explained findings', async () => { await page.waitForSelector('#count-guard[data-tone="error"]', { timeout: 60000 }); await page.click('#tab-guard'); }],
+      ['explained findings', async () => { await page.waitForSelector('#checks-list .st-explain', { timeout: 60000 }); }],
+      ['this block, advice and details', async () => {
+        await setSource(page, '---\ntitle: G\nlang: en\noutputs: [web]\n---\n\n## One\n\n![](x.png "")\n\n---\n\nText.\n');
+        await page.waitForSelector('#checks-list .st-item-row[data-kind="advice"]', { timeout: 60000 });
+        await page.click('#checks-block');
+      }],
       ['visual with marks', async () => { await page.click('.st-mode [data-mode="visual"]'); await page.waitForSelector('.ed-problem-mark'); }],
       ['key settings', async () => { await page.keyboard.press('F1'); await page.keyboard.type('preferences'); await page.keyboard.press('Enter'); await page.waitForSelector('.st-keys-edit'); }],
     ];

@@ -7,21 +7,25 @@ where it is safe, fixes. A fix that changes the text (renames, removals, a wrapp
 in one step the author can undo; a fix that needs words only the author knows (alt text, a caption, a title) never
 invents them: it takes the author to the field to fill in. `libka lint --json` lists the codes and fixes too.
 
-134 codes. The message is an example: names and values in it come from the document.
+175 codes. The message is an example: names and values in it come from the document.
 
 :::table{caption="Problem codes, an example message for each, and the fixes LibKa can apply"}
 
 | Code | Message (example) | Fixes |
 | --- | --- | --- |
 | `accordion-empty` | ::::accordion needs at least one :::item\[Question] |  |
+| `ai-invalid` | ai must be ai-assisted or ai-generated (found "written-by-ai"): ai: ai-generated, or ai:   use: ai-generated   reviewed-by: Ann Novak |  |
 | `alert-empty` | the \[!NOTE] alert is empty: write its message on the next lines (> ...) |  |
 | `alert-type` | "\[!DANGER]" is not a GitHub alert type: use \[!NOTE], \[!TIP], \[!IMPORTANT], \[!WARNING] or \[!CAUTION] |  |
+| `author-invalid` | author needs a name: author:   - name: Ann Novak     role: Security lead   - name: Petr Svoboda |  |
 | `bar-negative` | bar charts show values from zero up, so they cannot show negative values |  |
 | `block-generated` | :::toc has no content: it is filled in when the document is built (close it with ::: on the next line) |  |
 | `block-not-top-level` | :::toc cannot be inside another block: put it at the top level of the document |  |
 | `block-twice` | only one :::toc per document |  |
-| `block-unknown` | unknown block "calout" (known: :::dl, :::doc-status, :::toc, :::references, :::release, :::section, :::code-group, :::callout, :::steps, :::checklist, :::tabs, :::accordion, :::shortcuts, :::glossary, :::compare, :::quote, :::cards, :::statement, :::metrics, :::summary, :::cta, :::gallery, :::video, :::table, :::timeline, :::comparison, :::chart, :::ui, :::notes) | renames the block to `:::callout` |
+| `block-unknown` | unknown block "calout": did you mean :::callout? | renames the block to `:::callout` |
 | `block-unreadable` | ":::callout\[Unclosed {variant=info}" looks like a block but could not be read: check its brackets and attributes (to put a double quote inside a value, wrap the value in single quotes: source='A "quoted" title') |  |
+| `byline-content` | :::byline has no content: write the authors in the front matter (author), then close it with ::: |  |
+| `byline-empty` | :::byline has nobody to show: add author to the front matter (author: Ann Novak, or a list with name and role) | asks for the document's `author` |
 | `callout-title` | callouts need a title: :::callout\[Title]{variant=...} | asks for the title |
 | `card-href` | href of :::card is empty | asks for `href`; removes `href` |
 | `card-text` | every :::card needs a short text, not only a title |  |
@@ -50,6 +54,15 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `cta-label` | a call to action needs a label that says what happens: :::cta\[Start the tutorial]{href="..."} | asks for the title |
 | `cta-verb` | "Learn more" does not say what happens: start the label with a verb and name the result ("Start the tutorial", "Download the template") |  |
 | `date-format` | reviewed must be a date written YYYY-MM-DD (found "yesterday") |  |
+| `date-format-unknown` | unknown date-format "lnog" (did you mean long?): long (28 October 2026), short (28/10/2026) or iso (2026-10-28); without it dates are long | sets `date-format: long` |
+| `decision-content` | ::::decision holds only :::context, :::options, :::consequences, after an optional sentence that states the decision (use one more colon on the outer block: ::::decision) |  |
+| `decision-context` | a decision needs its :::context: why the decision was needed |  |
+| `decision-date-format` | a decision date must be written YYYY-MM-DD (found "1 March 2026") | asks for `date` |
+| `decision-decided` | a decision with status accepted needs its date (date=YYYY-MM-DD) and who decided (by="...") | asks for `date`; asks for `by` |
+| `decision-part-attributes` | :::context takes no label or attributes: the part's name is written for you |  |
+| `decision-part-empty` | :::options is empty: write the options that were considered |  |
+| `decision-part-twice` | :::context appears twice in the decision: put it all in one part |  |
+| `decision-title` | a decision needs a title that states it: ::::decision\[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"} | asks for the title |
 | `diagram-colours` | "style" sets colours in a diagram; remove it (diagrams take LibKa's colours in every theme) |  |
 | `diagram-description` | a diagram needs a description for readers who cannot see it: add "accDescr: what it shows, step by step" after its first line | asks for the text |
 | `diagram-init` | Mermaid init blocks and front matter are not allowed in a diagram: colours, fonts and layout come from LibKa |  |
@@ -62,14 +75,21 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `donut-negative` | a donut cannot show negative values |  |
 | `donut-parts` | a donut shows at most 5 parts (found 6); use a bar chart |  |
 | `donut-series` | a donut shows one series (parts of one whole): use one value column |  |
+| `download-content` | :::download holds at most one short sentence about the file |  |
+| `download-href` | href "javascript:alert(1)" is not allowed: use the file's path or its web address |  |
+| `download-label` | a download needs a name that says what the file is: :::download\[Annual report 2025]{href=report.pdf} | asks for the title |
+| `download-pages` | pages must be a whole number of pages (found "many") |  |
+| `download-remote` | a file on another site needs its type and size, which the build cannot measure: :::download\[Report]{href="https://example.org/report.pdf" type=PDF size="2.1 MB"} |  |
 | `field-options` | a select field needs options="First\|Second" |  |
+| `flow-count` | :::flow shows 2 to 6 stages (found 1); for more stages or branches use a ```mermaid diagram |  |
+| `flow-title` | a process needs its name as the label: :::flow\[How a request runs] | asks for the title |
 | `footnote-content` | footnote `[^n]` holds text, lists or code only |  |
 | `footnote-duplicate` | footnote `[^n]` is defined twice |  |
 | `footnote-nested` | footnote `[^n]` is defined inside a block: move "`[^n]`: ..." to the top level (the end of the document is best) |  |
 | `footnote-undefined` | footnote `[^missing]` has no definition: add "`[^missing]`: the note" on its own line at the top level |  |
 | `footnote-unused` | footnote `[^n]` is never used: refer to it with `[^n]` or remove it |  |
 | `front-matter-invalid` | front matter is not valid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 17:  title: \[unclosed                 ^  |  |
-| `front-matter-unknown-key` | unknown front matter keys: colour (known: title, subtitle, version, date, lang, references, outputs, status, owner, reviewed, next-review) |  |
+| `front-matter-unknown-key` | unknown front matter keys: colour (known: title, subtitle, version, date, date-format, lang, author, references, outputs, ai, status, owner, reviewed, next-review) |  |
 | `gallery-content` | :::gallery holds images only, each on its own line: !\[alt](file "caption") |  |
 | `gallery-count` | :::gallery needs at least two images (one image is a figure) |  |
 | `heading-in-block` | headings are not allowed inside :::quote |  |
@@ -85,6 +105,14 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `link-broken` | link to "#nowhere" points nowhere in this document; heading ids are the heading text in lower case with hyphens |  |
 | `list-item-bold` | each item of :::glossary starts with the term in bold: - **...** ... |  |
 | `list-required` | :::glossary must contain exactly one list (- **Term** definition) |  |
+| `marp-file` | this looks like a Marp deck (marp: true): LibKa makes slides from ## and ### headings, not from --- rules, and comments are not speaker notes (write :::notes); Marp's keys do nothing here: marp, theme, paginate | removes `marp`, `theme`, `paginate` from the front matter |
+| `matrix-axes` | a SWOT has no axes: remove x= and y=, or use type=grid | removes `x` |
+| `matrix-content` | ::::matrix holds only four :::q quadrants (use one more colon on the outer block: ::::matrix) |  |
+| `matrix-q-attributes` | :::q takes no attributes, only its name: :::q\[Quick wins] |  |
+| `matrix-q-empty` | a quadrant needs its points: a short list or a sentence (say so when nothing belongs there) |  |
+| `matrix-q-label` | each quadrant of a grid needs its name: :::q\[Quick wins] (only a SWOT fills in its names) | asks for the title |
+| `matrix-quadrants` | ::::matrix needs exactly four :::q quadrants, found 3 |  |
+| `matrix-title` | a matrix needs its title as the label: ::::matrix\[SWOT: the new product]{type=swot} | asks for the title |
 | `metrics-count` | :::metrics shows 2 to 4 figures (found 1) |  |
 | `metrics-label` | every figure needs a label that says what it means |  |
 | `missing-attribute` | :::table needs a caption: :::table{caption="..."} (what the data shows) | asks for `caption` |
@@ -98,6 +126,12 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `outputs-need-web` | outputs: pdf is made from the web page and signed with it: add web | sets `outputs: [web, pdf]` |
 | `outputs-not-list` | outputs must be a list of output names, for example outputs: \[web, pdf, docx] (known: web, pdf, deck, docx; without outputs a document gets web and pdf) |  |
 | `outputs-unknown` | unknown outputs: word (Word is "docx"); for example outputs: \[web, pdf, docx] (known: web, pdf, deck, docx; without outputs a document gets web and pdf) | sets `outputs: [web, docx]` |
+| `pros-cons-content` | ::::pros-cons holds only :::pros and :::cons (use one more colon on the outer block: ::::pros-cons) |  |
+| `pros-cons-list` | :::pros holds one bulleted list, a point per item |  |
+| `pros-cons-pair` | ::::pros-cons needs :::cons: weigh both sides, and say in the text when one side has nothing |  |
+| `pros-cons-part-attributes` | :::pros takes no label or attributes: the word "Pros" is written for you |  |
+| `pros-cons-title` | pros and cons need the option they weigh as the label: ::::pros-cons\[Work from home] | asks for the title |
+| `pros-cons-twice` | :::pros appears twice: put all the points in one list |  |
 | `quote-empty` | :::quote is empty |  |
 | `raw-html` | raw HTML is not allowed in LibKa documents |  |
 | `reference-bad-id` | reference 1 needs an id of letters, digits and - _ : . / (cited as \[@id]) |  |
@@ -118,6 +152,14 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `release-group-twice` | :::added appears twice in release v1.0.0: put all its items in one group |  |
 | `release-version` | a release needs its version: ::::release\[v1.4.0]{date=2026-10-01} |  |
 | `review-order` | next-review (2026-01-01) must come after reviewed (2026-05-01) |  |
+| `revisions-cell` | every revision needs its change |  |
+| `revisions-column` | :::revisions has no column "Notes": its columns are Version, Date, Change, Author, Approved by (Verze, Datum, Změna, Autor, Schválil or Schválení) |  |
+| `revisions-date` | a revision date must be written YYYY-MM-DD (found "1 March 2026") |  |
+| `revisions-duplicate` | version 1.0 appears twice in :::revisions |  |
+| `revisions-heading` | remove the heading "## Revision history" above :::revisions: the block makes its own heading; write the title in its brackets (:::revisions\[Revision history]) |  |
+| `revisions-order` | version 1.1 (2026-06-01) is out of order: list the revisions newest first or oldest first, by date and version |  |
+| `revisions-rows` | :::revisions needs at least one row: the version, its date and what changed |  |
+| `revisions-table` | :::revisions must contain exactly one Markdown table: \| Version \| Date \| Change \| Approved by \| |  |
 | `section-content` | :::section holds at most a short sentence; put other blocks after it |  |
 | `section-title` | a section divider needs a title: :::section\[Part 2: Results] | asks for the title |
 | `shortcut-keys` | each shortcut starts with its keys: - :kbd\[Ctrl+S] Save |  |
@@ -129,7 +171,6 @@ invents them: it takes the author to the field to fill in. `libka lint --json` l
 | `summary-numbered` | :::summary holds a bulleted list (- ...), not a numbered one | makes it a bulleted list |
 | `summary-point` | each point of :::summary is one short paragraph (no nested lists or blocks) |  |
 | `summary-reviewed-by` | reviewed-by is shown only for AI summaries: add source=ai or remove it | sets `source=ai`; removes `reviewed-by` |
-| `summary-reviewer` | an AI-written summary needs the person who checked it: :::summary{source=ai reviewed-by="Name"} | asks for `reviewed-by` |
 | `table-caption` | tables need a caption: wrap them in :::table{caption="..."} | puts it in `:::table` |
 | `table-required` | :::table must contain exactly one Markdown table |  |
 | `tabs-count` | ::::tabs needs at least two :::tab blocks |  |

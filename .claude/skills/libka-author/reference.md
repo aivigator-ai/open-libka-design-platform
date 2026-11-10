@@ -1,6 +1,6 @@
 # LibKa block reference
 
-Generated from the block registry (LibKa 2.0.2). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
+Generated from the block registry (LibKa 2.0.3). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
 
 ## Front matter
 
@@ -10,7 +10,11 @@ title: Required. The document title (there is no # heading in the body).
 subtitle: Optional one-line subtitle.
 version: "1.0"      # optional, quoted
 date: "2026-10-03"  # optional, quoted
+date-format: long   # optional: how the outputs write dates: long, short or iso (default: long)
 status: Draft       # optional
+author:                     # optional: who wrote it; one name as text, or a list
+  - name: Ann Novak
+    role: Security lead     # optional
 owner: Platform team        # optional: who keeps it correct
 reviewed: 2026-09-01        # optional: last review, YYYY-MM-DD
 next-review: 2027-03-01     # optional: review due, YYYY-MM-DD
@@ -27,12 +31,18 @@ references:                 # optional: sources cited as [@id]
     year: 2024
 lang: en            # en or cs; sets the language of the page text
 outputs: [web, pdf, docx]   # optional: what the build makes: web, pdf, deck, docx (default: web and pdf)
+ai:                         # optional: how AI took part; leave it out when it did not
+  use: ai-generated         # ai-generated (AI wrote it) or ai-assisted (AI helped with a person's text); alone: ai: ai-generated
+  reviewed-by: Ann Novak    # optional: who checked it and holds editorial responsibility
+  label: true               # optional: show "Created with AI tools." under the title (default: not shown)
 ---
 ```
 
-Quote `version` and `date` (YAML would read 1.10 as a number), and any value that contains a colon (`title: "Payments: onboarding"`); `reviewed` and `next-review` work quoted or not. `date` is the publication date as free text ("2026-10-03" or "October 2026"); leave it out when it would only repeat `reviewed`. A reference entry has only the fields shown: `id`, `title`, `author`, `year`, `publisher`, `url`.
+`ai` records how AI took part, in the signed manifest; it is the author's declaration. Its optional fields are `reviewed-by`, `approved-by`, `tool`, `date` (YYYY-MM-DD), `checked` (a list, such as `[facts, figures]`) and `label`. The label is shown only with `label: true`: "Created with AI tools." under the title (on the title slide of a deck), with "Reviewed and approved by …" when it names someone, and an "AI-generated" badge before each block marked `ai=generated` that nobody is named as having reviewed. Any block except `toc`, `references`, `byline` and `doc-status` takes `ai=generated` or `ai=assisted` for the parts AI wrote; `:::summary{source=ai}` counts as `ai=generated`. `lint` reminds you when AI-generated content names nobody who reviewed it and shows no label: AI-generated text that informs the public on matters of public interest needs a person's review with editorial responsibility, or a label (EU AI Act, Article 50(4)); whether a document does is the author's call.
 
-`status` is free text (Draft, Approved, Example ...); Approved, Draft and Deprecated get a colored badge, and Deprecated also a fixed banner at the top ("This document is no longer maintained …"); name the document that replaces it once, in the sentence before the first `##`. `date`, `status`, `owner`, `reviewed` and `next-review` appear under the title, and the last four also in the footer or in a `:::doc-status` panel where you place one. Czech status words get the same badges: Schváleno or Platný, Koncept or Návrh, and Zastaralý (with the banner). `lint` warns when `next-review` has passed.
+Quote `version` and `date` (YAML would read 1.10 as a number), and any value that contains a colon (`title: "Payments: onboarding"`); `reviewed` and `next-review` work quoted or not. `date` is the publication date as free text ("2026-10-03" or "October 2026"); leave it out when it would only repeat `reviewed`. Write every date in the source as YYYY-MM-DD (the front matter, a decision's or a release's `date`, the revision history, a timeline's days and months); the outputs write it in the document's language: `long` "28 October 2026" / "28. října 2026" (the default), `short` "28/10/2026" / "28. 10. 2026", `iso` "2026-10-28". Set `date-format` only when the user asks for a format; the machine-readable date stays ISO. A reference entry has only the fields shown: `id`, `title`, `author`, `year`, `publisher`, `url`.
+
+`status` is free text (Draft, Approved, Example ...); Approved, Draft and Deprecated get a colored badge, and Deprecated also a fixed banner at the top ("This document is no longer maintained …"); name the document that replaces it once, in the sentence before the first `##`. `author`, `date`, `status`, `owner`, `reviewed` and `next-review` appear under the title (the authors on the title slide of a deck, or where a `:::byline` stands), and the last four also in the footer or in a `:::doc-status` panel where you place one. `author` names people; a team or a role that keeps the document correct is the `owner`. Czech status words get the same badges: Schváleno or Platný, Koncept or Návrh, and Zastaralý (with the banner). `lint` warns when `next-review` has passed.
 
 ## Syntax details
 
@@ -47,8 +57,9 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 - **Contents:** a manual with two or more `##` sections gets contents at the top by itself. It cannot be switched off; `:::toc` only moves it and sets its depth.
 - **Heading ids** drop accents and punctuation, and a dot inside a word becomes a hyphen: `## Výběr datových sad` → `#vyber-datovych-sad`, `## U.S. imports` → `#u-s-imports`. When unsure, run lint: it names the id it expected.
 - **FAQ:** one `::::accordion` per topic is fine, also with a single item; split a long FAQ into topics with `###`.
-- **Release notes:** say a change once: a dropped platform goes in `:::removed`, and in a notice before the groups only when the reader must act. A `###` after a release continues it on its own slide (for example migration notes). Each `::::release` is a `##` heading. Drop the source's grouping heading ("What changed", "Changelog") when the versions follow it directly; in a document with other topics, open the versions with `:::section[What changed]`.
-- **Parts:** `:::section[Part 2: Results]` is a level-2 heading that groups the `##` sections after it; it stands at the top level, never inside another block.
+- **Release notes:** say a change once: a dropped platform goes in `:::removed`, and in a notice before the groups only when the reader must act. A `###` after a release continues it on its own slide (for example migration notes). Each `::::release` is a `##` heading. Drop the source's grouping heading ("What changed", "Changelog") when the versions follow it directly; in a document with other topics, open the versions with `:::section[What changed]` and put them after the other topics.
+- **Decisions:** each `::::decision` is a `##` heading in the contents. Drop the source's grouping heading ("Decisions", "Decisions behind this policy"); open the decisions with a `:::section` only when the whole document is divided into parts. A proposal names who proposes it in its opening sentence (`by=` is who decided); a rejected decision's title states what was proposed ("Charge for reservations"), and its opening sentence says it was not taken.
+- **Parts:** `:::section[Part 2: Results]` is a level-2 heading that groups the `##` sections after it, up to the next `:::section` or the end of the document; it stands at the top level, never inside another block.
 - **Slides:** every `##` and `###` is a slide, numbered from 1 = the title slide; a `:::section` is a slide of its own, and so is a `:::summary` placed before the first `##`. A slide holds about 120 words, less with figures, charts or UI specimens. `lint` warns when a slide is probably too full. The build measures every slide and fits it: a little overflow is shrunk (to 85% at most), more is continued on a "(continued)" slide, and long steps, lists, tables, description lists, accordions, cards and the contents agenda continue item by item (steps and the agenda keep counting; an agenda slide holds about 10 sections and parts). An accordion question that alone is taller than a slide is opened on the slides: the question becomes a subheading and the answer continues paragraph by paragraph. Only a block it cannot split that is taller than a slide fails: a do-and-don't pair, a long code block or code group, a chart or diagram with text around it.
 
 ## Choose a block
@@ -60,9 +71,12 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 | Three or more parallel items without an order (bulleted) or with one (numbered, when not instructions). | List (`list`) |
 | Key-value facts read as pairs: document or invoice details, specifications, contact data, CV facts. | Description list (`dl`) |
 | Policies, procedures, specifications and any page readers must trust: who owns it, when it was last reviewed, when the next review is due, and whether it is still valid. | Document status (`doc-status`) |
+| Articles, reports, policies and proposals where readers want to know who wrote them. The front matter key author shows the authors under the title by itself; place :::byline only to show them elsewhere, such as at the end of an article. | Byline (`byline`) |
+| Policies, procedures, manuals and proposals that change over time and must show what changed in each version, when, and who approved it. | Revision history (`revisions`) |
 | Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep. | Table of contents (`toc`) |
 | A report, proposal or study that cites sources with `[@id]`; place the list where it belongs and choose its style. Without the block the list is added at the end. | References (`references`) |
 | Release notes or a changelog: what changed in each version, grouped as added, changed, deprecated, removed, fixed and security (Keep a Changelog). | Release notes (`release`) |
+| A decision readers must be able to trace: an architecture or policy decision, a choice between suppliers or tools, a board resolution. Why it was needed, what was considered, what was decided, when and by whom, and what follows from it. | Decision record (`decision`) |
 | A long document or deck with parts or chapters, each grouping several ## sections ("Part 2: Results"). | Section divider (`section`) |
 | Commands, file contents, configuration or source code that a reader types or copies. | Code (`code`) |
 | The same command or snippet in several variants a reader chooses between: npm, pnpm and yarn; Python and JavaScript; Windows and macOS shells. | Code group (`code-group`) |
@@ -75,6 +89,9 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 | Terms the audience may not know, defined once and linkable. | Glossary (`glossary`) |
 | A process, a sequence of messages, states and transitions, a class model or a data model that a picture explains better than a list: flowcharts, sequence, state, class and entity-relationship diagrams. | Diagram (`diagram`) |
 | Guidance with a right and a wrong way: writing style, UI labels, design rules. | Do and don't (`compare`) |
+| Weighing one option: what speaks for it and what against it, in a proposal, a decision record, or a review of a tool or a supplier. | Pros and cons (`pros-cons`) |
+| How a process runs, stage by stage: a request from arrival to closing, a product's life cycle, a review or improvement cycle. Not instructions for the reader to follow (that is :::steps). | Process (`flow`) |
+| Points sorted into four quadrants: a SWOT analysis, effort against impact, urgent against important, risk by likelihood and impact. | Matrix (`matrix`) |
 | Words from a person or a source, quoted with attribution: a customer, a standard, a law. | Quote (`quote`) |
 | Pointers to related pages, products, options or next steps, each with a title and one sentence. | Cards (`cards`) |
 | The single most important message of a section or slide, in one sentence. | Statement (`statement`) |
@@ -84,6 +101,7 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 | A diagram, screenshot, photo or illustration that carries information. | Figure (`figure`) |
 | Several related images to compare or browse, each with its own caption. | Gallery (`gallery`) |
 | A recording that shows something better than text: a walkthrough, a demo, a talk. | Video (`video`) |
+| A file readers take away: a report, a form, a template, a data set. The name says what it is, and the format, size and (for a PDF) pages tell readers what they are about to open. | Download (`download`) |
 | Data with rows and columns that readers look up or compare: versions, prices, specifications. | Table (`table`) |
 | Dated events or phases in order: a roadmap, a project plan, a history, CV experience. Mark where things stand now with current=. | Timeline (`timeline`) |
 | Options, plans or products compared feature by feature, often with one recommended: pricing plans, tool choices, vendor offers. | Comparison table (`comparison`) |
@@ -219,6 +237,57 @@ Avoid:
 - The same key in front matter and in the block with different values (reported).
 - A next-review date nobody acts on: lint warns when it has passed.
 
+### Byline (`byline`)
+
+The authors, each with an optional role, from the front matter key author. Without the block they appear under the title; :::byline shows them where it stands instead. The names also go into the page, PDF and Word metadata.
+
+Use it when: Articles, reports, policies and proposals where readers want to know who wrote them. The front matter key author shows the authors under the title by itself; place :::byline only to show them elsewhere, such as at the end of an article.
+
+In the front matter:
+
+```yaml
+author:
+  - name: Ann Novak
+    role: Security lead
+  - name: Petr Svoboda
+```
+
+In the text:
+
+```markdown
+:::byline
+:::
+```
+
+Slides: A line on its slide; without the block, the authors are on the title slide.
+
+Avoid:
+- A team or role as the author: who keeps the document correct is the owner (front matter owner, :::doc-status).
+- A byline block without author in the front matter (reported).
+
+### Revision history (`revisions`)
+
+The versions of the document as a Markdown table: version, date and change, optionally author and approved by. It is a section of its own: a level-2 heading with an anchor (Revision history unless the label names it), listed in the contents, so it needs no heading of yours above it. The columns are recognised by their headings in English or Czech (Verze, Datum, Změna, Autor, Schválil, Schválila or Schválení), the dates are checked and the rows must run newest first or oldest first. The versions with their dates and approvers go into the signed manifest.
+
+Use it when: Policies, procedures, manuals and proposals that change over time and must show what changed in each version, when, and who approved it.
+
+```markdown
+:::revisions[Revision history]
+| Version | Date | Change | Approved by |
+|---|---|---|---|
+| 1.1 | 2026-09-15 | Remote work up to three days a week | Ann Novak |
+| 1.0 | 2026-03-01 | First version | Ann Novak |
+:::
+```
+
+Slides: A slide of its own headed by the title; a long table continues on the next one.
+
+Avoid:
+- A heading of your own right above it (reported): the title goes in its brackets.
+- A column the block does not know, or a revision without its version, date or change (reported).
+- Rows in no order (reported): newest first or oldest first, by date and version.
+- More than one revision history in a document (reported).
+
 ### Table of contents (`toc`)
 
 The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.
@@ -299,6 +368,41 @@ Slides: One release per slide.
 Avoid:
 - Commit messages pasted as release notes: write what changed for the reader.
 - A release with no groups, or the same group twice (reported).
+
+### Decision record (`decision`)
+
+One decision as a section of its own: its title states the decision, a badge says whether it is proposed, accepted, rejected or superseded, with the date and who decided. A sentence that states the decision may come first, then :::context (required), :::options and :::consequences, always shown in that order. Options may hold a :::comparison (one more colon on each outer block). Each decision is a level-2 heading with an anchor, listed in the contents and its own slide.
+
+Use it when: A decision readers must be able to trace: an architecture or policy decision, a choice between suppliers or tools, a board resolution. Why it was needed, what was considered, what was decided, when and by whom, and what follows from it.
+
+```markdown
+::::decision[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"}
+We keep documents and their versions in the PostgreSQL database we already run.
+:::context
+The document store needs versions, full-text search and backups that the operations team already knows.
+:::
+:::options
+- **PostgreSQL**: one database to run, versions as rows, full-text search built in.
+- **A document database**: flexible records, but a second system to run and back up.
+:::
+:::consequences
+- Schema changes go through migrations.
+- Full-text search in Czech needs its own dictionary.
+:::
+::::
+```
+
+Attributes:
+  - `status` (required): Where the decision stands: proposed, accepted, rejected or superseded. One of: proposed, accepted, rejected, superseded.
+  - `date`: When it was decided (or proposed), YYYY-MM-DD; required unless the status is proposed.
+  - `by`: Who decided: a person, a board or a team; required unless the status is proposed. Who proposes a decision goes in its opening sentence.
+
+Slides: One decision per slide, headed by its title.
+
+Avoid:
+- A decision without its context, or a decision that was taken without its date or who took it (reported).
+- A title that names the topic ("Database") instead of the decision ("Store documents in PostgreSQL").
+- Editing an accepted decision to change it: write a new decision and mark the old one superseded.
 
 ### Section divider (`section`)
 
@@ -575,6 +679,93 @@ Slides: Side by side.
 Avoid:
 - A don't without a do: always show the better way.
 
+### Pros and cons (`pros-cons`)
+
+The pros and cons of one option, as two lists under the words "Pros" and "Cons". The label names the option; :::pros and :::cons each hold one bulleted list, always shown pros first. Several options are several blocks; inside a decision's :::options, one per option (each outer block then gets one more colon).
+
+Use it when: Weighing one option: what speaks for it and what against it, in a proposal, a decision record, or a review of a tool or a supplier.
+
+```markdown
+::::pros-cons[Work from home three days a week]
+:::pros
+- No commute on most days
+- Quiet time for focused work
+:::
+:::cons
+- Fewer chance meetings with colleagues
+- A desk to set up at home
+:::
+::::
+```
+
+Slides: Side by side.
+
+Avoid:
+- Two options in one block: use one block per option, or a :::comparison to set options against the same criteria.
+- Guidance on a right and a wrong way: use ::::compare (do and don't).
+- A side left empty to look balanced: say in the text that there is nothing against it.
+
+### Process (`flow`)
+
+A process as a row of 2 to 6 numbered stages joined by arrows, one list item per stage. `shape=cycle` marks a process that starts again, and the return to the first stage is also written under the stages. Stacked with arrows down on a phone, and on the page and in print with five or six stages, so that long words are never broken; on slides always a row.
+
+Use it when: How a process runs, stage by stage: a request from arrival to closing, a product's life cycle, a review or improvement cycle. Not instructions for the reader to follow (that is :::steps).
+
+```markdown
+:::flow[How a support request runs]
+1. The customer writes in
+2. Support sorts it by urgency
+3. An agent answers or passes it on
+4. The customer confirms it is solved
+:::
+```
+
+Attributes:
+  - `shape`: linear (the default) or cycle (it starts again from the first stage). One of: linear, cycle.
+
+Slides: The stages in a row.
+
+Avoid:
+- Instructions the reader carries out: use :::steps.
+- Long paragraphs in a stage: keep each to a short phrase.
+- More than six stages or branches: use a ```mermaid diagram.
+
+### Matrix (`matrix`)
+
+Four quadrants in a 2 × 2 grid, read left to right, top row first. `type=swot` fills in the quadrants' names (Strengths, Weaknesses, Opportunities, Threats); `type=grid` needs a name on each :::q, and `x=` and `y=` say in words what changes across and down. Each quadrant holds a short list or a sentence.
+
+Use it when: Points sorted into four quadrants: a SWOT analysis, effort against impact, urgent against important, risk by likelihood and impact.
+
+```markdown
+::::matrix[Where to start]{type=grid x="Effort, low on the left and high on the right" y="Impact, high at the top and low at the bottom"}
+:::q[Quick wins]
+- Fix the broken sign-up link
+:::
+:::q[Big projects]
+- Rebuild the customer portal
+:::
+:::q[Fill-ins]
+- Tidy the help pages
+:::
+:::q[Not now]
+- Translate old newsletters
+:::
+::::
+```
+
+Attributes:
+  - `type` (required): swot (the four names are filled in) or grid (you name each quadrant). One of: swot, grid.
+  - `x`: A grid only: what changes from left to right, in words ("Effort: low on the left, high on the right").
+  - `y`: A grid only: what changes from top to bottom, in words ("Impact: high at the top, low at the bottom").
+  - `q: label`: The quadrant's name; required in a grid, filled in for a SWOT.
+
+Slides: The 2 × 2 grid.
+
+Avoid:
+- A matrix of long paragraphs: keep each quadrant to a few points.
+- A quadrant left empty: say in it that nothing belongs there.
+- Two options weighed against each other: use ::::pros-cons per option or a :::comparison.
+
 ### Quote (`quote`)
 
 A quotation, with its source when it has one. A plain Markdown > quote works too.
@@ -667,7 +858,7 @@ Avoid:
 
 ### Summary (`summary`)
 
-Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-assisted, reviewed by …" label.
+Key takeaways in a box, 3 to 5 points. source=ai marks a summary an AI wrote (like ai=generated), with reviewed-by for the person who checked it; the AI label shows only when the document turns it on (front matter ai, label: true).
 
 Use it when: Three to five key points a busy reader needs first: the top of a report, a proposal or a long page. Mark it source=ai when an AI wrote it, with the person who checked it.
 
@@ -681,14 +872,14 @@ Use it when: Three to five key points a busy reader needs first: the top of a re
 
 Attributes:
   - `source`: Who wrote the summary: human (default) or ai. One of: human, ai.
-  - `reviewed-by`: Name of the person who checked an AI summary, optionally with the role (required with source=ai).
+  - `reviewed-by`: Name of the person who checked an AI summary, optionally with the role; lint reminds you when an AI summary names nobody.
 
 Slides: Its own slide when it comes before the first ## section; otherwise a box on its slide.
 
 Avoid:
 - More than 5 points: it stops being a summary.
 - Points that repeat the headings instead of the findings.
-- An AI summary nobody reviewed (reported).
+- An invented reviewer: name only the person who really checked it.
 
 ### Call to action (`cta`)
 
@@ -771,6 +962,30 @@ Slides: Player on the slide.
 Avoid:
 - Autoplaying or looping video.
 - Video as the only way to get the information.
+
+### Download (`download`)
+
+A link to a file with its format, size and, for a PDF, its pages, and an optional sentence about it. For a file next to the document the build works them out and copies the file with the outputs; a file on another site needs type and size.
+
+Use it when: A file readers take away: a report, a form, a template, a data set. The name says what it is, and the format, size and (for a PDF) pages tell readers what they are about to open.
+
+```markdown
+:::download[Annual report 2025]{href="https://example.org/annual-report-2025.pdf" type=PDF size="2.1 MB" pages=48}
+The full report with all tables.
+:::
+```
+
+Attributes:
+  - `href` (required): The file: a path next to the document (copied with the outputs) or a web address.
+  - `type`: The format readers know it by (PDF, Word, Excel, CSV ...). Worked out from the file name when left out; required for a web address.
+  - `size`: The size as readers see it, such as 2.1 MB. Measured for a local file when left out; required for a web address.
+  - `pages`: The number of pages. Counted for a local PDF when left out.
+
+Slides: Same on its slide; a web address is written out.
+
+Avoid:
+- A link to a large file with nothing that says it is a file, its format or its size.
+- A web address without type and size (reported): the build cannot measure a file on another site.
 
 ## Data
 
@@ -935,17 +1150,12 @@ LibKa has no block for these kinds of content. Never invent block syntax for the
 
 | Content | Write |
 |---|---|
-| Byline: author, role and date of a page. | Front matter date and status. |
-| Revision history: versions, approvals and sign-off for policies and proposals. | :::table{caption="Revision history"}. |
-| Decision record: context, options, decision and consequences with a status. | ## sections for the context, options, decision and consequences; status and date in the front matter; options weighed on the same criteria as a :::comparison with highlight= on the chosen one. |
-| Pros and cons: weighing one option (unlike do and don't, which is guidance). | ::::tabs or two lists under bold "Pros" / "Cons" labels. |
 | Progress indicator: where the reader is in a multi-part journey (status, not instructions). | :::steps, naming the current step in its title. |
 | Math: inline and display formulas. | Write the formula in code or as an image with alt text. |
-| Process / cycle / funnel: a linear, cyclic or funnel process without a full diagram. | :::steps. |
+| Funnel: a process that narrows stage by stage, with how many reach each stage. | :::flow with the count in each stage's text ("Visitors: 12,000"), or a bar chart. |
 | Roadmap / Gantt: phases on lanes across time, with milestones. | :::table of lanes, items and dates. |
 | Term with definition: an inline term linked to its glossary definition. | Link the term to its glossary entry, written like `[SLA](#term-sla)`. |
 | Embed: third-party interactive content such as prototypes, forms, notebooks. | A figure with a link to the original. |
-| Download: a file with its type, size and page count. | A link whose text names the format and size, written like `[Annual report (PDF, 2.1 MB)](report.pdf)`. |
 | Testimonial: a customer quote with name, role, organisation and a result. | :::quote{source="Name, role, organisation"}. |
 | Team / people: people with photo, name and role. | :::gallery of portraits, captions with name and role. |
 | Margin note: a tangential note beside the text. | :::callout[Title]{variant=note}, or :::notes in a deck. |
@@ -955,13 +1165,11 @@ LibKa has no block for these kinds of content. Never invent block syntax for the
 | Agenda slide: the talk outline, highlighting the current section. | :::toc[Agenda] before the first ## gives an agenda slide (without highlighting the current section). |
 | Closing / contact slide: thank you, recap and contact at the end of a deck. | A final ## section with a statement and links. |
 | KPI with trend: a number with its change and a word-sized trend line. | :::metrics with the change written out ("up 12% on Q2"). |
-| Matrix / SWOT: items in four quadrants, such as SWOT, or effort and impact. | ::::cards with four cards. |
 | Org chart: reporting lines or a decision tree. | A nested list. |
 | Map: a location or regional data. | A figure of the map plus the address as text. |
 | Pull quote: a line from the text repeated large, magazine style. | :::statement. |
 | Annotations: numbered notes on code or text. | Comments in the code, or a numbered list after it. |
 | Before / after: two states of an image. | :::gallery with two captioned images. |
-| AI provenance: marking AI-generated or AI-assisted content and who reviewed it. | :badge[AI draft]{variant=ai} next to the content, in the document's language (Czech: :badge[Koncept od AI]{variant=ai}). |
 | Prompt: a copyable AI prompt. | A code block with title="Prompt". |
 | Line items: quantities, prices, tax and totals in quotes and invoices. | :::table with the totals as the last rows. |
 | Q&A slide: "Questions?" at the end of a deck. | A final ## Questions section with a statement. |

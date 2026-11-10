@@ -3,7 +3,7 @@
  * text), and the Markdown elements and editor parts the registry does not name. Search matches both languages and
  * ignores accents, so "zvyrazneni", "Zvýraznění", "callout" and "Callout" all find the callout.
  */
-import { BLOCKS_CS, CHILD_TITLES, GROUPS, GROUPS_CS, INLINES, INLINES_CS, block as definition, type AttributeSpec, type BlockGroup, type CzechAttribute } from '@libka/blocks';
+import { BLOCKS_CS, CHILD_TITLES, GROUPS, GROUPS_CS, INLINES, INLINES_CS, block as definition, settingTitle, valueLabelsEn, type AttributeSpec, type BlockGroup, type CzechAttribute } from '@libka/blocks';
 
 export type Lang = 'en' | 'cs';
 
@@ -39,9 +39,21 @@ export function blockTitle(name: string, lang: Lang): string {
   return child ? child[lang] : name;
 }
 
+/**
+ * Help text as an editor shows it: the registry writes it in Markdown (for the catalog and the skill), so `**bold**`,
+ * `*italic*`, `` `code` `` and `:kbd[Ctrl+S]` lose their marks here ("bold", "italic", "code", "Ctrl+S").
+ */
+export function plainText(markdown: string): string {
+  return markdown
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/:(?:kbd|badge)\[([^\]]*)\](?:\{[^}]*\})?/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[^\w*])\*([^*\s][^*]*?)\*(?![\w*])/g, '$1$2');
+}
+
 export function blockSummary(name: string, lang: Lang): string | undefined {
   const def = definition(name);
-  return def && (lang === 'cs' ? BLOCKS_CS[name]?.summary ?? def.summary : def.summary);
+  return def && plainText(lang === 'cs' ? BLOCKS_CS[name]?.summary ?? def.summary : def.summary);
 }
 
 export const groupTitle = (g: BlockGroup, lang: Lang): string => (lang === 'cs' ? GROUPS_CS : GROUPS)[g];
@@ -52,21 +64,30 @@ export function inlineText(name: string, lang: Lang): { title: string; summary: 
   return en && (lang === 'cs' ? INLINES_CS[name] ?? en : { title: en.title, summary: en.summary });
 }
 
-/** A setting with its help in the chosen language, and labels for its values (by value). */
+/** A setting with its plain name and help in the chosen language, and labels for its values (by value). */
 export interface LocalAttribute extends AttributeSpec {
+  /** Its plain name ("Next review" for `next-review`); the key is what the Markdown says. */
+  title?: string;
   labels?: Readonly<Record<string, string>>;
 }
 
-/** The settings of a block (or of a child directive, with `child`), their help and value labels in the language. */
+/**
+ * The settings of a block (or of a child directive, with `child`), their plain names, help and value labels in the
+ * language.
+ */
 export function localAttributes(
   attributes: Readonly<Record<string, AttributeSpec>>, lang: Lang, block: string, child?: string,
 ): Readonly<Record<string, LocalAttribute>> {
-  if (lang === 'en') return attributes;
-  const cs: Readonly<Record<string, CzechAttribute>> | undefined = child
+  const cs: Readonly<Record<string, CzechAttribute>> | undefined = lang === 'en' ? undefined : child
     ? BLOCKS_CS[block]?.children?.[child]?.attributes : BLOCKS_CS[block]?.attributes;
   return Object.fromEntries(Object.entries(attributes).map(([k, spec]) => {
+    const named = settingTitle(block, k, child)?.[lang];
     const c = cs?.[k];
-    return [k, c ? { ...spec, description: c.help, ...(c.values ? { labels: c.values } : {}) } : spec];
+    // the values' names in the language (the values themselves are the syntax): English from the registry's own table
+    const en = lang === 'en' ? valueLabelsEn(block, k, child) : undefined;
+    const local: LocalAttribute = c ? { ...spec, description: c.help, ...(c.values ? { labels: c.values } : {}) }
+      : en ? { ...spec, labels: en } : spec;
+    return [k, named ? { ...local, title: named } : local];
   }));
 }
 

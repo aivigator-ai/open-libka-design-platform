@@ -40,7 +40,7 @@ async function open(): Promise<Page> {
 async function withGuide(page: Page): Promise<void> {
   await page.goto(served.url);
   await page.waitForSelector('html[data-guard="done"]', { timeout: 60000 });
-  await page.click('#file-menu summary');
+  await page.click('#library-toggle');
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-command="project.import"]')]);
   await chooser.setFiles({ name: 'guide.md', mimeType: 'text/markdown', buffer: Buffer.from(guide) });
   await page.waitForFunction(() => (window as unknown as { libkaStudio: Studio }).libkaStudio.source.includes('Open Source'), null, { timeout: 30000 });

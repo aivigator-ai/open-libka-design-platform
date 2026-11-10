@@ -13,7 +13,7 @@ outputs: [web, pdf, deck, docx]
 You write a manual as one LibKa Markdown file. LibKa turns it into a self-contained web page and, if you ask for them, an A4 PDF, a slide deck and an editable Word file. Colors, type and spacing come from the LibKa tokens, so you never set them yourself.
 
 :::callout[You need Node.js 22.18 or newer]{variant=info}
-Install the workspace once with `npx --yes pnpm@12.8.1 install` in the repository folder. The PDF uses the Chrome already installed on your computer.
+Run LibKa with `npx -y @libka/cli`, so there is nothing else to install first. The PDF uses the Chrome already installed on your computer.
 :::
 
 ## Write your first manual
@@ -22,7 +22,7 @@ Install the workspace once with `npx --yes pnpm@12.8.1 install` in the repositor
 1. **Create the file** Start with a few lines of front matter: `title`, and optionally `subtitle`, `version`, `date` and `status`.
 2. **Write sections** Use `##` for sections and `###` for subsections. The title comes from the front matter, so there is no `#` heading.
 3. **Add blocks** Callouts, steps, tables, checklists and figures use the short block syntax shown below.
-4. **Build** Run `node packages/cli/src/libka.ts build path/to/manual.md`. The front matter line `outputs: [web, pdf, deck, docx]` chooses what it makes; without it you get the web page and the PDF.
+4. **Build** Run `npx -y @libka/cli build guide.md`. The front matter line `outputs: [web, pdf, deck, docx]` chooses what it makes; without it you get the web page and the PDF.
 :::
 
 :::notes
@@ -77,5 +77,5 @@ The build checks the rendered pages as a reader sees them: an automated accessib
 :::
 
 ```bash
-node packages/cli/src/libka.ts build examples/manual/guide.md
+npx -y @libka/cli build guide.md
 ```

@@ -141,3 +141,33 @@ describe('a page in a site', () => {
     expect(html).not.toMatch(/\[data-theme="dark"\]/);
   });
 });
+
+describe('source-line marks (LibKa Studio only)', () => {
+  const md = '---\ntitle: Lines\nlang: en\n---\n\n## First\n\nA paragraph.\n\n:::callout[Note]{variant=info}\nInside.\n:::\n\n![A chart](c.png "Caption")\n';
+  it('marks each top-level block with the line it starts on, only when asked; without the marks the page is the build\'s, byte for byte', async () => {
+    const { renderDeck } = await import('../src/deck.ts');
+    const { withoutLines } = await import('../src/index.ts');
+    const doc = parse(md).document;
+    const plain = renderManual(doc, { styles });
+    const marked = renderManual(doc, { styles, sourceLines: true });
+    expect(plain).not.toContain('data-lk-line');
+    expect(marked).toMatch(/<h2 data-lk-line="6" id="first"/);
+    expect(marked).toMatch(/<p data-lk-line="8">A paragraph\.<\/p>/);
+    expect(marked).toContain('data-lk-line="10"');
+    expect(marked).toContain('data-lk-line="14"');
+    // a nested block (the callout's paragraph) is not marked: it belongs to its block
+    expect(marked.match(/data-lk-line=/g)).toHaveLength(4);
+    expect(withoutLines(marked)).toBe(plain);
+    // the same for the slides
+    const deckStyles = { tokens: styles.tokens, bridge: styles.bridge, components: styles.components, deck: read('packages/render/src/deck.css') };
+    const deckPlain = renderDeck(doc, { styles: deckStyles });
+    const deckMarked = renderDeck(doc, { styles: deckStyles, sourceLines: true });
+    expect(deckPlain).not.toContain('data-lk-line');
+    expect(deckPlain).not.toContain('data-lk-slide-line');
+    expect(deckMarked).toContain('data-lk-line="8"');
+    // each slide's frame names the line of the block that starts it (the heading's, unmarked itself); the title slide none
+    expect(deckMarked).toMatch(/<section class="lk-deck-frame" id="slide-2" data-title="[^"]*" data-lk-slide-line="6"/);
+    expect(deckMarked).not.toMatch(/id="slide-1"[^>]*data-lk-slide-line/);
+    expect(withoutLines(deckMarked)).toBe(deckPlain);
+  });
+});

@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { BLOCKS } from '@libka/blocks';
-import { parse } from '@libka/model';
-import { block, chartText, context, LABELS, renderManual } from '../src/index.ts';
+import { parse, type DateFormat } from '@libka/model';
+import { block, chartText, context, formatDate, LABELS, metricsFit, renderManual } from '../src/index.ts';
 import { czechIn } from '../src/labels.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -79,6 +79,36 @@ describe('core block output', () => {
     expect(compare).toMatch(/<span aria-hidden="true">✗<\/span> Špatně/);
   });
 
+  it('writes pros and cons as a named group of two lists, each under its word, pros first', () => {
+    const out = html('::::pros-cons[Option A]\n:::cons\n- Slow\n:::\n:::pros\n- Cheap\n- Simple\n:::\n::::');
+    expect(out).toMatch(/^<div class="lk-block lk-pros-cons" role="group" aria-labelledby="(lk-pros-cons-\d+)">\n<p class="lk-pros-cons-title" id="\1">Option A<\/p>/);
+    expect(out).toMatch(/lk-pros-cons-side--pros"><p class="lk-pros-cons-kind"><span aria-hidden="true">\+<\/span> Pros<\/p>\n<ul>\n {2}<li>Cheap<\/li>\n {2}<li>Simple<\/li>\n<\/ul><\/div>\n<div class="lk-pros-cons-side lk-pros-cons-side--cons">/);
+    const cs = html(BLOCKS.find((b) => b.name === 'pros-cons')!.example, 'manual', 'cs');
+    expect(cs).toMatch(/<span aria-hidden="true">\+<\/span> Výhody<\/p>/);
+    expect(cs).toMatch(/<span aria-hidden="true">−<\/span> Nevýhody<\/p>/);
+  });
+
+  it('writes a process as a named group around a numbered list, a cycle\'s return written out', () => {
+    const linear = html(BLOCKS.find((b) => b.name === 'flow')!.example);
+    expect(linear).toMatch(/^<div class="lk-block lk-process" role="group" aria-labelledby="(lk-process-\d+)">\n<p class="lk-process-title" id="\1">How a support request runs<\/p>\n<ol class="lk-process-list">\n {2}<li class="lk-process-stage"><div class="lk-process-body"><p>The customer writes in<\/p><\/div><\/li>/);
+    expect(linear.match(/<li /g)).toHaveLength(4);
+    expect(linear).not.toMatch(/lk-process-again|lk-process-list--long/);
+    expect(html(':::flow[P]\n1. a\n2. b\n3. c\n4. d\n5. e\n:::')).toMatch(/<ol class="lk-process-list lk-process-list--long">/);   // stacks sooner, a row on slides
+    const cycle = html(':::flow[Cyklus]{shape=cycle}\n1. **Naplánovat** změnu\n2. Vyzkoušet\n:::', 'manual', 'cs');
+    expect(cycle).toMatch(/<\/ol>\n<p class="lk-process-again"><span aria-hidden="true">↻<\/span> Pak vše začíná znovu: <strong>Naplánovat<\/strong> změnu<\/p>\n<\/div>$/);
+  });
+
+  it('writes a matrix as a named group of four named quadrants, the axes first in reading order, a SWOT\'s names filled in', () => {
+    const swot = html('::::matrix[SWOT]{type=swot}\n:::q\n- Fast\n:::\n:::q[Weak spots]\n- Small\n:::\n:::q\n- New market\n:::\n:::q\n- Rivals\n:::\n::::', 'manual', 'cs');
+    expect(swot).toMatch(/^<div class="lk-block lk-matrix lk-matrix--swot" role="group" aria-labelledby="(lk-matrix-\d+)">\n<p class="lk-matrix-title" id="\1">SWOT<\/p>\n<div class="lk-matrix-grid">/);
+    expect([...swot.matchAll(/<p class="lk-matrix-label" id="[^"]+">([^<]+)<\/p>/g)].map((m) => m[1])).toEqual(['Silné stránky', 'Weak spots', 'Příležitosti', 'Hrozby']);
+    expect(swot).toMatch(/<div class="lk-matrix-q lk-matrix-q--1" role="group" aria-labelledby="(lk-matrix-\d+-1)"><p class="lk-matrix-label" id="\1">/);
+    expect(swot).not.toMatch(/lk-matrix-axis/);
+    const grid = html(BLOCKS.find((b) => b.name === 'matrix')!.example);
+    expect(grid).toMatch(/^<div class="lk-block lk-matrix" role="group"/);
+    expect(grid).toMatch(/<p class="lk-matrix-axis lk-matrix-axis--y"><span class="lk-visually-hidden">Down: <\/span>Impact, high at the top and low at the bottom<\/p>\n<p class="lk-matrix-axis lk-matrix-axis--x"><span class="lk-visually-hidden">Across: <\/span>Effort, low on the left and high on the right<\/p>\n<div class="lk-matrix-grid">/);
+  });
+
   it('writes the page around the content in the document language, with the runtime inlined', () => {
     const page = renderManual(parse('---\ntitle: Příručka\nlang: cs\nversion: "1"\n---\n\n## Jedna\n\nText.\n\n## Dvě\n\nText.\n').document, {
       styles: { tokens: read('libka-tokens.css'), bridge: read('lk-bridge.css'), components: '', manual: '' },
@@ -126,21 +156,92 @@ describe('document frame output', () => {
     expect(html('> [!IMPORTANT]\n> z', 'manual', 'cs')).toMatch(/<span>Důležité<\/span>/);
   });
 
-  it('labels AI summaries in words and names the reviewer', () => {
-    const out = html(BLOCKS.find((b) => b.name === 'summary')!.example);
+  it('labels an AI summary in words, with its reviewer, only when the document turns the AI label on', () => {
+    const example = BLOCKS.find((b) => b.name === 'summary')!.example;
+    const out = html(example);
     expect(out).toMatch(/<section class="lk-block lk-summary" aria-labelledby="lk-summary-1">\n<p class="lk-summary-title" id="lk-summary-1">Key takeaways<\/p>/);
     expect(out.match(/<li>/g)).toHaveLength(3);
-    expect(out).toMatch(/<p class="lk-summary-source"><span class="lk-badge lk-badge--ai">AI-assisted<\/span> Reviewed by Docs lead\.<\/p>/);
+    expect(out).not.toMatch(/lk-summary-source|lk-badge--ai/);
+    expect(html(example, 'manual', 'en', 'ai:\n  use: ai-assisted\n  label: true')).toMatch(/<p class="lk-summary-source"><span class="lk-badge lk-badge--ai">AI-generated<\/span> Reviewed and approved by Docs lead\.<\/p>/);
     expect(html(':::summary\n- A\n- B\n- C\n:::', 'manual', 'cs')).toMatch(/Hlavní body<\/p>/);
+  });
+
+  it('puts the AI badge before AI-generated content nobody reviewed, only when the label is on', () => {
+    const md = ':::callout[Holiday]{variant=tip ai=generated}\nClosed.\n:::';
+    expect(html(md, 'manual', 'en', 'ai: ai-generated')).not.toMatch(/lk-ai-badge/);
+    expect(html(md, 'manual', 'cs', 'ai:\n  use: ai-generated\n  label: true')).toMatch(/^<p class="lk-ai-badge"><span class="lk-badge lk-badge--ai">Obsah od AI<\/span><\/p>\n<aside class="lk-block lk-callout/);
+    expect(html(md, 'manual', 'en', 'ai:\n  use: ai-generated\n  reviewed-by: Ann\n  label: true')).not.toMatch(/lk-ai-badge/);
+  });
+
+  it('writes the AI label under the title only when the document turns it on', () => {
+    const page = (ai: string, lang = 'en') => renderManual(parse(`---\ntitle: T\nlang: ${lang}\n${ai}\n---\n\nText.\n`).document, { styles: { tokens: read('libka-tokens.css'), bridge: read('lk-bridge.css'), components: '', manual: '' } });
+    expect(page('ai: ai-generated')).not.toMatch(/lk-doc-ai/);
+    expect(page('ai:\n  use: ai-generated\n  label: true')).toMatch(/<p class="lk-doc-ai">Created with AI tools\.<\/p>/);
+    expect(page('ai:\n  use: ai-assisted\n  reviewed-by: Ann Novak\n  label: true')).toMatch(/<p class="lk-doc-ai">Created with AI tools\. Reviewed and approved by Ann Novak\.<\/p>/);
+    expect(page('ai:\n  use: ai-assisted\n  reviewed-by: Ann Novak\n  approved-by: Library Board\n  label: true')).toMatch(/Created with AI tools\. Reviewed by Ann Novak\. Approved by Library Board\./);
+    expect(page('ai:\n  use: ai-assisted\n  reviewed-by: Jana Nováková\n  label: true', 'cs')).toMatch(/<p class="lk-doc-ai">Vytvořeno s\svyužitím nástrojů AI\. Kontrola a\sschválení: Jana Nováková\.<\/p>/);   // \s: the Czech no-break spaces
   });
 
   it('shows status, owner and review dates under the title and in the footer; deprecated pages get a banner', () => {
     const out = page('---\ntitle: Policy\nstatus: Deprecated\nowner: Security team\nreviewed: 2026-09-01\nnext-review: 2027-03-01\n---\n\nText.\n');
-    expect(out).toMatch(/<span>Status: <span class="lk-badge lk-badge--error">Deprecated<\/span><\/span>\n    <span>Owner: Security team<\/span>\n    <span>Reviewed: <time datetime="2026-09-01">2026-09-01<\/time><\/span>/);
+    expect(out).toMatch(/<span>Status: <span class="lk-badge lk-badge--error">Deprecated<\/span><\/span>\n    <span>Owner: Security team<\/span>\n    <span>Reviewed: <time datetime="2026-09-01">1\u00a0September 2026<\/time><\/span>/);
     expect(out).toMatch(/<div class="lk-block lk-doc-banner" role="note"><p class="lk-doc-banner-title">Deprecated<\/p>/);
     expect(out).toMatch(/<footer class="lk-manual-footer"><p class="lk-manual-footer-status">Status: .*Next review: <time datetime="2027-03-01">/);
     expect(page('---\ntitle: P\nstatus: Approved\n---\n\nx\n')).toMatch(/lk-badge--success">Approved/);
     expect(page('---\ntitle: P\nstatus: Approved\n---\n\nx\n')).not.toMatch(/lk-doc-banner"/);
+  });
+
+  it('renders a download as a link named with its format, size and pages, the address written out for print', () => {
+    const out = html(BLOCKS.find((b) => b.name === 'download')!.example);
+    expect(out).toBe('<div class="lk-block lk-download">\n<p class="lk-download-action"><a class="lk-download-link" href="https://example.org/annual-report-2025.pdf">Annual report 2025<span class="lk-download-details"> (PDF, 2.1 MB, 48 pages)</span></a>'
+      + '<span class="lk-download-url">https://example.org/annual-report-2025.pdf</span></p>\n<p class="lk-download-text">The full report with all tables.</p>\n</div>');
+    const local = (bytes: number, pages?: number, lang = 'en') => {
+      const { document } = parse('# T\n\n:::download[Report]{href=report.pdf}\n:::\n');
+      Object.assign(document.blocks[0]!, { bytes, ...(pages ? { pages } : {}) });
+      return block(document.blocks[0]!, context(lang, 'manual', document));
+    };
+    // no-break spaces keep each number with its unit or word
+    expect(local(2_200_000, 1)).toContain('(PDF, 2.1 MB, 1 page)');
+    expect(local(2_200_000, 3, 'cs')).toContain('(PDF, 2,1 MB, 3 strany)');
+    expect(local(52_000, 5, 'cs')).toContain('(PDF, 51 kB, 5 stran)');
+    expect(local(900)).toContain('(PDF, 900 B)');
+    expect(local(900)).not.toMatch(/lk-download-url/);
+  });
+
+  it('renders a decision as a section with its status as a word, its date and who decided, the parts as subheadings', () => {
+    const out = html(BLOCKS.find((b) => b.name === 'decision')!.example);
+    expect(out).toMatch(/^<section class="lk-block lk-decision" aria-labelledby="store-documents-in-postgresql">\n<h2 id="store-documents-in-postgresql" class="lk-manual-h2 lk-decision-title">Store documents in PostgreSQL<\/h2>/);
+    expect(out).toContain('<p class="lk-decision-meta"><span class="lk-visually-hidden">Status: </span><span class="lk-badge lk-badge--success">Accepted</span> '
+      + '<span><span class="lk-visually-hidden">Date: </span><time datetime="2026-10-01">1\u00a0October 2026</time></span> <span>Decided by: Architecture board</span></p>');
+    expect([...out.matchAll(/<h3 class="lk-decision-kind">([^<]+)<\/h3>/g)].map((m) => m[1])).toEqual(['Context', 'Options considered', 'Consequences']);
+    const cs = html('::::decision[Použijeme A]{status=rejected date=2026-03-01 by="Rada"}\n:::context\nProč.\n:::\n::::', 'manual', 'cs');
+    expect(cs).toMatch(/lk-badge--error">Zamítnuto<\/span>/);
+    expect(cs).toMatch(/<h3 class="lk-decision-kind">Výchozí situace<\/h3>/);
+  });
+
+  it('renders a revision history as a section of its own over a table, its dates as time elements', () => {
+    const out = html(BLOCKS.find((b) => b.name === 'revisions')!.example);
+    expect(out).toMatch(/<section class="lk-block lk-revisions-section" aria-labelledby="lk-revisions">\n<h2 id="lk-revisions" class="lk-manual-h2">Revision history<\/h2>\n<div class="lk-table-scroll" role="region" tabindex="0" aria-label="Revision history">\n<table class="lk-block lk-table lk-revisions">\n  <caption class="lk-visually-hidden">Revision history<\/caption>/);
+    expect(out).toMatch(/<th scope="col" class="lk-revisions-version">Version<\/th>[\s\S]*?<th scope="col">Approved by<\/th>/);
+    expect(out).toMatch(/<td class="lk-revisions-date"><time datetime="2026-09-15">15\u00a0September 2026<\/time><\/td>/);
+    // without a label the heading is the language's name for it; on a slide the slide's heading shows it
+    const md = ':::revisions\n| Verze | Datum | Změna |\n|---|---|---|\n| 1.0 | 2026-03-01 | První verze |\n:::';
+    expect(html(md, 'manual', 'cs')).toMatch(/<h2 id="lk-revisions" class="lk-manual-h2">Historie změn<\/h2>/);
+    const slide = html(md, 'deck', 'en');
+    expect(slide).toMatch(/<caption class="lk-visually-hidden">Revision history<\/caption>/);
+    expect(slide).not.toMatch(/<h2/);
+  });
+
+  it('shows the authors under the title and in the page metadata, or where :::byline stands', () => {
+    const fm = '---\ntitle: Policy\nauthor:\n  - name: Ann Novak\n    role: Security lead\n  - name: Petr Svoboda\n---\n\n';
+    const out = page(`${fm}Text.\n`);
+    expect(out).toMatch(/<meta name="author" content="Ann Novak, Petr Svoboda">\n<title>Policy<\/title>/);
+    expect(out).toMatch(/<div class="lk-doc-meta">\n    <span>Authors: Ann Novak \(Security lead\), Petr Svoboda<\/span>/);
+    const placed = page(`${fm}Text.\n\n:::byline\n:::\n`);
+    expect(placed.slice(placed.indexOf('<header'), placed.indexOf('</header>'))).not.toMatch(/Authors/);
+    expect(placed).toMatch(/<p class="lk-block lk-byline"><span class="lk-byline-label">Authors:<\/span> Ann Novak \(Security lead\), Petr Svoboda<\/p>/);
+    expect(page('---\ntitle: P\nauthor: Jana Nováková\nlang: cs\n---\n\nText.\n')).toMatch(/<span>Autor: Jana Nováková<\/span>/);
+    expect(page('---\ntitle: P\n---\n\nText.\n')).not.toMatch(/name="author"/);
   });
 
   it('moves owner and dates into the :::doc-status panel when there is one', () => {
@@ -215,7 +316,25 @@ describe('time and comparison output', () => {
     expect(out).toMatch(/<li class="lk-timeline-item is-current"><p class="lk-timeline-when">2026-Q2 <span class="lk-timeline-now">Now<\/span><\/p>/);
     expect(out).toMatch(/<li class="lk-timeline-item is-planned"><p class="lk-timeline-when"><span class="lk-visually-hidden">Planned: <\/span>2026-Q3/);
     // calendar dates become time elements; without a caption the list is named
-    expect(html(':::timeline\n- **2025** A\n- **2026-03** B\n:::', 'manual', 'cs')).toMatch(/<div class="lk-block lk-timeline">\n<ol class="lk-timeline-list" aria-label="Časová osa">\n  <li class="lk-timeline-item"><p class="lk-timeline-when"><time datetime="2025">2025<\/time><\/p>.*\n.*<time datetime="2026-03">/);
+    expect(html(':::timeline\n- **2025** A\n- **2026-03** B\n:::', 'manual', 'cs')).toMatch(/<div class="lk-block lk-timeline">\n<ol class="lk-timeline-list" aria-label="Časová osa">\n  <li class="lk-timeline-item"><p class="lk-timeline-when"><time datetime="2025">2025<\/time><\/p>.*\n.*<time datetime="2026-03">březen 2026<\/time>/);
+  });
+
+  it('writes dates as the document\'s language does, in the format the front matter chooses, with ISO for machines', () => {
+    expect(['long', 'short', 'iso'].map((f) => formatDate('2026-10-28', 'en', f as DateFormat))).toEqual(['28\u00a0October 2026', '28/10/2026', '2026-10-28']);
+    expect(['long', 'short', 'iso'].map((f) => formatDate('2026-10-28', 'cs', f as DateFormat))).toEqual(['28.\u00a0října 2026', '28.\u00a010.\u00a02026', '2026-10-28']);
+    expect([formatDate('2026-03', 'cs'), formatDate('2026-03', 'en', 'short'), formatDate('2026-02-30', 'en'), formatDate('October 2026', 'en'), formatDate('2026-Q1', 'cs')])
+      .toEqual(['březen 2026', '03/2026', '2026-02-30', 'October 2026', '2026-Q1']);
+    // one setting for every date in the document: a decision, a release, the revision history
+    const md = '::::decision[Use A]{status=accepted date=2026-10-01 by="Rada"}\nA.\n:::context\nProč.\n:::\n::::\n\n::::release[v1.0.0]{date=2026-09-01}\n:::added\n- A\n:::\n::::\n\n:::revisions\n| Verze | Datum | Změna |\n|---|---|---|\n| 1.0 | 2026-03-01 | První verze |\n:::';
+    const short = html(md, 'manual', 'cs', 'lang: cs\ndate-format: short');
+    expect(short).toContain('<time datetime="2026-10-01">1.\u00a010.\u00a02026</time>');
+    expect(short).toContain('<time datetime="2026-09-01">1.\u00a09.\u00a02026</time>');
+    expect(short).toContain('<time datetime="2026-03-01">1.\u00a03.\u00a02026</time>');
+    expect(html(md, 'manual', 'cs', 'lang: cs\ndate-format: iso')).toContain('<time datetime="2026-10-01">2026-10-01</time>');
+    // the title's date too; free text such as "October 2026" stays as written
+    const page = (fm: string) => renderManual(parse(`---\ntitle: T\nlang: cs\n${fm}\n---\n\n## A\n\nText.\n`).document, { styles: { tokens: read('libka-tokens.css'), bridge: read('lk-bridge.css'), components: '', manual: '' } });
+    expect(page('date: "2026-10-28"')).toContain('<span>Datum: <time datetime="2026-10-28">28.\u00a0října 2026</time></span>');
+    expect(page('date: Říjen 2026')).toContain('<span>Datum: Říjen 2026</span>');
   });
 
   it('shows comparison marks as an icon and a word, and names the recommended column', () => {
@@ -231,10 +350,29 @@ describe('time and comparison output', () => {
 
   it('renders a release as a level-2 heading with its date and groups in Keep a Changelog order', () => {
     const out = html('::::release[v1.4.0]{date=2026-10-01}\n:::security\n- Patched.\n:::\n:::added\n- Tables.\n:::\n::::');
-    expect(out).toMatch(/^<section class="lk-block lk-release" aria-labelledby="v1-4-0">\n<h2 id="v1-4-0" class="lk-manual-h2 lk-release-title">v1\.4\.0 <span class="lk-release-date"><span class="lk-visually-hidden">Released <\/span><time datetime="2026-10-01">2026-10-01<\/time><\/span><\/h2>/);
+    expect(out).toMatch(/^<section class="lk-block lk-release" aria-labelledby="v1-4-0">\n<h2 id="v1-4-0" class="lk-manual-h2 lk-release-title">v1\.4\.0 <span class="lk-release-date"><span class="lk-visually-hidden">Released <\/span><time datetime="2026-10-01">1\u00a0October 2026<\/time><\/span><\/h2>/);
     expect(out.indexOf('lk-release-group--added')).toBeLessThan(out.indexOf('lk-release-group--security'));
     expect(out).toMatch(/<div class="lk-release-group lk-release-group--added"><p class="lk-release-kind"><svg class="lk-release-icon"[^>]*aria-hidden="true"[^>]*>.*?<\/svg>Added<\/p><div class="lk-release-body"><ul>\n  <li>Tables\.<\/li>/);
     expect(html('::::release[v2]{date=2026-10-01}\n:::deprecated\n- Old API.\n:::\n::::', 'manual', 'cs')).toMatch(/Vydáno .*Označeno jako zastaralé/s);
+  });
+});
+
+describe('key figures', () => {
+  it('measures the longest word of the figures in half ems, from 2 to 10', () => {
+    expect(metricsFit(['4', '0'])).toBe(2);
+    expect(metricsFit(['184,000'])).toBe(4.5);
+    expect(metricsFit(['1,234,567', '50 %'])).toBe(5);
+    expect(metricsFit(['2.4 million'])).toBe(5); // "million" is the longest word; the space breaks
+    expect(metricsFit(['184 000'])).toBe(5); // a no-break space does not
+    expect(metricsFit(['12,345,678,901,234,567,890'])).toBe(10);
+  });
+
+  it('keeps a figure\'s digit groups together and gives the CSS a step for every width it can measure', () => {
+    const out = html(':::metrics\n- **184 000** visitors\n- **2.4 million** euros\n:::');
+    expect(out).toMatch(/^<ul class="lk-block lk-metrics" data-fit="5">\n  <li><span class="lk-metric-value">184 000<\/span>/);
+    expect(out).toContain('2.4 million');
+    expect(html(':::metrics\n- **1,2 mil. Kč** rozpočet\n:::', 'manual', 'cs')).toContain('data-fit="3"');
+    for (let fit = 2.5; fit <= 10; fit += 0.5) expect(css).toContain(`.lk-metrics[data-fit="${fit}"] { --lk-metric-fit: ${fit}; }`);
   });
 });
 

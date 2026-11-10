@@ -7,13 +7,13 @@ import { blockTitle, insertables } from '@libka/editor';
 import { registry, type PaletteItem, type PaletteSource } from '../state/commands.ts';
 import { keysOf } from '../state/keys.ts';
 import { editorPrefs, setPref, type EditorPrefs } from '../state/prefs.ts';
+import { showPanel } from '../state/layout.ts';
 import * as s from '../state/store.ts';
 import { t } from '../state/text.ts';
 import type { Key } from '../i18n.ts';
 import { displayName } from '../storage/projects.ts';
 import { insertBlock, openProject, setMode } from './project.ts';
 import { goToLine } from '../ui/Panels.tsx';
-import { SNIPPETS } from '../ui/Workspace.tsx';
 import { places } from '../core/places.ts';
 
 const inEditor = () => s.view.value === 'editor' && Boolean(s.project.value);
@@ -32,11 +32,11 @@ const commands: PaletteSource = {
     for (const p of registry.panels()) {
       out.push({
         id: `panel:${p.id}`, label: t('cmdk.panel', { name: t(p.title) }), words: p.id,
-        run: () => { s.panelTab.value = p.id as s.PanelTab; s.pane.value = 'checks'; requestAnimationFrame(() => document.getElementById(`tab-${p.id}`)?.focus()); },
+        run: () => showPanel(p.id, `tab-${p.id}`),
       });
     }
     for (const d of ['web', 'phone', 'a4', 'slides'] as const) {
-      out.push({ id: `device:${d}`, label: t('cmdk.preview', { name: t(`preview.${d}`) }), words: d, run: () => { s.device.value = d; s.pane.value = 'preview'; } });
+      out.push({ id: `device:${d}`, label: t('cmdk.preview', { name: t(`preview.${d}`) }), words: d, run: () => { s.device.value = d; showPanel('preview'); } });
     }
     return out;
   },
@@ -47,7 +47,7 @@ const blocks: PaletteSource = {
   title: 'cmdk.blocks',
   order: 20,
   items: () => (inEditor() ? insertables(s.lang.value).map((b) => ({
-    id: `block:${b.name}`, label: b.title, detail: short(b.summary), words: b.words, run: () => insertBlock(b.name, SNIPPETS),
+    id: `block:${b.name}`, label: b.title, detail: short(b.summary), words: b.words, run: () => insertBlock(b.name),
   })) : []),
 };
 
@@ -61,8 +61,8 @@ const placesSource: PaletteSource = {
   })) : []),
 };
 
-type Toggle = 'palette' | 'shortcuts' | 'labels' | 'focus' | 'typewriter';
-const TOGGLES: [Toggle, Key][] = [['palette', 'prefs.palette'], ['shortcuts', 'prefs.shortcuts'], ['labels', 'prefs.labels'], ['focus', 'prefs.focus'], ['typewriter', 'prefs.typewriter']];
+type Toggle = 'shortcuts' | 'labels' | 'focus' | 'typewriter';
+const TOGGLES: [Toggle, Key][] = [['shortcuts', 'prefs.shortcuts'], ['labels', 'prefs.labels'], ['focus', 'prefs.focus'], ['typewriter', 'prefs.typewriter']];
 type Choice = 'handles' | 'density' | 'defaultMode' | 'announce';
 const CHOICES: { [K in Choice]: [Key, [EditorPrefs[K], Key][]] } = {
   handles: ['prefs.handles', [['hover', 'prefs.handlesHover'], ['always', 'prefs.handlesAlways']]],

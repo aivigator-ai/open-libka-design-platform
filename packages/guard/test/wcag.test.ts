@@ -53,6 +53,17 @@ describe('WCAG 2.2 and EN 301 549 mapping', () => {
     expect(conformanceMarkdown('Guide', 'manual', c, false, false, 'veraPDF was not found')).not.toContain('not validated');   // no PDF, nothing to say
   });
 
+  it('writes the report in the document\'s language, keeping WCAG\'s English criterion names', () => {
+    const c = conformance(report(), { media: false, forms: false });
+    const cs = conformanceMarkdown('Příručka', 'manual', c, true, true, 'veraPDF was not found', 'cs');
+    expect(cs).toContain('title: "Kontroly přístupnosti: Příručka"\nsubtitle: Webová stránka, PDF a dokument Word, WCAG 2.2 na úrovni AA a EN 301 549 v4.1.1\nlang: cs');
+    expect(cs).toContain('PDF/UA-1 se nekontrolovalo: veraPDF nebyl nalezen.');
+    expect(cs).toContain('| Kritérium | Úroveň | Článek EN 301 549 | Stav |');
+    expect(cs).toMatch(/\| 1\.1\.1 Non-text Content \| A \| 9\.1\.1\.1, 10\.1\.1\.1 \| (ověřeno automaticky|posoudí člověk) \|/);
+    expect(cs).not.toMatch(/checked automatically|needs a person|not applicable/);
+    expect(conformanceMarkdown('Guide', 'deck', c, false, false, undefined, 'en-GB')).toContain('lang: en');
+  });
+
   it('keeps the generated ACR draft current with the mapping', () => {
     const file = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'docs', 'acr', 'libka-outputs.md');
     expect(readFileSync(file, 'utf8')).toBe(acrMarkdown());

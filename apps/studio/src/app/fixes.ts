@@ -7,6 +7,7 @@ import { applyFix, blockTitle } from '@libka/editor';
 import type { Fix, Problem } from '@libka/model';
 import type { Key } from '../i18n.ts';
 import * as s from '../state/store.ts';
+import { showEditor, showPanel } from '../state/layout.ts';
 import { t } from '../state/text.ts';
 import { withField } from '../core/frontmatter.ts';
 import { bridge, currentText } from './project.ts';
@@ -29,14 +30,13 @@ export function fixLabel(fix: Fix): string {
     case 'heading-level': return t('fix.level', { n: fix.level });
     case 'list-type': return t(fix.ordered ? 'fix.numbered' : 'fix.bulleted');
     case 'set-front-matter': return t('fix.frontMatter', { key: fix.key, value: Array.isArray(fix.value) ? `[${fix.value.join(', ')}]` : fix.value });
+    case 'remove-front-matter': return t('fix.removeFrontMatter', { keys: fix.keys.join(', ') });
   }
 }
 
 /** Opens the Inspector and puts the focus in one of its fields (once it has rendered). */
 function focusInspector(id: string): void {
-  s.panelTab.value = 'inspector';
-  s.pane.value = 'checks';
-  requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(id)?.focus()));
+  showPanel('properties', id);
 }
 
 /** Takes the author to where the missing words go. */
@@ -44,8 +44,8 @@ function toField(p: Problem, target: string): void {
   const [kind, name = ''] = target.split(':');
   const v = visual.editor;
   if (kind === 'document') { showDocument(); focusInspector(`docprop-${name}`); return; }
-  if (!v || s.shownMode.value === 'source') { s.pane.value = 'write'; bridge.editor?.goToLine(p.line); return; }
-  s.pane.value = 'write';
+  if (!v || s.shownMode.value === 'source') { showEditor(); bridge.editor?.goToLine(p.line); return; }
+  showEditor();
   if (kind === 'label' || kind === 'text') { v.selectLine(p.line, 'text'); return; }
   v.selectLine(p.line, 'block');
   focusInspector(kind === 'attribute' ? `attr-${name}` : kind === 'alt' ? 'img-alt' : 'img-caption');
@@ -59,7 +59,9 @@ export function applyQuickFix(p: Problem, fix: Fix): void {
   const text = currentText();
   flushSync();
   if (fix.kind === 'field') { toField(p, fix.target); return; }
-  const next = fix.kind === 'set-front-matter' ? withField(text, fix.key, fix.value) : applyFix(text, p.line, fix);
+  const next = fix.kind === 'set-front-matter' ? withField(text, fix.key, fix.value)
+    : fix.kind === 'remove-front-matter' ? fix.keys.reduce<string | null>((src, key) => src === null ? null : withField(src, key, null), text)
+    : applyFix(text, p.line, fix);
   if (next === null || next === text) { s.toast(t('fix.stale')); return; }
   editor.replaceAll(next);
   const what = fixLabel(fix);

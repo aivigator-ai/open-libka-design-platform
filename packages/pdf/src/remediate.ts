@@ -18,6 +18,8 @@ export interface RemediateOptions {
   title: string;
   /** BCP 47 language of the document, such as "en" or "cs". */
   lang: string;
+  /** The authors' names (the page's author metadata), for dc:creator and the document information. */
+  author?: string;
   /** Link texts from the page, by address ("https://…", or "#id" for a link inside the document). */
   links?: ReadonlyMap<string, string>;
 }
@@ -40,7 +42,7 @@ const N = (s: string) => PDFName.of(s);
 const text = (o: PDFObject | undefined) => (o instanceof PDFString || o instanceof PDFHexString ? o.decodeText() : undefined);
 
 /** XMP metadata with the PDF/UA-1 identifier. */
-function xmp(title: string, lang: string): string {
+function xmp(title: string, lang: string, author?: string): string {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -48,7 +50,7 @@ function xmp(title: string, lang: string): string {
   <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
     xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">
    <dc:title><rdf:Alt><rdf:li xml:lang="x-default">${esc(title)}</rdf:li></rdf:Alt></dc:title>
-   <dc:language><rdf:Bag><rdf:li>${esc(lang)}</rdf:li></rdf:Bag></dc:language>
+${author ? `   <dc:creator><rdf:Seq><rdf:li>${esc(author)}</rdf:li></rdf:Seq></dc:creator>\n` : ''}   <dc:language><rdf:Bag><rdf:li>${esc(lang)}</rdf:li></rdf:Bag></dc:language>
    <dc:format>application/pdf</dc:format>
    <pdf:Producer>LibKa</pdf:Producer>
    <xmp:CreatorTool>LibKa</xmp:CreatorTool>
@@ -63,7 +65,7 @@ function xmp(title: string, lang: string): string {
 function frame(doc: PDFDocument, o: RemediateOptions): void {
   const ctx = doc.context;
   const catalog = doc.catalog;
-  const meta = ctx.stream(new TextEncoder().encode(xmp(o.title, o.lang)), { Type: 'Metadata', Subtype: 'XML' });
+  const meta = ctx.stream(new TextEncoder().encode(xmp(o.title, o.lang, o.author)), { Type: 'Metadata', Subtype: 'XML' });
   catalog.set(N('Metadata'), ctx.register(meta));
   const prefs = catalog.lookupMaybe(N('ViewerPreferences'), PDFDict) ?? ctx.obj({});
   prefs.set(N('DisplayDocTitle'), ctx.obj(true));
@@ -73,6 +75,7 @@ function frame(doc: PDFDocument, o: RemediateOptions): void {
   mark.set(N('Marked'), ctx.obj(true));
   catalog.set(N('MarkInfo'), mark);
   doc.setTitle(o.title, { showInWindowTitleBar: true });
+  if (o.author) doc.setAuthor(o.author);
   doc.setLanguage(o.lang);
   doc.setProducer('LibKa');
   doc.setCreator('LibKa');

@@ -26,6 +26,9 @@ export const CHILD_TITLES: Readonly<Record<string, { en: string; cs: string }>> 
   item: { en: 'Item', cs: 'Položka' },
   do: { en: 'Do', cs: 'Dělejte' },
   dont: { en: "Don't", cs: 'Nedělejte' },
+  pros: { en: 'Pros', cs: 'Výhody' },
+  cons: { en: 'Cons', cs: 'Nevýhody' },
+  q: { en: 'Quadrant', cs: 'Kvadrant' },
   card: { en: 'Card', cs: 'Dlaždice' },
   button: { en: 'Button', cs: 'Tlačítko' },
   field: { en: 'Field', cs: 'Pole' },
@@ -39,6 +42,9 @@ export const CHILD_TITLES: Readonly<Record<string, { en: string; cs: string }>> 
   removed: { en: 'Removed', cs: 'Odstraněno' },
   fixed: { en: 'Fixed', cs: 'Opraveno' },
   security: { en: 'Security', cs: 'Bezpečnost' },
+  context: { en: 'Context', cs: 'Výchozí situace' },
+  options: { en: 'Options considered', cs: 'Zvažované možnosti' },
+  consequences: { en: 'Consequences', cs: 'Důsledky' },
 };
 
 export const GROUPS_CS: Readonly<Record<BlockGroup, string>> = {
@@ -81,6 +87,10 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
       reviewed: date('Datum poslední revize, RRRR-MM-DD.'),
       'next-review': date('Kdy je na řadě další revize, RRRR-MM-DD; po jejím uplynutí kontrola upozorní.'),
     },
+  },
+  byline: {
+    title: 'Autoři',
+    summary: 'Autoři, každý s případnou rolí, z klíče author v úvodních údajích. Bez bloku se zobrazí pod názvem; :::byline je místo toho zobrazí tam, kde stojí. Jména se zapíšou i do metadat stránky, PDF a dokumentu Word.',
   },
   toc: {
     title: 'Obsah',
@@ -177,6 +187,28 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
       dont: { attributes: { label: { help: 'Čemu se vyhnout.' } } },
     },
   },
+  'pros-cons': {
+    title: 'Výhody a nevýhody',
+    summary: 'Výhody a nevýhody jedné možnosti jako dva seznamy pod slovy „Výhody“ a „Nevýhody“. Popisek pojmenuje možnost; každý z bloků :::pros a :::cons obsahuje jeden seznam s odrážkami a výhody se vždy zobrazí jako první. Více možností znamená více bloků; uvnitř :::options v záznamu o rozhodnutí jeden blok na každou možnost (každý vnější blok pak dostane o dvojtečku víc).',
+    children: { pros: { attributes: {} }, cons: { attributes: {} } },
+  },
+  flow: {
+    title: 'Proces',
+    summary: 'Proces jako řada 2 až 6 očíslovaných fází spojených šipkami; každá fáze je jedna položka seznamu. `shape=cycle` označí proces, který začíná znovu, a návrat k první fázi se pak vypíše i slovy pod fázemi. Na telefonu jsou fáze pod sebou se šipkami dolů, na stránce a v tisku také při pěti nebo šesti fázích, aby se dlouhá slova nikdy nedělila; na snímcích jsou vždy v řadě.',
+    attributes: {
+      shape: { help: 'linear (výchozí) nebo cycle (proces začíná znovu od první fáze).', values: { linear: 'Lineární', cycle: 'Cyklický' } },
+    },
+  },
+  matrix: {
+    title: 'Matice',
+    summary: 'Čtyři kvadranty v mřížce 2 × 2, čtené zleva doprava, nejdřív horní řada. `type=swot` doplní názvy kvadrantů (Silné stránky, Slabé stránky, Příležitosti, Hrozby); `type=grid` potřebuje název u každého :::q; `x=` a `y=` slovy popisují, co se mění zleva doprava a shora dolů. Každý kvadrant obsahuje krátký seznam nebo větu.',
+    attributes: {
+      type: { help: 'swot (všechny čtyři názvy se doplní samy) nebo grid (každý kvadrant pojmenujete).', values: { swot: 'SWOT', grid: 'Mřížka' } },
+      x: { help: 'Jen u mřížky: slovní popis toho, co se mění zleva doprava („Náročnost: vlevo nízká, vpravo vysoká“).' },
+      y: { help: 'Jen u mřížky: slovní popis toho, co se mění shora dolů („Přínos: nahoře vysoký, dole nízký“).' },
+    },
+    children: { q: { attributes: { label: { help: 'Název kvadrantu; u mřížky povinný, u SWOT se doplní sám.' } } } },
+  },
   quote: {
     title: 'Citát',
     summary: 'Citace, se zdrojem, pokud ho má. Funguje i obyčejná citace Markdownu > .',
@@ -208,10 +240,10 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
   },
   summary: {
     title: 'Shrnutí',
-    summary: 'Hlavní body v rámečku, 3 až 5 bodů. source=ai s reviewed-by zobrazí štítek „S pomocí AI, zkontroloval(a) …“.',
+    summary: '3 až 5 hlavních bodů v rámečku. source=ai označí shrnutí, které napsala AI (stejně jako ai=generated), a reviewed-by uvede, kdo ho zkontroloval. Označení AI se zobrazí, jen když ho dokument zapne (v úvodních údajích ai, label: true).',
     attributes: {
       source: { help: 'Kdo shrnutí napsal: human (výchozí) nebo ai.', values: { human: 'Člověk', ai: 'AI' } },
-      'reviewed-by': { help: 'Jméno člověka, který shrnutí od AI zkontroloval, případně s rolí (povinné se source=ai).' },
+      'reviewed-by': { help: 'Jméno člověka, který shrnutí od AI zkontroloval, případně i s rolí; lint upozorní, když shrnutí od AI nikoho neuvádí.' },
     },
   },
   cta: {
@@ -238,6 +270,30 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
       captions: { help: 'Titulky WebVTT k souboru videa (u souborů povinné).' },
       poster: { help: 'Obrázek zobrazený před spuštěním videa.' },
     },
+  },
+  download: {
+    title: 'Soubor ke stažení',
+    summary: 'Odkaz na soubor s formátem, velikostí a u PDF i počtem stran, případně s větou o souboru. U souboru vedle dokumentu se tyto údaje zjistí při sestavení samy a soubor se zkopíruje k výstupům; u souboru na jiném webu je třeba uvést type a size.',
+    attributes: {
+      href: { help: 'Soubor: cesta k souboru vedle dokumentu (zkopíruje se k výstupům) nebo webová adresa.' },
+      type: { help: 'Formát, pod kterým čtenáři soubor znají (PDF, Word, Excel, CSV…). Když chybí, zjistí se z názvu souboru; u webové adresy je povinný.' },
+      size: { help: 'Velikost, jak ji uvidí čtenář, například 2,1 MB. U místního souboru se změří, když chybí; u webové adresy je povinná.' },
+      pages: { help: 'Počet stran. U místního PDF se spočítá, když chybí.' },
+    },
+  },
+  decision: {
+    title: 'Záznam o rozhodnutí',
+    summary: 'Jedno rozhodnutí jako samostatný oddíl: nadpis říká, co se rozhodlo, a štítek ukazuje, zda je rozhodnutí navržené, přijaté, zamítnuté, nebo nahrazené, spolu s datem a s tím, kdo rozhodl. Na začátku může stát věta, která rozhodnutí formuluje, pak :::context (povinný), :::options a :::consequences, zobrazené vždy v tomto pořadí. V možnostech může být :::comparison (každý vnější blok má pak o dvojtečku víc). Každé rozhodnutí je nadpis 2. úrovně s kotvou, je v obsahu a má vlastní snímek.',
+    attributes: {
+      status: { help: 'Stav rozhodnutí: proposed (navrženo), accepted (přijato), rejected (zamítnuto), superseded (nahrazeno).', values: { proposed: 'Navrženo', accepted: 'Přijato', rejected: 'Zamítnuto', superseded: 'Nahrazeno' } },
+      date: date('Datum rozhodnutí (nebo návrhu), RRRR-MM-DD (povinné, pokud stav není proposed).'),
+      by: { help: 'Kdo rozhodl: osoba, rada nebo tým (povinný údaj, pokud stav není proposed). Kdo rozhodnutí navrhuje, patří do úvodní věty.' },
+    },
+    children: { context: { attributes: {} }, options: { attributes: {} }, consequences: { attributes: {} } },
+  },
+  revisions: {
+    title: 'Historie změn',
+    summary: 'Verze dokumentu jako tabulka Markdownu: verze, datum a změna, případně autor a kdo verzi schválil. Je to samostatná sekce: nadpis 2. úrovně s kotvou (Historie změn, pokud popisek neurčí jiný), uvedený v obsahu, takže nad ni vlastní nadpis nepíšete. Sloupce se poznají podle záhlaví v češtině nebo angličtině (Verze, Datum, Změna, Autor, Schválil, Schválila nebo Schválení), data se kontrolují a řádky musí jít od nejnovější verze, nebo od nejstarší. Verze s daty a schvalovateli se zapíšou do podepsaného manifestu.',
   },
   table: {
     title: 'Tabulka',
@@ -390,6 +446,10 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
     useWhen: 'Směrnice, postupy, specifikace a každá stránka, které musí čtenáři věřit: kdo ji vlastní, kdy prošla poslední revizí, kdy je na řadě další a zda ještě platí.',
     example: ':::doc-status{owner="Tým platformy" reviewed=2026-09-01 next-review=2027-03-01}\n:::',
   },
+  byline: {
+    useWhen: 'Články, zprávy, směrnice a návrhy, u kterých čtenáři chtějí vědět, kdo je napsal. Autory pod názvem zobrazí už samotný klíč author v úvodních údajích; :::byline použijte jen tehdy, když je chcete mít jinde, například na konci článku.',
+    example: ':::byline\n:::',
+  },
   toc: {
     useWhen: 'Dlouhé dokumenty, ve kterých čtenář přeskakuje na oddíly, nebo prezentace, která začíná programem. Manuál dostane obsah sám; :::toc určí, kde bude a jak podrobný.',
     example: ':::toc[Obsah]{depth=3}\n:::',
@@ -450,6 +510,18 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
     useWhen: 'Pokyny se správným a špatným postupem: styl psaní, popisky v rozhraní, pravidla návrhu.',
     example: '::::compare\n:::do[Pojmenujte akci]\n„Uložit koncept“\n:::\n:::dont[Nepoužívejte vágní popisky]\n„OK“ nebo „Klikněte sem“\n:::\n::::',
   },
+  'pros-cons': {
+    useWhen: 'Zvážení jedné možnosti: co pro ni mluví a co proti ní, v návrhu, v záznamu o rozhodnutí nebo v posouzení nástroje či dodavatele.',
+    example: '::::pros-cons[Práce z domova tři dny v týdnu]\n:::pros\n- Většinu dní odpadá dojíždění\n- Klid na soustředěnou práci\n:::\n:::cons\n- Méně náhodných setkání s kolegy\n- Doma je potřeba zařídit pracovní místo\n:::\n::::',
+  },
+  flow: {
+    useWhen: 'Jak probíhá proces, fázi po fázi: požadavek od přijetí po uzavření, životní cyklus produktu, cyklus revizí nebo zlepšování. Nehodí se na pokyny, podle kterých čtenář postupuje (na ty je :::steps).',
+    example: ':::flow[Cyklus zlepšování]{shape=cycle}\n1. Naplánovat změnu\n2. Vyzkoušet ji v malém\n3. Vyhodnotit výsledek\n4. Zavést, co se osvědčilo\n:::',
+  },
+  matrix: {
+    useWhen:'Body roztříděné do čtyř kvadrantů: analýza SWOT, náročnost a přínos, naléhavost a důležitost, rizika podle pravděpodobnosti a dopadu.',
+    example: '::::matrix[Čím začít]{type=grid x="Náročnost, vlevo nízká a vpravo vysoká" y="Přínos, nahoře vysoký a dole nízký"}\n:::q[Rychlé výhry]\n- Opravit nefunkční odkaz na registraci\n:::\n:::q[Velké projekty]\n- Přestavět zákaznický portál\n:::\n:::q[Na volnou chvíli]\n- Uklidit stránky nápovědy\n:::\n:::q[Teď ne]\n- Přeložit staré zpravodaje\n:::\n::::',
+  },
   quote: {
     useWhen: 'Slova osoby nebo zdroje citovaná s uvedením původu: zákazník, norma, zákon.',
     example: ':::quote{source="Listina základních práv a svobod, článek 1"}\nLidé jsou svobodní a rovní v důstojnosti i v právech.\n:::',
@@ -485,6 +557,18 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
   video: {
     useWhen: 'Záznam, který něco ukáže lépe než text: průvodce, ukázka, přednáška.',
     example: ':::video[Big Buck Bunny, otevřený film nadace Blender Foundation]{src="https://www.youtube.com/watch?v=aqz-KE-bpKQ"}\nKrátký animovaný film bez dialogů: velký králík si užívá klidný den v lese, dokud ho nezačnou škádlit tři hlodavci.\n:::',
+  },
+  download: {
+    useWhen: 'Soubor, který si čtenář odnese: zpráva, formulář, šablona, datová sada. Název říká, o jaký soubor jde, a formát, velikost a u PDF počet stran prozradí, co se čtenář chystá otevřít.',
+    example: ':::download[Výroční zpráva 2025]{href="https://example.org/vyrocni-zprava-2025.pdf" type=PDF size="2,1 MB" pages=48}\nCelá zpráva se všemi tabulkami.\n:::',
+  },
+  decision: {
+    useWhen: 'Rozhodnutí, které musí čtenáři umět dohledat: rozhodnutí o architektuře nebo o pravidlech, výběr mezi dodavateli nebo nástroji, usnesení vedení. Proč bylo rozhodnutí potřeba, co se zvažovalo, co se rozhodlo, kdy a kdo rozhodl a co z toho plyne.',
+    example: '::::decision[Dokumenty ukládáme do PostgreSQL]{status=accepted date=2026-10-01 by="Architektonická rada"}\nDokumenty i jejich verze ukládáme do databáze PostgreSQL, kterou už provozujeme.\n:::context\nÚložiště dokumentů potřebuje verze, fulltextové vyhledávání a zálohy, které provozní tým už zná.\n:::\n:::options\n- **PostgreSQL**: jediná databáze k provozu, verze jako řádky, vestavěné fulltextové vyhledávání.\n- **Dokumentová databáze**: volnější struktura záznamů, ale další systém, který je třeba provozovat a zálohovat.\n:::\n:::consequences\n- Schéma měníme migracemi.\n- Fulltextové vyhledávání v češtině potřebuje vlastní slovník.\n:::\n::::',
+  },
+  revisions: {
+    useWhen: 'Směrnice, postupy, příručky a návrhy, které se v čase mění a musí ukázat, co se v které verzi změnilo, kdy a kdo to schválil.',
+    example: ':::revisions[Historie změn]\n| Verze | Datum | Změna | Schválil |\n|---|---|---|---|\n| 1.1 | 2026-09-15 | Práce z domova až tři dny v týdnu | Jana Nováková |\n| 1.0 | 2026-03-01 | První verze | Jana Nováková |\n:::',
   },
   table: {
     useWhen: 'Data v řádcích a sloupcích, která čtenář vyhledává nebo porovnává: verze, ceny, specifikace.',

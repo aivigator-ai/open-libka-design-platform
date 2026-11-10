@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
-import { blockInfo, conversionsFor, insertables, load, matches, schema } from '../src/index.ts';
+import { blockInfo, blockSummary, conversionsFor, insertables, load, matches, plainText, schema } from '../src/index.ts';
 
 const first = (md: string): PMNode => load(md).doc.firstChild!;
 
@@ -16,6 +16,13 @@ describe('names in English and Czech', () => {
     expect(blockInfo(tabs.firstChild!, tabs).title).toBe('Tab');
   });
 
+  it('shows help text without its Markdown marks (the registry writes it for the catalog and the skill)', () => {
+    expect(plainText('Running text with **bold**, *italic*, `code`, links and :kbd[Ctrl+S] keys.')).toBe('Running text with bold, italic, code, links and Ctrl+S keys.');
+    expect(plainText('2 × 2, a*b and 5 * 3 stay')).toBe('2 × 2, a*b and 5 * 3 stay');
+    expect(blockSummary('paragraph', 'en')).not.toMatch(/\*\*|`|:kbd\[/);
+    for (const lang of ['en', 'cs'] as const) for (const b of insertables(lang)) expect(b.summary, `${lang} ${b.name}`).not.toMatch(/\*\*|:kbd\[/);
+  });
+
   it('gives the settings Czech help and value labels, keeping the values themselves', () => {
     const info = blockInfo(first(':::callout[T]{variant=info}\nx\n:::'), null, 'cs');
     expect(info.summary).toMatch(/^Zvýrazněné sdělení/);
@@ -26,7 +33,9 @@ describe('names in English and Czech', () => {
     const button = blockInfo(ui.firstChild!, ui, 'cs');
     expect(button.labelRequired).toBe(true);
     expect(button.attributes.state!.labels!.disabled).toBe('Neaktivní');
-    expect(blockInfo(ui.firstChild!, ui).attributes.state!.labels).toBeUndefined();
+    // English names its values too (the registry's own table); the values stay the syntax
+    expect(blockInfo(ui.firstChild!, ui).attributes.state!.labels!.disabled).toBe('Disabled');
+    expect(blockInfo(first(':::callout[T]{variant=info}\nx\n:::'), null, 'en').attributes.variant!.labels!.info).toBe('Info');
   });
 
   it('names the type changes and what they lose in the language', () => {

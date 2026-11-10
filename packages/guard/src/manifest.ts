@@ -16,8 +16,13 @@ import { dirname, join } from 'node:path';
 import type { GuardReport } from './index.ts';
 import type { Conformance } from './wcag.ts';
 
-/** One piece of content marked as AI-written: a summary (with its reviewer) or an AI badge, and the section it is in. */
-export interface AiContent { kind: 'summary' | 'badge'; section: string; reviewedBy?: string; label?: string }
+/**
+ * One piece of content marked as AI's, and the section it is in: an AI summary or a block marked ai=… (with how AI
+ * took part and who reviewed it), or an AI badge in the text (with its words).
+ */
+export interface AiContent { kind: 'summary' | 'block' | 'badge'; section: string; block?: string; use?: 'generated' | 'assisted'; reviewedBy?: string; label?: string }
+/** How AI took part in the whole document (front matter "ai"), as the author declares it. */
+export interface AiProvenance { use: 'ai-assisted' | 'ai-generated'; reviewedBy?: string; approvedBy?: string; tool?: string; date?: string; checked?: string[]; label?: boolean }
 
 export const MANIFEST_FORMAT = 'libka-manifest/1';
 const OPEN = '<script type="application/libka-manifest+json" id="libka-manifest">';
@@ -40,8 +45,14 @@ export interface Manifest {
   pdfua?: { validator: string; ua1: boolean; ua2: { compliant: boolean; failedRules: number } } | { skipped: string };
   /** WCAG 2.2 A/AA criteria by status, with the EN 301 549 version the clause numbers follow. */
   conformance?: Conformance;
-  /** Content marked as written by AI (EU AI Act, Article 50): AI summaries with their reviewer, AI badges, where they are. */
+  /** How AI took part in the document, as its author declares it (front matter "ai"): the use, who reviewed and approved it, whether the label is shown. */
+  provenance?: AiProvenance;
+  /** Content marked as AI's (EU AI Act, Article 50): AI summaries and marked blocks with their reviewer, AI badges, where they are. */
   ai?: AiContent[];
+  /** The authors the document names (front matter "author"), as the author declared them. */
+  author?: { name: string; role?: string }[];
+  /** The document's revision history (:::revisions): each version, its date and who approved it, as the author declared them. */
+  revisions?: { version: string; date: string; approvedBy?: string }[];
   key: { algorithm: 'ed25519'; publicKey: string; fingerprint: string };
   signature?: string;
 }
@@ -90,7 +101,7 @@ export function readManifest(html: string): Manifest | null {
   return JSON.parse(html.slice(start + OPEN.length, html.indexOf(CLOSE, start))) as Manifest;
 }
 
-export function buildManifest(args: { target?: 'manual' | 'deck'; sourceName: string; source: string; tokensVersion: string; html: string; report: GuardReport; axe: string; key: SigningKey; pdf?: Buffer; docx?: Uint8Array; pdfua?: Manifest['pdfua']; conformance?: Conformance; ai?: AiContent[] }): Manifest {
+export function buildManifest(args: { target?: 'manual' | 'deck'; sourceName: string; source: string; tokensVersion: string; html: string; report: GuardReport; axe: string; key: SigningKey; pdf?: Buffer; docx?: Uint8Array; pdfua?: Manifest['pdfua']; conformance?: Conformance; provenance?: AiProvenance; ai?: AiContent[]; author?: Manifest['author']; revisions?: Manifest['revisions'] }): Manifest {
   const manifest: Manifest = {
     format: MANIFEST_FORMAT,
     ...(args.target ? { target: args.target } : {}),
@@ -101,7 +112,10 @@ export function buildManifest(args: { target?: 'manual' | 'deck'; sourceName: st
     guard: { axe: args.axe },
     ...(args.pdfua ? { pdfua: args.pdfua } : {}),
     ...(args.conformance ? { conformance: args.conformance } : {}),
+    ...(args.provenance ? { provenance: args.provenance } : {}),
     ...(args.ai?.length ? { ai: args.ai } : {}),
+    ...(args.author?.length ? { author: args.author } : {}),
+    ...(args.revisions?.length ? { revisions: args.revisions } : {}),
     key: { algorithm: 'ed25519', publicKey: args.key.publicKey, fingerprint: args.key.fingerprint },
   };
   manifest.signature = sign(null, Buffer.from(canonical(manifest)), args.key.privateKey).toString('base64');

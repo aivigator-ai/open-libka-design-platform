@@ -22,6 +22,11 @@ export interface AttributeSpec {
    * file next to the document, `flag` an attribute written bare (`{required}`), on or off.
    */
   kind?: 'date' | 'link' | 'file' | 'flag';
+  /**
+   * The block's most used setting, for editors: the Studio's block bar offers it beside the block's name when the
+   * cursor is in the block (the rest stays in Properties). At most one per block, and only a choice or a flag.
+   */
+  quick?: boolean;
 }
 
 export interface BlockDefinition {
@@ -59,8 +64,9 @@ const inline = { $ref: '#/$defs/inline' };
 const blocks = { type: 'array', items: { $ref: '#/$defs/block' } };
 const str = { type: 'string', minLength: 1 };
 const obj = (properties: Record<string, unknown>, required: string[]) => ({ type: 'object', properties, required, additionalProperties: false });
+// any block may say how AI took part in it (ai=generated or ai=assisted)
 const typed = (type: string, properties: Record<string, unknown>, required: string[]) =>
-  obj({ type: { const: type }, ...properties }, ['type', ...required]);
+  obj({ type: { const: type }, ...properties, ai: { enum: ['generated', 'assisted'] } }, ['type', ...required]);
 
 const codeSchema = typed('code', { lang: { type: ['string', 'null'] }, value: { type: 'string' }, title: str, marked: { type: 'array', items: { type: 'integer', minimum: 1 } } }, ['lang', 'value']);
 
@@ -68,6 +74,8 @@ const codeSchema = typed('code', { lang: { type: ['string', 'null'] }, value: { 
 export const CALLOUT_VARIANTS = ['info', 'success', 'warning', 'error', 'note', 'tip', 'important', 'caution'] as const;
 /** ISO 8601 calendar date, as front matter and attributes write dates. */
 const isoDate = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' };
+/** The front matter "author": people with a name and an optional role. */
+const people = { type: 'array', minItems: 1, items: obj({ name: str, role: str }, ['name']) };
 
 export const GROUPS: Readonly<Record<BlockGroup, string>> = {
   text: 'Text',
@@ -140,11 +148,35 @@ export const BLOCKS: readonly BlockDefinition[] = [
     schema: typed('doc-status', { status: str, owner: str, reviewed: isoDate, nextReview: isoDate }, []),
   },
   {
+    name: 'byline', title: 'Byline', group: 'document',
+    useWhen: 'Articles, reports, policies and proposals where readers want to know who wrote them. The front matter key author shows the authors under the title by itself; place :::byline only to show them elsewhere, such as at the end of an article.',
+    summary: 'The authors, each with an optional role, from the front matter key author. Without the block they appear under the title; :::byline shows them where it stands instead. The names also go into the page, PDF and Word metadata.',
+    example: ':::byline\n:::',
+    frontMatter: 'author:\n  - name: Ann Novak\n    role: Security lead\n  - name: Petr Svoboda',
+    targets: { web: 'A line with the authors and their roles; the names are also in the page\'s author metadata.', pdf: 'Same; the names are the PDF\'s author.', deck: 'A line on its slide; without the block, the authors are on the title slide.', docx: 'A line with the authors; the names are the Word file\'s author.' },
+    a11y: ['Plain text with a written label ("Authors:"), no icon or photo standing for a name.'],
+    antiPatterns: ['A team or role as the author: who keeps the document correct is the owner (front matter owner, :::doc-status).', 'A byline block without author in the front matter (reported).'],
+    schema: typed('byline', { author: people }, []),
+  },
+  {
+    name: 'revisions', title: 'Revision history', group: 'document',
+    useWhen: 'Policies, procedures, manuals and proposals that change over time and must show what changed in each version, when, and who approved it.',
+    summary: 'The versions of the document as a Markdown table: version, date and change, optionally author and approved by. It is a section of its own: a level-2 heading with an anchor (Revision history unless the label names it), listed in the contents, so it needs no heading of yours above it. The columns are recognised by their headings in English or Czech (Verze, Datum, Změna, Autor, Schválil, Schválila or Schválení), the dates are checked and the rows must run newest first or oldest first. The versions with their dates and approvers go into the signed manifest.',
+    example: ':::revisions[Revision history]\n| Version | Date | Change | Approved by |\n|---|---|---|---|\n| 1.1 | 2026-09-15 | Remote work up to three days a week | Ann Novak |\n| 1.0 | 2026-03-01 | First version | Ann Novak |\n:::',
+    targets: { web: 'A level-2 heading with an anchor over a table with column headers; dates are time elements.', pdf: 'Same; the header row repeats on every page.', deck: 'A slide of its own headed by the title; a long table continues on the next one.', docx: 'Heading 1 with a bookmark over a Word table with a repeating header row, as policy templates have it.' },
+    a11y: ['A real table with column headers; its caption, the title, is there for screen readers.', 'Dates are written YYYY-MM-DD in the source; the outputs write them in the document\'s language (date-format), and the web page keeps the ISO date in each time element\'s datetime.'],
+    antiPatterns: ['A heading of your own right above it (reported): the title goes in its brackets.', 'A column the block does not know, or a revision without its version, date or change (reported).', 'Rows in no order (reported): newest first or oldest first, by date and version.', 'More than one revision history in a document (reported).'],
+    schema: typed('revisions', {
+      title: str, columns: { type: 'array', minItems: 3, items: { enum: ['version', 'date', 'change', 'author', 'approved'] } },
+      head: { type: 'array', items: inline }, rows: { type: 'array', minItems: 1, items: { type: 'array', items: inline } },
+    }, ['columns', 'head', 'rows']),
+  },
+  {
     name: 'toc', title: 'Table of contents', group: 'document',
     useWhen: 'Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep.',
     summary: 'The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.',
     example: ':::toc[Contents]{depth=3}\n:::',
-    attributes: { depth: { description: '2 lists ## sections and parts, 3 adds ### subsections.', values: ['2', '3'] } },
+    attributes: { depth: { description: '2 lists ## sections and parts, 3 adds ### subsections.', values: ['2', '3'], quick: true } },
     targets: { web: 'A navigation list of links to the headings, nested by level; replaces the automatic contents.', pdf: 'Printed contents, without page numbers.', deck: 'An agenda of the ## sections and parts; its own slide when it comes before the first ##.', docx: 'Links to the headings, placed here (no Word field, so Word never asks to update it).' },
     a11y: ['A nav landmark named by its title, with a nested list of real links.'],
     antiPatterns: ['Contents in a short document with two or three sections.', 'Depth 3 on slides: the agenda shows sections only.'],
@@ -156,7 +188,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     summary: 'The list of cited sources, from the front matter references, in numeric ([1]) or author-date ((W3C, 2023)) style. Without the block, a numeric list is added at the end.',
     example: 'Images need a text alternative [@wcag22].\n\n:::references[Sources]{style=author-date}\n:::',
     frontMatter: 'references:\n  - id: wcag22\n    title: Web Content Accessibility Guidelines (WCAG) 2.2\n    author: W3C\n    year: 2023\n    url: https://www.w3.org/TR/WCAG22/',
-    attributes: { style: { description: 'numeric: [1] in the text and a numbered list (default); author-date: (Author, 2023) and a list sorted by author.', values: ['numeric', 'author-date'] } },
+    attributes: { style: { description: 'numeric: [1] in the text and a numbered list (default); author-date: (Author, 2023) and a list sorted by author.', values: ['numeric', 'author-date'], quick: true } },
     targets: { web: 'A section with the sources; every citation links to its entry.', pdf: 'Same.', deck: 'Where it stands; without the block, a References slide at the end.', docx: 'Heading 1 and the numbered or alphabetical list; citations link to their entry.' },
     a11y: ['Citations are links with readable text, not bare numbers in color.', 'Titles are cite elements; addresses are real links.'],
     antiPatterns: ['Sources listed but never cited (reported).', 'Citing a source that is not in the list (reported).'],
@@ -182,12 +214,31 @@ export const BLOCKS: readonly BlockDefinition[] = [
     }, ['version', 'id', 'groups']),
   },
   {
+    name: 'decision', title: 'Decision record', group: 'document',
+    useWhen: 'A decision readers must be able to trace: an architecture or policy decision, a choice between suppliers or tools, a board resolution. Why it was needed, what was considered, what was decided, when and by whom, and what follows from it.',
+    summary: 'One decision as a section of its own: its title states the decision, a badge says whether it is proposed, accepted, rejected or superseded, with the date and who decided. A sentence that states the decision may come first, then :::context (required), :::options and :::consequences, always shown in that order. Options may hold a :::comparison (one more colon on each outer block). Each decision is a level-2 heading with an anchor, listed in the contents and its own slide.',
+    example: '::::decision[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"}\nWe keep documents and their versions in the PostgreSQL database we already run.\n:::context\nThe document store needs versions, full-text search and backups that the operations team already knows.\n:::\n:::options\n- **PostgreSQL**: one database to run, versions as rows, full-text search built in.\n- **A document database**: flexible records, but a second system to run and back up.\n:::\n:::consequences\n- Schema changes go through migrations.\n- Full-text search in Czech needs its own dictionary.\n:::\n::::',
+    attributes: {
+      status: { description: 'Where the decision stands: proposed, accepted, rejected or superseded.', required: true, values: ['proposed', 'accepted', 'rejected', 'superseded'], quick: true },
+      date: { description: 'When it was decided (or proposed), YYYY-MM-DD; required unless the status is proposed.', kind: 'date' },
+      by: { description: 'Who decided: a person, a board or a team; required unless the status is proposed. Who proposes a decision goes in its opening sentence.' },
+    },
+    children: { context: {}, options: {}, consequences: {} },
+    targets: { web: 'A section heading with an anchor, the status as a badge with the date and who decided, then Context, Options considered and Consequences as subheadings.', pdf: 'Same; listed in the contents.', deck: 'One decision per slide, headed by its title.', docx: 'Heading 1 with the title, a line with the status, date and who decided, and each part as Heading 2.' },
+    a11y: ['A real heading per decision and per part, so a decision log can be navigated by headings and the contents.', 'The status is a word on the badge; its color only repeats it.'],
+    antiPatterns: ['A decision without its context, or a decision that was taken without its date or who took it (reported).', 'A title that names the topic ("Database") instead of the decision ("Store documents in PostgreSQL").', 'Editing an accepted decision to change it: write a new decision and mark the old one superseded.'],
+    schema: typed('decision', {
+      title: str, id: str, status: { enum: ['proposed', 'accepted', 'rejected', 'superseded'] }, date: isoDate, by: str, intro: blocks,
+      parts: { type: 'array', items: obj({ kind: { enum: ['context', 'options', 'consequences'] }, body: blocks }, ['kind', 'body']) },
+    }, ['title', 'id', 'status', 'parts']),
+  },
+  {
     name: 'section', title: 'Section divider', group: 'document',
     useWhen: 'A long document or deck with parts or chapters, each grouping several ## sections ("Part 2: Results").',
     summary: 'A part divider: a rule and a large heading, with an optional sentence; break=page starts a new page in print. On slides it is a full section slide.',
     example: ':::section[Part 2: Results]{break=page}\nWhat we measured and what changed.\n:::',
     attributes: {
-      break: { description: 'page starts the part on a new page in the PDF.', values: ['page', 'none'] },
+      break: { description: 'page starts the part on a new page in the PDF.', values: ['page', 'none'], quick: true },
     },
     targets: { web: 'A rule and a large heading; listed in the contents.', pdf: 'Optional page break before it.', deck: 'Full-bleed section slide.', docx: 'Heading 1 in the accent color, on a new page with break=page.' },
     a11y: ['A real level-2 heading, so it appears in heading navigation and the contents.'],
@@ -223,7 +274,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     useWhen: 'One message the reader must not miss: a prerequisite (info), a risk (warning), a success criterion or a failure; or guidance: a side note, a tip, something important, a caution before an action.',
     summary: 'A highlighted message. Status: info, success, warning, error. Guidance: note, tip, important, caution. GitHub alerts (> [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]) become callouts too.',
     example: ':::callout[Back up first]{variant=warning}\nExport your data before you upgrade.\n:::\n\n> [!TIP]\n> The export also works from the command line.',
-    attributes: { variant: { description: 'Meaning of the message.', values: CALLOUT_VARIANTS } },
+    attributes: { variant: { description: 'Meaning of the message.', values: CALLOUT_VARIANTS, quick: true } },
     targets: { web: 'Tinted box with an icon and a title; without a title the tone word ("Tip") is the title.', pdf: 'Kept on one page.', deck: 'Box on the slide.', docx: 'Shaded panel with a left border in the tone color; the tone word starts the title.' },
     a11y: ['role="note"; every tone has its own icon shape and its word is read out first ("Warning: Back up first"), so color is never the only cue.'],
     antiPatterns: ['More than 2 callouts in one section: they stop standing out (lint hints).', 'Choosing the variant for its color.'],
@@ -299,7 +350,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     useWhen: 'A process, a sequence of messages, states and transitions, a class model or a data model that a picture explains better than a list: flowcharts, sequence, state, class and entity-relationship diagrams.',
     summary: 'A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast themes.',
     example: '```mermaid\nflowchart LR\n  accTitle: How a LibKa document is built\n  accDescr: The Markdown is parsed into blocks, Guard checks the rendered page, and outputs that pass are signed.\n  A[Markdown] --> B[Blocks] --> C{Guard}\n  C -->|passes| D[Signed outputs]\n  C -.->|fails| A\n```',
-    targets: { web: 'An inline SVG with its caption; "Show the source" reveals the Mermaid text. No script at runtime.', pdf: 'The same SVG.', deck: 'The SVG in the space left under the heading and text (up to 420px high); wide slides suit flowchart LR. Below 200px Guard reports the slide as too full.', docx: 'Picture drawn in Chrome with the description as alternative text; the source in a Diagram sources appendix.' },
+    targets: { web: 'An inline SVG with its caption; "Show the source" reveals the Mermaid text. No script at runtime.', pdf: 'The same SVG.', deck: 'The SVG in the space left under the heading and text (up to 420px high); wide slides suit flowchart LR. Below 200px Guard reports the slide as too full.', docx: 'Picture drawn in Chrome with the description as alternative text; the Mermaid source stays in the LibKa Markdown file.' },
     a11y: ['The SVG is an image named by accTitle and described by accDescr; write the description as the steps a reader would otherwise see.', 'Shapes and dotted or solid lines carry meaning, not colour.'],
     antiPatterns: ['A diagram for a simple linear process: use :::steps.', 'Colour statements (style, classDef, linkStyle) and init blocks (reported).', 'Diagrams too detailed to read on a slide: split them.'],
     schema: typed('diagram', { kind: { enum: ['flowchart', 'sequence', 'state', 'class', 'er'] }, source: str, title: str, desc: str, svg: str }, ['kind', 'source', 'title', 'desc']),
@@ -314,6 +365,49 @@ export const BLOCKS: readonly BlockDefinition[] = [
     a11y: ['"Do" and "Don\'t" are written, never shown by color alone.'],
     antiPatterns: ['A don\'t without a do: always show the better way.'],
     schema: typed('compare', { items: { type: 'array', minItems: 2, items: obj({ kind: { enum: ['do', 'dont'] }, title: str, body: blocks }, ['kind', 'title', 'body']) } }, ['items']),
+  },
+  {
+    name: 'pros-cons', title: 'Pros and cons', group: 'explain',
+    useWhen: 'Weighing one option: what speaks for it and what against it, in a proposal, a decision record, or a review of a tool or a supplier.',
+    summary: 'The pros and cons of one option, as two lists under the words "Pros" and "Cons". The label names the option; :::pros and :::cons each hold one bulleted list, always shown pros first. Several options are several blocks; inside a decision\'s :::options, one per option (each outer block then gets one more colon).',
+    example: '::::pros-cons[Work from home three days a week]\n:::pros\n- No commute on most days\n- Quiet time for focused work\n:::\n:::cons\n- Fewer chance meetings with colleagues\n- A desk to set up at home\n:::\n::::',
+    children: { pros: {}, cons: {} },
+    targets: { web: 'The option\'s name, then Pros and Cons side by side where there is room, each a list under its word; stacked on a phone.', pdf: 'Side by side, kept on one page.', deck: 'Side by side.', docx: 'The option\'s name, then a shaded panel for Pros and one for Cons, each with its word and a bulleted list.' },
+    a11y: ['"Pros" and "Cons" are written, never shown by color or a sign alone.', 'Each side is a real list, so a screen reader says how many points it has.'],
+    antiPatterns: ['Two options in one block: use one block per option, or a :::comparison to set options against the same criteria.', 'Guidance on a right and a wrong way: use ::::compare (do and don\'t).', 'A side left empty to look balanced: say in the text that there is nothing against it.'],
+    schema: typed('pros-cons', { title: str, pros: { type: 'array', minItems: 1, items: blocks }, cons: { type: 'array', minItems: 1, items: blocks } }, ['title', 'pros', 'cons']),
+  },
+  {
+    name: 'flow', title: 'Process', group: 'explain',
+    useWhen: 'How a process runs, stage by stage: a request from arrival to closing, a product\'s life cycle, a review or improvement cycle. Not instructions for the reader to follow (that is :::steps).',
+    summary: 'A process as a row of 2 to 6 numbered stages joined by arrows, one list item per stage. `shape=cycle` marks a process that starts again, and the return to the first stage is also written under the stages. Stacked with arrows down on a phone, and on the page and in print with five or six stages, so that long words are never broken; on slides always a row.',
+    example: ':::flow[How a support request runs]\n1. The customer writes in\n2. Support sorts it by urgency\n3. An agent answers or passes it on\n4. The customer confirms it is solved\n:::',
+    attributes: {
+      shape: { description: 'linear (the default) or cycle (it starts again from the first stage).', values: ['linear', 'cycle'], quick: true },
+    },
+    targets: { web: 'The title, then the numbered stages in a row joined by arrows drawn in CSS; a cycle adds a line saying it starts again; stacked with arrows down on a phone, and with five or six stages.', pdf: 'Same, kept on one page.', deck: 'The stages in a row.', docx: 'The title, a numbered list of the stages, and for a cycle the line saying it starts again.' },
+    a11y: ['The stages are a real numbered list, so a screen reader says how many there are and which one it is on.', 'The arrows are drawn shapes with no text; a cycle\'s return to the start is written out, never shown by an arrow alone.'],
+    antiPatterns: ['Instructions the reader carries out: use :::steps.', 'Long paragraphs in a stage: keep each to a short phrase.', 'More than six stages or branches: use a ```mermaid diagram.'],
+    schema: typed('flow', { title: str, shape: { enum: ['linear', 'cycle'] }, stages: { type: 'array', minItems: 2, maxItems: 6, items: blocks } }, ['title', 'shape', 'stages']),
+  },
+  {
+    name: 'matrix', title: 'Matrix', group: 'explain',
+    useWhen: 'Points sorted into four quadrants: a SWOT analysis, effort against impact, urgent against important, risk by likelihood and impact.',
+    summary: 'Four quadrants in a 2 × 2 grid, read left to right, top row first. `type=swot` fills in the quadrants\' names (Strengths, Weaknesses, Opportunities, Threats); `type=grid` needs a name on each :::q, and `x=` and `y=` say in words what changes across and down. Each quadrant holds a short list or a sentence.',
+    example: '::::matrix[Where to start]{type=grid x="Effort, low on the left and high on the right" y="Impact, high at the top and low at the bottom"}\n:::q[Quick wins]\n- Fix the broken sign-up link\n:::\n:::q[Big projects]\n- Rebuild the customer portal\n:::\n:::q[Fill-ins]\n- Tidy the help pages\n:::\n:::q[Not now]\n- Translate old newsletters\n:::\n::::',
+    attributes: {
+      type: { description: 'swot (the four names are filled in) or grid (you name each quadrant).', required: true, values: ['swot', 'grid'], quick: true },
+      x: { description: 'A grid only: what changes from left to right, in words ("Effort: low on the left, high on the right").' },
+      y: { description: 'A grid only: what changes from top to bottom, in words ("Impact: high at the top, low at the bottom").' },
+    },
+    children: { q: { label: { description: 'The quadrant\'s name; required in a grid, filled in for a SWOT.' } } },
+    targets: { web: 'The title, then four named quadrants in a 2 × 2 grid with the axes written beside it; stacked on a phone.', pdf: 'The 2 × 2 grid, kept on one page.', deck: 'The 2 × 2 grid.', docx: 'A 2 × 2 table under a header row with the title; each cell starts with the quadrant\'s name.' },
+    a11y: ['Each quadrant is a group named by its visible name, so a screen reader says which quadrant a point is in.', 'The axes are written as text, never shown by position alone.'],
+    antiPatterns: ['A matrix of long paragraphs: keep each quadrant to a few points.', 'A quadrant left empty: say in it that nothing belongs there.', 'Two options weighed against each other: use ::::pros-cons per option or a :::comparison.'],
+    schema: typed('matrix', {
+      title: str, kind: { enum: ['swot', 'grid'] }, x: str, y: str,
+      quadrants: { type: 'array', minItems: 4, maxItems: 4, items: obj({ label: str, body: { ...blocks, minItems: 1 } }, ['body']) },
+    }, ['title', 'kind', 'quadrants']),
   },
   {
     name: 'quote', title: 'Quote', group: 'explain',
@@ -364,15 +458,15 @@ export const BLOCKS: readonly BlockDefinition[] = [
   {
     name: 'summary', title: 'Summary', group: 'highlight',
     useWhen: 'Three to five key points a busy reader needs first: the top of a report, a proposal or a long page. Mark it source=ai when an AI wrote it, with the person who checked it.',
-    summary: 'Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-assisted, reviewed by …" label.',
+    summary: 'Key takeaways in a box, 3 to 5 points. source=ai marks a summary an AI wrote (like ai=generated), with reviewed-by for the person who checked it; the AI label shows only when the document turns it on (front matter ai, label: true).',
     example: ':::summary[Key takeaways]{source=ai reviewed-by="Docs lead"}\n- Every page passes the accessibility checks before it is signed.\n- One LibKa Markdown file gives the web page, the PDF and the slides.\n- The block catalog is generated, so it never drifts from the tools.\n:::',
     attributes: {
-      source: { description: 'Who wrote the summary: human (default) or ai.', values: ['human', 'ai'] },
-      'reviewed-by': { description: 'Name of the person who checked an AI summary, optionally with the role (required with source=ai).' },
+      source: { description: 'Who wrote the summary: human (default) or ai.', values: ['human', 'ai'], quick: true },
+      'reviewed-by': { description: 'Name of the person who checked an AI summary, optionally with the role; lint reminds you when an AI summary names nobody.' },
     },
-    targets: { web: 'A labelled box with the points and, for AI summaries, the AI label.', pdf: 'Kept on one page.', deck: 'Its own slide when it comes before the first ## section; otherwise a box on its slide.', docx: 'Shaded panel with the title and a bulleted list; AI-assisted with the reviewer when source=ai.' },
-    a11y: ['A region named by its title, with a real list.', 'The AI label is text ("AI-assisted, reviewed by …"), not only a badge color.'],
-    antiPatterns: ['More than 5 points: it stops being a summary.', 'Points that repeat the headings instead of the findings.', 'An AI summary nobody reviewed (reported).'],
+    targets: { web: 'A labelled box with the points; an AI summary shows the AI label when the document turns it on.', pdf: 'Kept on one page.', deck: 'Its own slide when it comes before the first ## section; otherwise a box on its slide.', docx: 'Shaded panel with the title and a bulleted list, and the AI label when the document turns it on.' },
+    a11y: ['A region named by its title, with a real list.', 'The AI label is text ("AI-generated", "Reviewed and approved by …"), not only a badge color.'],
+    antiPatterns: ['More than 5 points: it stops being a summary.', 'Points that repeat the headings instead of the findings.', 'An invented reviewer: name only the person who really checked it.'],
     schema: typed('summary', { title: str, items: { type: 'array', minItems: 3, maxItems: 5, items: inline }, source: { enum: ['human', 'ai'] }, reviewedBy: str }, ['items', 'source']),
   },
   {
@@ -382,7 +476,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     example: ':::cta[Start the tutorial]{href="https://example.org/tutorial"}\nIt takes about ten minutes.\n:::',
     attributes: {
       href: { description: 'Where the action leads: an address, a file or #a-heading.', required: true, kind: 'link' },
-      variant: { description: 'primary for the main action (default), secondary for an alternative.', values: ['primary', 'secondary'] },
+      variant: { description: 'primary for the main action (default), secondary for an alternative.', values: ['primary', 'secondary'], quick: true },
     },
     targets: { web: 'A link that looks like a button (it navigates, so it is not a button element).', pdf: 'The label with its address written out.', deck: 'The button with its address written out.', docx: 'The label as a link, the address written out after it.' },
     a11y: ['A real link whose label says what happens ("Start the tutorial", not "Click here").', 'At least 44 px high.'],
@@ -424,6 +518,22 @@ export const BLOCKS: readonly BlockDefinition[] = [
     a11y: ['Captions for video files; a transcript for every video.', 'No autoplay; the play button names the video and the provider.'],
     antiPatterns: ['Autoplaying or looping video.', 'Video as the only way to get the information.'],
     schema: typed('video', { title: str, src: str, captions: str, poster: str, transcript: blocks }, ['title', 'src', 'transcript']),
+  },
+  {
+    name: 'download', title: 'Download', group: 'media',
+    useWhen: 'A file readers take away: a report, a form, a template, a data set. The name says what it is, and the format, size and (for a PDF) pages tell readers what they are about to open.',
+    summary: 'A link to a file with its format, size and, for a PDF, its pages, and an optional sentence about it. For a file next to the document the build works them out and copies the file with the outputs; a file on another site needs type and size.',
+    example: ':::download[Annual report 2025]{href="https://example.org/annual-report-2025.pdf" type=PDF size="2.1 MB" pages=48}\nThe full report with all tables.\n:::',
+    attributes: {
+      href: { description: 'The file: a path next to the document (copied with the outputs) or a web address.', required: true, kind: 'file' },
+      type: { description: 'The format readers know it by (PDF, Word, Excel, CSV ...). Worked out from the file name when left out; required for a web address.' },
+      size: { description: 'The size as readers see it, such as 2.1 MB. Measured for a local file when left out; required for a web address.' },
+      pages: { description: 'The number of pages. Counted for a local PDF when left out.' },
+    },
+    targets: { web: 'A link named by the file, with its format, size and pages in the link text, and the sentence after it.', pdf: 'Same; a web address is written out.', deck: 'Same on its slide; a web address is written out.', docx: 'The name, format, size and pages as a link, then the sentence.' },
+    a11y: ['The format, size and pages are part of the link text, so a screen reader hears them with the name.', 'The name says what the file is, never "Download" or "Click here".'],
+    antiPatterns: ['A link to a large file with nothing that says it is a file, its format or its size.', 'A web address without type and size (reported): the build cannot measure a file on another site.'],
+    schema: typed('download', { label: str, href: str, format: str, size: str, bytes: { type: 'integer', minimum: 0 }, pages: { type: 'integer', minimum: 1 }, text: inline }, ['label', 'href']),
   },
   /* ---------------- data ---------------- */
   {
@@ -474,7 +584,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     summary: 'A bar, line or donut chart drawn from a Markdown table; the table stays available as the accessible version.',
     example: ':::chart{type=bar caption="Staff who find the handbook easy to use" unit="%"}\n| Quarter | 2025 | 2026 |\n|---|---|---|\n| Q1 | 62 | 71 |\n| Q2 | 64 | 75 |\n| Q3 | 66 | 78 |\n:::',
     attributes: {
-      type: { description: 'Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts).', required: true, values: ['bar', 'line', 'donut'] },
+      type: { description: 'Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts).', required: true, values: ['bar', 'line', 'donut'], quick: true },
       caption: { description: 'What the chart shows.', required: true },
       unit: { description: 'Unit of the values, such as % or €.' },
     },
@@ -496,7 +606,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     attributes: {
       caption: { description: 'What the specimen shows.', required: true },
       theme: { description: 'Show it in the light theme, the dark theme or both side by side.', values: ['light', 'dark', 'both'] },
-      layout: { description: 'Components in a row (default) or stacked.', values: ['row', 'stack'] },
+      layout: { description: 'Components in a row (default) or stacked.', values: ['row', 'stack'], quick: true },
     },
     children: {
       button: {
@@ -579,6 +689,8 @@ export const DIRECTIVES: readonly string[] = BLOCKS.map((b) => b.name)
   .filter((n) => !['heading', 'paragraph', 'list', 'code', 'figure', 'diagram'].includes(n));
 
 export { FALLBACKS, type Fallback } from './fallbacks.ts';
+export { settingTitle, type SettingTitle } from './setting-titles.ts';
+export { VALUE_LABELS_EN, valueLabelsEn, type ValueLabels } from './value-labels.ts';
 export { BLOCKS_CS, CHILD_TITLES, EXAMPLES_CS, GROUPS_CS, INLINES_CS, type CzechAttribute, type CzechBlock } from './i18n.ts';
 
 export const block = (name: string): BlockDefinition | undefined => BLOCKS.find((b) => b.name === name);
@@ -600,7 +712,8 @@ export function documentSchema(): Record<string, unknown> {
     type: 'object',
     properties: {
       meta: obj({ title: str, subtitle: { type: 'string' }, version: { type: 'string' }, date: { type: 'string' }, status: { type: 'string' },
-        owner: str, reviewed: isoDate, nextReview: isoDate, lang: str,
+        owner: str, reviewed: isoDate, nextReview: isoDate, author: people, lang: str,
+        ai: obj({ use: { enum: ['ai-assisted', 'ai-generated'] }, reviewedBy: str, approvedBy: str, tool: str, date: isoDate, checked: { type: 'array', items: str }, label: { type: 'boolean' } }, ['use']),
         references: { type: 'array', items: obj({ id: str, title: str, author: { type: 'array', items: str }, year: str, publisher: str, url: str }, ['id', 'title']) } }, ['title', 'lang']),
       blocks,
       footnotes: { type: 'array', items: obj({ id: str, body: blocks }, ['id', 'body']) },

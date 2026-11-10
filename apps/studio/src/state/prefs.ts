@@ -6,8 +6,6 @@ import { signal } from '@preact/signals';
 import { prefs } from './store.ts';
 
 export interface EditorPrefs {
-  /** The side palette of blocks in visual mode. */
-  palette: boolean;
   /** Block handles always shown, or only on the hovered and the selected block. */
   handles: 'always' | 'hover';
   /** Typing "## ", "- ", "> " and the like makes the block it stands for. */
@@ -26,12 +24,19 @@ export interface EditorPrefs {
 }
 
 export const DEFAULT_PREFS: EditorPrefs = {
-  palette: true, handles: 'hover', shortcuts: true, defaultMode: 'visual', density: 'comfortable', labels: true, focus: false, typewriter: false, announce: 'full',
+  handles: 'hover', shortcuts: true, defaultMode: 'visual', density: 'comfortable', labels: true, focus: false, typewriter: false, announce: 'full',
 };
 
-function read(): EditorPrefs {
+/**
+ * The version of the saved preferences. They are saved whole, so a changed default reaches only those who never
+ * changed anything; a version step applies it once to everyone. 2 (2.0.3): the side palette off, "+ Block"
+ * instead, and the Catalog in the left pane replaces the palette, so its key is dropped.
+ */
+export const PREFS_VERSION = 2;
+
+export function readPrefs(raw: string | null): EditorPrefs {
   try {
-    const saved = JSON.parse(prefs.get('editor') ?? '{}') as Partial<EditorPrefs>;
+    const saved = JSON.parse(raw ?? '{}') as Partial<EditorPrefs> & { v?: number };
     const out = { ...DEFAULT_PREFS };
     for (const k of Object.keys(DEFAULT_PREFS) as (keyof EditorPrefs)[]) {
       if (k in saved && typeof saved[k] === typeof DEFAULT_PREFS[k]) (out as Record<string, unknown>)[k] = saved[k];
@@ -40,11 +45,15 @@ function read(): EditorPrefs {
   } catch { return { ...DEFAULT_PREFS }; }
 }
 
-export const editorPrefs = signal<EditorPrefs>(read());
+const save = (p: EditorPrefs) => prefs.set('editor', JSON.stringify({ ...p, v: PREFS_VERSION }));
+
+export const editorPrefs = signal<EditorPrefs>(readPrefs(prefs.get('editor')));
+// written back at once, so the step is taken once (switching the palette on again stays on)
+if (prefs.get('editor') !== null) save(editorPrefs.value);
 
 export function setPref<K extends keyof EditorPrefs>(key: K, value: EditorPrefs[K]): void {
   editorPrefs.value = { ...editorPrefs.value, [key]: value };
-  prefs.set('editor', JSON.stringify(editorPrefs.value));
+  save(editorPrefs.value);
 }
 
 /** The blocks inserted most recently, newest first (the "/" menu lists them first). */

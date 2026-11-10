@@ -62,4 +62,9 @@ body {
   .lk-table thead { display: table-header-group; }
   .lk-table-scroll { overflow: visible; }
   .lk-manual-content > .lk-statement { break-after: avoid; }
+  /* the footer line never stands alone on the last page: the end of the content comes with it. Chrome moves a break
+     only among siblings, so the content's blocks become the footer's (main keeps its tag) */
+  .lk-manual { gap: var(--lk-space-5); }
+  .lk-manual-content { display: contents; }
+  .lk-manual-footer { break-before: avoid; break-inside: avoid; }
 }

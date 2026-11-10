@@ -12,7 +12,7 @@ import { fontsHref, styles } from 'studio:assets';
 import * as s from '../state/store.ts';
 import { normalize } from '../storage/paths.ts';
 import { agent, frame, load } from './frames.ts';
-import { scheduleGuard } from './guard.ts';
+import { cancelGuard, scheduleGuard } from './guard.ts';
 
 /** Points the page's local file references at the files the Studio holds (object URLs for previews, data URLs for exports). */
 export function withFiles(html: string, url: (path: string) => string | undefined): string {
@@ -34,10 +34,14 @@ export function dataUrl(path: string): string | undefined {
 }
 
 const deckStyles = () => { const { tokens, bridge, components, deck } = styles; return { tokens, bridge, components, deck }; };
-export const manualHtml = (doc: LibkaDocument, url = previewUrl): string =>
-  withFiles(renderManual(doc, { styles, fontsHref, source: s.project.value?.name ?? 'document.md' }), url);
+/**
+ * The page and the deck as the author sees them. The preview and Guard's frame get each block marked with its source
+ * line (`sourceLines`), so a check's finding is linked to its block; exports strip the marks (`withoutLines`).
+ */
+export const manualHtml = (doc: LibkaDocument, url = previewUrl, sourceLines = false): string =>
+  withFiles(renderManual(doc, { styles, fontsHref, source: s.project.value?.name ?? 'document.md', sourceLines }), url);
 export const deckHtmlOf = (doc: LibkaDocument, url = previewUrl, layout?: ReturnType<typeof emptyFitting>): string =>
-  withFiles(renderDeck(doc, { styles: deckStyles(), fontsHref, ...(layout ? { layout } : {}) }), url);
+  withFiles(renderDeck(doc, { styles: deckStyles(), fontsHref, sourceLines: true, ...(layout ? { layout } : {}) }), url);
 
 /* ---------- diagrams: drawn here with the build's settings, cached by their source ---------- */
 type DiagramBlock = Extract<Block, { type: 'diagram' }>;
@@ -84,10 +88,13 @@ export function render(): void {
   }
   const missing = diagrams.filter((d) => !drawn.has(d.source));
   if (missing.length) void drawDiagrams(missing);
+  // a Guard run waiting or under way would check these slides before they are fitted
+  cancelGuard();
   batch(() => {
     s.doc.value = result.document;
     s.problems.value = problems;
-    s.html.value = manualHtml(result.document);
+    s.hints.value = result.hints;
+    s.html.value = manualHtml(result.document, previewUrl, true);
     s.deckHtml.value = deckHtmlOf(result.document);
     s.checks.value = null;
   });

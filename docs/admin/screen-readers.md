@@ -1,10 +1,10 @@
 # Screen readers: NVDA for the Studio's tests
 
-**What it is.** NVDA is the free, open-source screen reader for Windows (NV Access). The Studio's screen-reader tests (`apps/studio/test/screen-reader.test.ts`) run the Studio in Chrome with NVDA listening, and check what NVDA says at each step (the tour, the editor, moving a block, the "/" menu, the side panel's tabs, the command palette, a dialog), in English and in Czech. They are driven by Guidepup (`@guidepup/guidepup`, MIT), which talks to NVDA through NVDA Remote on this machine only (127.0.0.1).
+**What it is.** NVDA is the free, open-source screen reader for Windows (NV Access). The Studio's screen-reader tests (`apps/studio/test/screen-reader.test.ts`) run the Studio in Chrome with NVDA listening, and check what NVDA says at each step (the tour, the editor, moving a block, the "/" menu, the panes' tabs, the command palette, a dialog), in English and in Czech. They are driven by Guidepup (`@guidepup/guidepup`, MIT), which talks to NVDA through NVDA Remote on this machine only (127.0.0.1).
 
 **What happens without it.** The tests are skipped: they run only when asked for, on Windows, because NVDA takes over the keyboard and Chrome opens a window while they run. Everything else (the other Studio tests, CI) is unaffected. The accessibility report (`docs/acr/studio.md`) names these tests as evidence for 1.1.1, 1.3.1, 4.1.2 and 4.1.3, so run them before every Studio release.
 
-**Versions in use:** Guidepup 0.35.0 with its portable NVDA build `0.2.1-2026.2` (NVDA 2026.2 with the Remote add-on preconfigured).
+**Versions in use:** `@guidepup/guidepup` 0.39.0 and `@guidepup/setup` 0.29.3 (pinned in `apps/studio/package.json`), with Guidepup's portable NVDA build `0.2.1-2026.3` (NVDA 2026.3 with the Remote add-on preconfigured).
 
 ## Set it up (no administrator rights needed)
 
@@ -49,8 +49,8 @@ The automated flows prove the names and announcements; only a person can tell wh
 | 6 | Arrow to the end of a paragraph, Enter, then "/" | "Insert a block, dialog", "Search blocks, combo box" |
 | 7 | Type "call", Arrow Down, Enter | the options as you move; "Callout inserted" |
 | 8 | F1, type "pref", Enter | "Command palette", the results count, then "Preferences, dialog" |
-| 9 | Escape; Tab on to the side panel's tabs; Left and Right arrows along them | "Checks, outline and history, tab list", then each tab by name, such as "Inspector, tab" or "Problems, tab", with its count when it has one |
-| 10 | The same in Czech: the language switch at the top, then steps 2 to 9 | the Studio's words in Czech (NVDA's own words stay in NVDA's language) |
+| 9 | Escape; F6 until the pane on the right; Tab to its tabs; Left and Right arrows along them | "Preview, checks and properties, tab list", then each tab by name, such as "Preview, tab" or "Checks, tab", with its count when it has one |
+| 10 | The same in Czech: View, then the interface language, then steps 2 to 9 | the Studio's words in Czech (NVDA's own words stay in NVDA's language) |
 
 :::
 

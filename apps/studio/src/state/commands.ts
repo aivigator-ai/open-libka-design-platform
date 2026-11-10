@@ -19,14 +19,18 @@ export interface Command<A = undefined> {
 }
 
 /** Where a command is offered. */
-export type MenuId = 'file' | 'export' | 'library' | 'help';
+export type MenuId = 'export' | 'library' | 'view' | 'help' | 'document';
 export interface MenuEntry { menu: MenuId; command: string; order: number }
 
-/** A tab in the side panel. */
+/** A tab in one of the side panes: the companion on the right (the default) or the left pane. */
 export interface Panel {
   id: string;
   title: Key;
   order: number;
+  /** Where the tab is: the companion pane (Preview, Checks, Properties ...) or the left pane (Catalog, Outline). */
+  region?: 'companion' | 'left';
+  /** Rendered even while another tab is shown (the preview's frame, which exports and checks read). */
+  keepMounted?: boolean;
   /** False leaves the tab out (the Tutorial tab shows only in the tutorial). */
   visible?(): boolean;
   /** The number shown on the tab (null: none or not known yet). */
@@ -103,7 +107,22 @@ export class Registry {
       .map((m) => this.commands.get(m.command)).filter((c): c is Command => Boolean(c && (c.available?.() ?? true)));
   }
 
-  panels(): Panel[] { return this.extensions.flatMap((e) => e.panels ?? []).filter((p) => p.visible?.() ?? true).sort((a, b) => a.order - b.order); }
+  /** A menu's commands in groups, one per hundred of the order (10–90, 100–190 …), for the separators between them. */
+  menuGroups(id: MenuId): Command[][] {
+    const groups = new Map<number, Command[]>();
+    for (const m of this.extensions.flatMap((e) => e.menu ?? []).filter((x) => x.menu === id).sort((a, b) => a.order - b.order)) {
+      const c = this.commands.get(m.command);
+      if (!c || !(c.available?.() ?? true)) continue;
+      const g = Math.floor(m.order / 100);
+      groups.set(g, [...(groups.get(g) ?? []), c]);
+    }
+    return [...groups.values()];
+  }
+
+  /** The visible tabs of a pane, in order (all of them without a region). */
+  panels(region?: 'companion' | 'left'): Panel[] {
+    return this.extensions.flatMap((e) => e.panels ?? []).filter((p) => (!region || (p.region ?? 'companion') === region) && (p.visible?.() ?? true)).sort((a, b) => a.order - b.order);
+  }
 
   private readonly listeners: ((id: string) => void)[] = [];
   /** Hears every command that runs (the tutorial ticks its steps by them). */

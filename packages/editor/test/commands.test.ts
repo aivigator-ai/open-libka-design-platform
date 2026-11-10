@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@libka/model';
 import {
   blockInfo, BlockSelection, changeType, conversionsFor, deleteBlocks, duplicateBlocks, enterBlock, extendSelection, insertBlock, load, markdownOf, moveBlocks,
-  objectRange, save, selectedObject, selectParent, selectSibling, sliceFromMarkdown, unwrap, wrapIn, INSERTABLE,
+  markActive, objectRange, save, schema, selectedObject, selectParent, selectSibling, sliceFromMarkdown, toggleFormat, unwrap, wrapIn, INSERTABLE,
 } from '../src/index.ts';
 
 const md = `---
@@ -166,12 +166,16 @@ describe('changing, wrapping, inserting', () => {
 
   it('inserts any registry block from its example; it parses without problems', () => {
     expect(INSERTABLE.length).toBeGreaterThan(30);
-    for (const b of INSERTABLE.filter((x) => !['references', 'notes'].includes(x.name))) {
+    for (const b of INSERTABLE.filter((x) => !['references', 'notes', 'byline'].includes(x.name))) {
       const { state, loaded } = at(md, 'Para A');
       const next = run(state, insertBlock(b.name));
       const out = save(next.doc, loaded);
       expect(parse(out).problems.map((p) => `${b.name}: ${p.message}`)).toEqual([]);
     }
+    // a byline shows the front matter's authors: without them it asks for them, with the way to the field
+    const { state, loaded } = at(md, 'Para A');
+    const byline = parse(save(run(state, insertBlock('byline')).doc, loaded)).problems;
+    expect(byline.map((p) => [p.code, p.fixes])).toEqual([['byline-empty', [{ kind: 'field', target: 'document:author' }]]]);
   });
 
   it('an empty paragraph is replaced by the inserted block; inside a list item, blocks go into the item', () => {
@@ -210,5 +214,40 @@ describe('Markdown on the clipboard', () => {
     const quote = load('> [!TIP]\n> The export also works.\n').doc.firstChild!;
     expect(markdownOf(Fragment.from(quote.type.create(null, quote.content)))).toBe('> [!TIP]\n> The export also works.');
     expect(markdownOf(load('> Not [!TIP] first\n').doc.content)).toBe('> Not \\[!TIP] first');   // only at the start
+  });
+});
+
+describe('text marks', () => {
+  const source = 'Install with `npm install` in the folder.\n\nAll **bold here** and more.\n';
+  /** A text selection from the start of `from` to the end of `to`. */
+  function select(text: string, from: string, to: string): EditorState {
+    const { doc } = load(text);
+    let a = -1, b = -1;
+    doc.descendants((n, p) => {
+      if (!n.isText) return;
+      if (a < 0 && n.text!.includes(from)) a = p + n.text!.indexOf(from);
+      if (n.text!.includes(to)) b = p + n.text!.indexOf(to) + to.length;
+    });
+    return EditorState.create({ doc, selection: TextSelection.create(doc, a, b) });
+  }
+  const { code, strong } = schema.marks;
+
+  it('is on only when all of the selected text has the mark, spaces aside', () => {
+    expect(markActive(select(source, 'Install', 'folder.'), code!)).toBe(false);   // a paragraph with a little code in it
+    expect(markActive(select(source, 'npm', 'install'), code!)).toBe(true);
+    expect(markActive(select(source, 'bold', 'here'), strong!)).toBe(true);
+    expect(markActive(select(source, 'bold', ' and'), strong!)).toBe(false);
+    // a selected block is not text
+    const { state } = at(source, 'npm');
+    expect(markActive(run(state, selectParent), code!)).toBe(false);
+  });
+
+  it('marks all of a partly marked selection, then unmarks it', () => {
+    const marked = run(select(source, 'Install', 'folder.'), toggleFormat(code!));
+    expect(markActive(marked, code!)).toBe(true);
+    expect(save(marked.doc, load(source))).toContain('`Install with npm install in the folder.`');
+    const unmarked = run(marked, toggleFormat(code!));
+    expect(markActive(unmarked, code!)).toBe(false);
+    expect(save(unmarked.doc, load(source))).toMatch(/^Install with npm install in the folder\.$/m);
   });
 });

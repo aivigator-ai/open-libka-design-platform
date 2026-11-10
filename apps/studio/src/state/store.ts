@@ -3,7 +3,8 @@
  * change them. Derived values (the parsed document, the rendered pages, the checks) are set by the render pipeline.
  */
 import { computed, effect, signal } from '@preact/signals';
-import type { LibkaDocument, Problem } from '@libka/model';
+import type { Hint, LibkaDocument, Problem } from '@libka/model';
+import { buildChecklist } from '../core/checklist.ts';
 import type { ScanResult } from '@libka/guard/scan';
 import type { ProjectRecord, VersionRecord } from '../storage/db.ts';
 import type { Key, Lang } from '../i18n.ts';
@@ -20,8 +21,8 @@ export type CheckId = 'axe' | 'contrast' | 'structure' | 'docx';
 export type Target = 'manual' | 'deck' | 'docx';
 export interface Check extends ScanResult { target: Target; id: CheckId; mode: 'standard' | 'more-contrast' }
 export type Device = 'web' | 'phone' | 'a4' | 'slides';
-export type Pane = 'write' | 'preview' | 'checks';
-export type PanelTab = 'problems' | 'guard' | 'inspector' | 'structure' | 'history' | 'tutorial';
+/** On a phone, the one pane shown: the editor, the companion (Preview, Checks, Properties) or the left pane (Catalog, Outline). */
+export type Pane = 'write' | 'companion' | 'left';
 export type View = 'library' | 'editor';
 /** The editor of the open document: visual, source, or both side by side (Split, on wide screens). */
 export type Mode = 'visual' | 'source' | 'split';
@@ -64,6 +65,8 @@ export const versions = signal<VersionRecord[]>([]);
 
 export const doc = signal<LibkaDocument | null>(null);
 export const problems = signal<Problem[]>([]);
+/** Lint hints (a rule no output shows, Marp comments): advice, never counted. */
+export const hints = signal<Hint[]>([]);
 export const html = signal('');
 export const deckHtml = signal('');
 export const checks = signal<Check[] | null>(null);
@@ -75,6 +78,27 @@ export const mode = signal<Mode>('visual');
 export const SPLIT_MEDIA = '(min-width: 1280px)';
 export const wide = signal(media(SPLIT_MEDIA));
 if (typeof matchMedia === 'function') matchMedia(SPLIT_MEDIA).addEventListener('change', (e) => { wide.value = e.matches; });
+/** A phone (or a narrow window): one region at a time, one app-bar row with ⋯, the regions in a bar at the bottom. */
+export const PHONE_MEDIA = '(max-width: 899px)';
+export const phone = signal(media(PHONE_MEDIA));
+if (typeof matchMedia === 'function') matchMedia(PHONE_MEDIA).addEventListener('change', (e) => { phone.value = e.matches; });
+/**
+ * The on-screen keyboard is open: the visual viewport is much shorter than the tallest seen at this width (the
+ * keyboard covers the bottom of the layout) while the focus is in a text field. The phone's bottom bar hides
+ * meanwhile, so the text keeps the room.
+ */
+export const keyboardOpen = signal(false);
+if (typeof visualViewport !== 'undefined' && visualViewport) {
+  const vv = visualViewport;
+  let width = vv.width, tallest = vv.height;
+  vv.addEventListener('resize', () => {
+    if (Math.abs(vv.width - width) > 1) { width = vv.width; tallest = vv.height; }   // turned, or a new window size
+    tallest = Math.max(tallest, vv.height);
+    const typing = (document.activeElement as HTMLElement | null)?.matches('input, textarea, [contenteditable="true"], [contenteditable=""]') ?? false;
+    const open = typing && vv.height < tallest - 120;
+    if (keyboardOpen.value !== open) keyboardOpen.value = open;
+  });
+}
 /** The mode shown: Split falls back to Visual on narrow screens (the choice is kept for wider ones). */
 export const shownMode = computed<Mode>(() => (mode.value === 'split' && !wide.value ? 'visual' : mode.value));
 export const place = signal(0);
@@ -83,16 +107,18 @@ export const selectionTick = signal(0);
 /** What screen readers hear next (moves, deletions), in a polite live region. */
 export const announcement = signal('');
 
-export const device = signal<Device>('web');
+/** The preview's output: A4 by default (in Write). */
+export const device = signal<Device>('a4');
 export const pane = signal<Pane>('write');
-export const panelTab = signal<PanelTab>('problems');
 export const cursor = signal({ line: 1, col: 1 });
 
 export const toastText = signal<string | null>(null);
 /** A service-worker update is waiting: the Studio offers to reload. */
 export const updateReady = signal(false);
 
-export const issues = computed(() => problems.value.length + (checks.value?.reduce((n, c) => n + c.violations.length, 0) ?? 0));
+/** The checks as one list: problems, Guard's findings and hints merged by place; items, not findings, count. */
+export const checklist = computed(() => buildChecklist({ doc: doc.value, source: source.value, problems: problems.value, hints: hints.value, checks: checks.value }));
+export const issues = computed(() => checklist.value.fix);
 export const status = computed<'fix' | 'ready' | 'checking'>(() => (issues.value ? 'fix' : checks.value ? 'ready' : 'checking'));
 
 /** Dialogs the Studio shows (one at a time). */
@@ -100,6 +126,7 @@ export type DialogState =
   | { kind: 'confirm'; title: Key; message: string; confirm: Key; danger?: boolean; resolve(ok: boolean): void }
   | { kind: 'prompt'; title: Key; label: Key; value: string; confirm: Key; resolve(value: string | null): void }
   | { kind: 'choose'; title: Key; message: string; options: string[]; resolve(choice: string | null): void }
+  | { kind: 'form'; title: Key; note?: Key; fields: { id: string; label: Key; value: string }[]; confirm: Key; resolve(values: Record<string, string> | null): void }
   | { kind: 'compare'; version: VersionRecord }
   | { kind: 'shortcuts' }
   | { kind: 'prefs' }
@@ -120,6 +147,10 @@ export function ask(d: Omit<Extract<DialogState, { kind: 'confirm' }>, 'kind' | 
 }
 export function promptFor(d: Omit<Extract<DialogState, { kind: 'prompt' }>, 'kind' | 'resolve'>): Promise<string | null> {
   return new Promise((resolve) => { dialog.value = { kind: 'prompt', ...d, resolve }; });
+}
+/** A dialog of a few text fields (Rename: the title and the file name); null when cancelled. */
+export function promptForm(d: Omit<Extract<DialogState, { kind: 'form' }>, 'kind' | 'resolve'>): Promise<Record<string, string> | null> {
+  return new Promise((resolve) => { dialog.value = { kind: 'form', ...d, resolve }; });
 }
 export function choose(d: Omit<Extract<DialogState, { kind: 'choose' }>, 'kind' | 'resolve'>): Promise<string | null> {
   return new Promise((resolve) => { dialog.value = { kind: 'choose', ...d, resolve }; });

@@ -4,7 +4,7 @@
  * `node packages/blocks/src/build-catalog.ts` writes docs/blocks.md; libka build turns it into the
  * catalog page, checked by Guard like any manual.
  */
-import { BLOCKS, GROUPS, INLINES, blockNamesAsCode, type AttributeSpec, type BlockGroup } from './index.ts';
+import { BLOCKS, GROUPS, INLINES, blockNamesAsCode, settingTitle, type AttributeSpec, type BlockGroup } from './index.ts';
 
 /** A fence one backtick longer than any run inside the text. */
 const fence = (text: string) => '`'.repeat(Math.max(3, ...[...text.matchAll(/`+/g)].map((m) => m[0].length + 1)));
@@ -12,9 +12,10 @@ const cell = (s: string) => s.replace(/\|/g, '\\|');
 /** Lines that would close a ::: container or be read as a directive inside a table cell are kept as code. */
 const code = (s: string) => `\`${s.replace(/`/g, '')}\``;
 
-function attributes(title: string, attrs: Record<string, AttributeSpec>, prefix = ''): string[] {
+function attributes(block: string, attrs: Record<string, AttributeSpec>, child?: string): string[] {
+  const prefix = child ? `:::${child} ` : '';
   return Object.entries(attrs).map(([name, a]) =>
-    `| ${code(prefix + name)} | ${cell(blockNamesAsCode(a.description))}${a.values ? ` One of: ${a.values.map(code).join(', ')}.` : ''} | ${a.required ? 'yes' : 'no'} |`);
+    `| ${code(prefix + name)} | ${settingTitle(block, name, child)?.en ?? ''} | ${cell(blockNamesAsCode(a.description))}${a.values ? ` One of: ${a.values.map(code).join(', ')}.` : ''} | ${a.required ? 'yes' : 'no'} |`);
 }
 
 export function catalogMarkdown(version: string): string {
@@ -25,7 +26,8 @@ export function catalogMarkdown(version: string): string {
     `version: "${version}"`,
     'status: Generated from the block registry',
     'lang: en',
-    ...BLOCKS.flatMap((b) => (b.frontMatter ? [b.frontMatter] : [])),
+    // the byline's example authors would become this page's authors: its result is described instead
+    ...BLOCKS.flatMap((b) => (b.frontMatter && b.name !== 'byline' ? [b.frontMatter] : [])),
     '---',
     '',
     'A LibKa document is written in LibKa Markdown: Markdown plus the blocks below. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.',
@@ -57,10 +59,11 @@ export function catalogMarkdown(version: string): string {
       else if (b.name === 'toc') out.push('*Not shown here, so this page keeps its contents at the top: the result looks like that list, placed where the block stands.*');
       else if (b.name === 'notes') out.push('*Speaker notes are not shown here: they appear only in the deck.*');
       else if (b.name === 'section') out.push('*Not shown here, so it does not split this page: the result is a rule and a large heading that also opens a part in the contents.*');
+      else if (b.name === 'byline') out.push('*Not shown here, since this page has no authors: with the front matter above, the result is the line "Authors: Ann Novak (Security lead), Petr Svoboda" where the block stands.*');
       else out.push(b.example);
-      const rows = [...attributes(b.title, { ...b.attributes }), ...Object.entries(b.children ?? {}).flatMap(([child, attrs]) => attributes(b.title, attrs, `:::${child} `))];
+      const rows = [...attributes(b.name, { ...b.attributes }), ...Object.entries(b.children ?? {}).flatMap(([child, attrs]) => attributes(b.name, attrs, child))];
       if (rows.length) {
-        out.push('', `:::table{caption="${b.title}: attributes"}`, '', '| Attribute | Meaning | Required |', '|---|---|---|', ...rows, '', ':::');
+        out.push('', `:::table{caption="${b.title}: attributes"}`, '', '| Attribute | Name in the Studio | Meaning | Required |', '|---|---|---|---|', ...rows, '', ':::');
       }
       out.push('', '::::accordion',
         ':::item[In each output]', ...(['web', 'pdf', 'deck', 'docx'] as const).map((t) => `- **${{ web: 'Web', pdf: 'PDF', deck: 'Slides', docx: 'Word' }[t]}:** ${blockNamesAsCode(b.targets[t])}`), ':::',

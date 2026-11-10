@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { chromium } from 'playwright-core';
+import { PDFDocument } from 'pdf-lib';
 import { linkTexts, markArtifacts, remediate } from '../src/index.ts';
 import { findVeraPdf, validatePdfs } from '../src/verapdf.ts';
 
@@ -56,9 +57,12 @@ describe.skipIf(!chrome || !vera)('PDF/UA-1 end to end (Chrome + veraPDF)', () =
     await browser.close();
     const before = join(dir, 'before.pdf');
     writeFileSync(before, printed);
-    const { pdf, report } = await remediate(printed, { title: 'Repair test', lang: 'en', links: linkTexts(html) });
+    const { pdf, report } = await remediate(printed, { title: 'Repair test', lang: 'en', author: 'Ann Novak, Petr Svoboda', links: linkTexts(html) });
     const after = join(dir, 'after.pdf');
     writeFileSync(after, pdf);
+    // the authors in the XMP and in the document information, which agree
+    expect(Buffer.from(pdf).toString('latin1')).toMatch(/<dc:creator><rdf:Seq><rdf:li>Ann Novak, Petr Svoboda<\/rdf:li><\/rdf:Seq><\/dc:creator>/);
+    expect((await PDFDocument.load(pdf)).getAuthor()).toBe('Ann Novak, Petr Svoboda');
     const [r0, r1] = validatePdfs([before, after], 'ua1', vera)!;
     expect(r0!.compliant).toBe(false);
     expect(r1!.failures).toEqual([]);

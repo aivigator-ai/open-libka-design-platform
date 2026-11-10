@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { strFromU8, unzipSync } from 'fflate';
+import { PDFDocument } from 'pdf-lib';
 import { afterAll, describe, expect, it } from 'vitest';
 import { parse } from '@libka/model';
 import { build, chosenOutputs, keyStatus, trustedFingerprints, trustedKeys, verify } from '../src/libka.ts';
@@ -41,6 +42,21 @@ describe('libka build', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it('removes the document\'s own outputs an earlier build made and this one did not, and nothing else', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'libka-cli-stale-'));
+    const src = join(dir, 'doc.md');
+    writeFileSync(src, '# Doc\n\nText.\n');
+    const dist = join(dir, 'dist');
+    mkdirSync(dist);
+    for (const f of ['doc.deck.html', 'doc.deck.pdf', 'doc.pdf', 'doc.manifest.json', 'other.html', 'doc.notes.html']) writeFileSync(join(dist, f), 'old');
+    const result = await build(src, { out: dist, check: false, outputs: ['web'] });
+    expect(result.problems).toEqual([]);
+    expect(result.removed?.map((p) => p.split(/[\\/]/).pop()).sort()).toEqual(['doc.deck.html', 'doc.deck.pdf', 'doc.manifest.json', 'doc.pdf']);
+    expect(['doc.html', 'other.html', 'doc.notes.html'].every((f) => existsSync(join(dist, f)))).toBe(true);
+    expect((await build(src, { out: dist, check: false, outputs: ['web'] })).removed).toBeUndefined();   // doc.html is made again
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('copies every figure and gallery image into the output folder, never outside it', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'libka-cli-images-'));
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
@@ -64,6 +80,31 @@ describe('libka build', () => {
     expect(existsSync(join(outDir, '_up', '_up', 'shared', 'two.svg'))).toBe(true);
     // what resolve(outDir, href) used to write: beside the output folder
     expect(existsSync(join(dir, 'q', 'up.svg'))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('copies a download\'s file into the output folder, with its size and a PDF\'s pages, and reports a missing one', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'libka-cli-downloads-'));
+    const pdf = await PDFDocument.create();
+    for (let i = 0; i < 3; i++) pdf.addPage();
+    mkdirSync(join(dir, 'docs', 'files'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'files', 'report.pdf'), await pdf.save());
+    writeFileSync(join(dir, 'data.csv'), 'a,b\n'.repeat(1000));   // 4,000 bytes
+    const src = join(dir, 'docs', 'doc.md');
+    writeFileSync(src, ['# Files', '', ':::download[Annual report]{href=files/report.pdf}', 'All the tables.', ':::', '',
+      ':::download[Survey data]{href=../data.csv}', ':::', '', ':::download[Price list]{href=files/prices.xlsx size="20 KB"}', ':::', ''].join('\n'));
+    const outDir = join(dir, 'out');
+    const missing = await build(src, { out: outDir, check: false, outputs: ['web'] });
+    expect(missing.problems).toHaveLength(1);
+    expect(missing.problems[0]).toMatch(/doc\.md:10: file not found: files\/prices\.xlsx$/);   // on its line, for the Guard action
+    writeFileSync(src, readFileSync(src, 'utf8').replace(/:::download\[Price list\][^\n]*\n:::\n/, ''));
+    const result = await build(src, { out: outDir, check: false, outputs: ['web'] });
+    expect(result.problems).toEqual([]);
+    const html = readFileSync(result.html!, 'utf8');
+    expect(html).toMatch(/<a class="lk-download-link" href="files\/report\.pdf">Annual report<span class="lk-download-details"> \(PDF, \d+ B, 3 pages\)<\/span><\/a>/);
+    expect(html).toContain('<a class="lk-download-link" href="_up/data.csv">Survey data<span class="lk-download-details"> (CSV, 4 KB)</span></a>');
+    expect(existsSync(join(outDir, 'files', 'report.pdf'))).toBe(true);
+    expect(existsSync(join(outDir, '_up', 'data.csv'))).toBe(true);
     rmSync(dir, { recursive: true, force: true });
   });
 

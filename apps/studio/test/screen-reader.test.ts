@@ -128,7 +128,7 @@ describe.skipIf(!wanted)('LibKa Studio with NVDA', () => {
       for (let i = 0; i < 2 && !/focus mode/i.test(await heard(() => nvda.perform(nvda.keyboardCommands.toggleBetweenBrowseAndFocusMode))); i++);
 
       // a block selected and moved: the move is announced with the block's name and place
-      await placeCaret(page, 'Install the workspace once');
+      await placeCaret(page, 'Run LibKa with');
       await page.waitForTimeout(300);
       await nvda.press('Escape');
       await nvda.press('Escape');
@@ -148,9 +148,9 @@ describe.skipIf(!wanted)('LibKa Studio with NVDA', () => {
       await nvda.press('Escape');
       await nvda.press('Backspace');
 
-      // a tab of the side panel, by its name
-      await page.click('#tab-inspector');
-      await focusSays(page, say(lang, 'panel.inspector'));
+      // a tab of the companion pane, by its name
+      await page.click('#tab-properties');
+      await focusSays(page, say(lang, 'panel.properties'));
 
       // the command palette: its search field is named; its results are counted as they change
       await nvda.press('F1');

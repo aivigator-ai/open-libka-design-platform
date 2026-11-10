@@ -73,7 +73,7 @@ export function createServer(): McpServer {
     title: 'Build a LibKa document',
     description: 'Write the LibKa Markdown to a folder and build it: the outputs the document asks for in its front matter (outputs: web, pdf, deck, docx; default web and pdf), '
       + 'or the outputs given here. Guard checks every output (the pages in Chrome, the PDF with veraPDF when Java and veraPDF are installed, the Word file\'s structure); '
-      + 'passing outputs are signed. Returns the files and every Guard finding to fix. Writes files on this machine.',
+      + 'passing outputs are signed. Returns the files and every Guard finding to fix. Writes files on this machine, and removes this document\'s own earlier outputs that this build did not make again.',
     inputSchema: {
       markdown: z.string().optional().describe('The document; or give path instead, not both'),
       path: z.string().optional().describe('An existing .md file to build, only read (images are found next to it)'),
@@ -99,7 +99,8 @@ export function createServer(): McpServer {
       report?.checks.map((c) => ({ check: `${c.id}/${c.mode}`, checked: c.checked, violations: c.violations.length }));
     return json({
       ok: r.ok, problems: r.problems,
-      files: [r.html, r.pdf, r.docx, r.manifest, r.deck?.html, r.deck?.pdf, r.deck?.manifest].filter(Boolean),
+      files: [r.html, r.pdf, r.docx, r.manifest, r.conformance, r.deck?.html, r.deck?.pdf, r.deck?.manifest, r.deck?.conformance].filter(Boolean),
+      ...(r.removed ? { removed: r.removed } : {}),
       guard: { web: summary(r.report), slides: summary(r.deck?.report) },
       source: basename(source),
     });

@@ -4,7 +4,7 @@
 
 **Write a document once in LibKa Markdown. Get a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility, with a signed record of what was checked.**
 
-LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one file in LibKa Markdown, Markdown extended with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (35 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
+LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one file in LibKa Markdown, Markdown extended with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (42 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
 
 ![How LibKa builds a document: a LibKa Markdown file is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output (axe-core WCAG 2.2, contrast, structure, reflow at 320 px, veraPDF PDF/UA-1, Word structure); outputs that pass get a signed manifest and a conformance report](docs/images/pipeline.svg)
 
@@ -12,7 +12,7 @@ LibKa is a design system (W3C DTCG design tokens) and a document platform. You w
 - **Try LibKa Studio in your browser:** https://libka-studio.aivigator.ai/
 - **Documentation:** [`docs/`](docs/README.md), starting with [getting started](docs/getting-started.md) and the [block catalog](docs/blocks.md)
 
-> **Status:** version 2.0.2. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
+> **Status:** version 2.0.3. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
 
 ## Why LibKa
 
@@ -28,7 +28,7 @@ LibKa is a good fit for manuals, guides, policies, reports and decks that must b
 
 ## LibKa Studio
 
-![LibKa Studio in Split mode: the visual editor, the LibKa Markdown source and the live preview side by side, with no problems found](docs/images/studio-split.png)
+![LibKa Studio in Write mode with Split on: the visual editor and the LibKa Markdown source side by side, the Preview of the A4 page on the right, and "Ready to publish" with no checks to fix](docs/images/studio-split.png)
 
 An installable web app that keeps documents on your own device: a visual editor, a source editor, or both side by side; a live preview of the web page, phone, A4 and slides; the page and Word checks while you type, with one-click fixes where a fix is safe and plain-word explanations otherwise; versions, a command palette, English and Czech, light, dark and high contrast, offline once opened. The Studio has its own accessibility self-audit ([`docs/acr/studio.md`](docs/acr/studio.md)), tested with the keyboard alone, NVDA, forced colours, reflow and touch emulation.
 
@@ -106,7 +106,7 @@ Keep the box: the Wi-Fi password is on its label.
 - **Agent Skill** in `.claude/skills/libka-author/`: the workflow, and the exact syntax of every block (generated from the registry).
 - **MCP server** `@libka/mcp` (in `packages/mcp`): list and describe blocks, check a document, build it.
 - **For Claude Code,** both come as one plugin: `/plugin marketplace add aivigator-ai/open-libka-design-platform`, then `/plugin install libka@libka`. Claude Desktop, claude.ai, the API and other MCP clients: [`docs/ai-tools.md`](docs/ai-tools.md).
-- Whatever an AI writes goes through the same checks. Content the document declares as AI-written (an AI summary with its reviewer, an AI badge) is listed in the signed manifest.
+- Whatever an AI writes goes through the same checks. A document declares how AI took part (the front matter key `ai`: `ai: ai-assisted` or `ai: ai-generated`, or with who reviewed it in the long form, `use: ai-generated` and `reviewed-by: Ann Novak` on indented lines under `ai:`; a block's `ai=generated`), and the signed manifest records it. The label under the title ("Created with AI tools.") is shown only when the author turns it on.
 
 ## Repository map
 

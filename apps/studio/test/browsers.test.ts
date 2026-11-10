@@ -68,7 +68,10 @@ describe.skipIf(engines.every(([, b]) => !installed(b)))('LibKa Studio in other 
         expect(after.mode).toBe('source');
         expect(after.source).toContain(`so you never set them yourself. Edited in ${name}.\n\n:::summary`);
 
-        await page.click('#tab-history');
+        // Document ▾ › Versions… opens them in the companion
+        await page.click('#doc-menu summary');
+        await page.click('[data-command="versions.open"]');
+        await page.waitForSelector('#tp-versions .st-version');
         expect(await page.locator('.st-version').count()).toBeGreaterThan(0);
         await page.click('#library-toggle');
         expect(await page.locator('.st-card').count()).toBe(1);

@@ -5,7 +5,7 @@
  * to the mouse; every drag has a click and a key path (WCAG 2.2 2.5.7). The Markdown underneath stays byte for byte
  * as it was wherever the author did not change it (`saveMapped`).
  */
-import { baseKeymap, chainCommands, exitCode, toggleMark } from 'prosemirror-commands';
+import { baseKeymap, chainCommands, exitCode } from 'prosemirror-commands';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
@@ -16,8 +16,9 @@ import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet, EditorView, type NodeView } from 'prosemirror-view';
 import {
+  addPart, canAddPart, GRIDS, LAID_OUT, partName,
   blockAt, blockInfo, blocksFrom, BlockSelection, deleteBlocks, duplicateBlocks, enterBlock, extendSelection, insertBlocks, load, loadedRanges, markdownOf,
-  markdownShortcuts, moveBlocks, objectRange, partTitle, posBefore, saveMapped, schema, selectParent, selectSibling, sliceFromMarkdown,
+  markdownShortcuts, moveBlocks, objectRange, partTitle, posBefore, saveMapped, schema, selectParent, selectSibling, sliceFromMarkdown, toggleFormat,
   type BlockRanges, type Lang, type Loaded,
 } from '@libka/editor';
 import type { Problem } from '@libka/model';
@@ -63,7 +64,7 @@ export interface VisualOptions {
 
 /** The words the visual editor itself shows or announces. */
 export type ViewText = 'insertAfter' | 'actionsFor' | 'moved' | 'movedFull' | 'cannotMove' | 'alreadyFirst' | 'alreadyLast' | 'deleted' | 'deletedFull'
-  | 'deletedMany' | 'kept' | 'keptLabel' | 'untitled' | 'problemsMark' | 'placeholder';
+  | 'deletedMany' | 'kept' | 'keptLabel' | 'untitled' | 'problemsMark' | 'placeholder' | 'addPart' | 'addPartFull' | 'addedPart' | 'addedPartFull' | 'atLimit' | 'current' | 'recommended';
 
 export interface VisualEditor extends ActiveEditor {
   view: EditorView;
@@ -153,15 +154,55 @@ export function createVisualEditor(o: VisualOptions): VisualEditor {
     state.doc.descendants((n, pos, parent) => {
       if (!n.isBlock || ['directive_label', 'table_row', 'table_cell', 'list_item'].includes(n.type.name)) return false;
       if (parent && !['doc', 'directive', 'blockquote', 'footnote_definition'].includes(parent.type.name)) return false;
-      // just before the block (never inside: a table cannot hold it)
       const within = parent && parent.type !== schema.nodes.doc ? (parent.attrs.name as string | undefined) ?? parent.type.name : '';
+      // a part of a block laid out in a grid (a quadrant, a card): its handle inside it, at its corner, since a grid
+      // places everything beside its parts in its first cell; the blocks inside a part have none (Esc selects them)
+      // a UI specimen's components sit in a row: no handles between them (a click or Esc selects one)
+      if (parent?.type === schema.nodes.directive && within === 'ui') return false;
+      if (parent?.type === schema.nodes.directive && GRIDS.has(within)) {
+        if (n.type === schema.nodes.directive) decos.push(Decoration.widget(pos + 1, (view, getPos) => handle(view, () => { const p = getPos(); return p === undefined ? p : p - 1; }, n, parent), { side: -1, key: `hg${idOf(n)}-${within}-${o.lang()}`, ignoreSelection: true }));
+        return false;
+      }
+      // just before the block (never inside: a table cannot hold it)
       decos.push(Decoration.widget(pos, (view, getPos) => handle(view, getPos, n, parent), { side: 1, key: `h${idOf(n)}-${within}-${o.lang()}`, ignoreSelection: true }));
+      // the timeline's milestone that is now (`current=`), marked as the output marks it
+      if (n.type === schema.nodes.directive && n.attrs.name === 'timeline' && n.attrs.attributes.current) {
+        n.descendants((item, offset) => {
+          if (item.type !== schema.nodes.list_item) return true;
+          if (item.firstChild?.firstChild?.text?.trim() === n.attrs.attributes.current) {
+            decos.push(Decoration.node(pos + 1 + offset, pos + 1 + offset + item.nodeSize, { class: 'ed-current', 'data-current': o.say('current') }));
+          }
+          return false;
+        });
+      }
+      // a comparison: the recommended column outlined with its badge, and yes, no and partial marked as the output marks them
+      if (n.type === schema.nodes.directive && n.attrs.name === 'comparison') comparisonMarks(n, pos, decos);
       return n.type.name === 'directive' || n.type.name === 'blockquote' || n.type.name === 'footnote_definition';
     });
     return DecorationSet.create(state.doc, decos);
   }
 
-  /** The mark on a block with problems: a click selects the block and shows its problems and fixes (the keyboard path: the Inspector and the Problems tab). */
+  function comparisonMarks(n: PMNode, pos: number, decos: Decoration[]): void {
+    const highlight = (n.attrs.attributes as Record<string, string>).highlight?.trim();
+    const badge = (n.attrs.attributes as Record<string, string>).badge?.trim() || o.say('recommended');
+    n.forEach((table, tOffset) => {
+      if (table.type !== schema.nodes.table) return;
+      let column = -1;
+      table.firstChild?.forEach((cell, _o, i) => { if (highlight && cell.textContent.trim() === highlight) column = i; });
+      table.forEach((row, rOffset, r) => {
+        row.forEach((cell, cOffset, c) => {
+          const from = pos + 1 + tOffset + 1 + rOffset + 1 + cOffset;
+          const mark = r > 0 ? /^(yes|no|partial)$/i.exec(cell.textContent.trim())?.[1]?.toLowerCase() : undefined;
+          const attrs: Record<string, string> = {};
+          if (c === column) { attrs.class = r === 0 ? 'ed-hl ed-hl-head' : r === table.childCount - 1 ? 'ed-hl ed-hl-last' : 'ed-hl'; if (r === 0) attrs['data-badge'] = badge; }
+          if (mark) attrs['data-mark'] = mark;
+          if (Object.keys(attrs).length) decos.push(Decoration.node(from, from + cell.nodeSize, attrs));
+        });
+      });
+    });
+  }
+
+  /** The mark on a block with problems: a click selects the block and shows its problems and fixes (the keyboard path: Properties and Checks). */
   function problemMark(view: EditorView, getPos: () => number | undefined, count: number): HTMLElement {
     const mark = Object.assign(document.createElement('button'), { type: 'button', className: 'ed-problem-mark', tabIndex: -1, textContent: `! ${count}` });
     mark.contentEditable = 'false';
@@ -305,7 +346,7 @@ export function createVisualEditor(o: VisualOptions): VisualEditor {
     'Shift-F10': menuAtSelection(o.onBlockMenu),
     'ContextMenu': menuAtSelection(o.onBlockMenu),
     '?': onlyInBlockMode(() => { o.onHelp(); return true; }),
-    'Mod-b': toggleMark(M.strong!), 'Mod-i': toggleMark(M.em!), 'Mod-e': toggleMark(M.code!), 'Mod-Shift-x': toggleMark(M.strike!),
+    'Mod-b': toggleFormat(M.strong!), 'Mod-i': toggleFormat(M.em!), 'Mod-e': toggleFormat(M.code!), 'Mod-Shift-x': toggleFormat(M.strike!),
     'Mod-k': (state) => { if (state.selection.empty || blockMode(state)) return false; o.onLink(); return true; },
     'Mod-]': sinkListItem(N.list_item!), 'Mod-[': liftListItem(N.list_item!),
     'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo,
@@ -356,25 +397,59 @@ export function createVisualEditor(o: VisualOptions): VisualEditor {
         ignoreMutation: () => true,
       };
     },
-    // a LibKa block: a group named by its title ("Callout"), the name shown above its content
+    // a LibKa block: a group named by its title ("Callout"), the name shown above its content; a block with a layout
+    // of its own (a matrix, a flow, cards) in its output's arrangement, with its marks (a matrix's axes, a card's badge)
+    // and a "+" for one more of its parts
     directive(node, view, getPos) {
       const dom = document.createElement('div');
       const head = Object.assign(document.createElement('span'), { className: 'ed-dhead' });
       head.contentEditable = 'false';
       head.setAttribute('aria-hidden', 'true');
       const body = Object.assign(document.createElement('div'), { className: 'ed-dbody' });
+      /** Words the output shows around the content (a matrix's axes, a card's badge): read-only, set in Properties. */
+      const mark = (cls: string) => { const el = Object.assign(document.createElement('span'), { className: cls }); el.contentEditable = 'false'; el.setAttribute('aria-hidden', 'true'); return el; };
+      const before = mark('ed-dmark ed-dmark--before'), after = mark('ed-dmark ed-dmark--after');
+      const add = Object.assign(document.createElement('button'), { type: 'button', className: 'ed-addpart', tabIndex: -1 });
+      add.contentEditable = 'false';
+      add.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+      add.addEventListener('click', () => {
+        const pos = getPos();
+        if (pos === undefined) return;
+        const name = partName(view.state.doc.nodeAt(pos)?.attrs.name as string, o.lang()) ?? '';
+        if (run(addPart(pos))) o.announce(o.say('addedPart'), o.say('addedPartFull', { name }));
+      });
       const fill = (n: PMNode) => {
         const pos = getPos();
         const parent = pos === undefined ? null : view.state.doc.resolve(pos).parent;
-        const title = blockInfo(n, parent, o.lang()).title;
-        dom.className = `ed-directive ed-${n.attrs.name}`;
-        dom.dataset.name = n.attrs.name;
-        if (n.attrs.attributes.variant) dom.dataset.variant = n.attrs.attributes.variant; else delete dom.dataset.variant;
+        const name = n.attrs.name as string;
+        const attrs = n.attrs.attributes as Record<string, string>;
+        const info = blockInfo(n, parent, o.lang());
+        const title = info.title;
+        dom.className = `ed-directive ed-${name}${LAID_OUT.has(name) ? ' ed-laid' : ''}${GRIDS.has(name) ? ' ed-grid' : ''}`;
+        dom.dataset.name = name;
+        if (attrs.variant) dom.dataset.variant = attrs.variant; else delete dom.dataset.variant;
+        if (name === 'flow') dom.dataset.shape = attrs.shape === 'cycle' ? 'cycle' : 'linear'; else delete dom.dataset.shape;
+        if (name === 'decision' && attrs.status) dom.dataset.status = attrs.status; else delete dom.dataset.status;
+        if (name === 'ui') dom.dataset.layout = attrs.layout === 'stack' ? 'stack' : 'row'; else delete dom.dataset.layout;
         dom.setAttribute('role', 'group');
         dom.setAttribute('aria-label', title);
         head.textContent = title;
+        // the output's words around the content: a matrix's axis, a card's badge, a decision's status, date and who
+        // decided, a release's date, a specimen's caption
+        const status = attrs.status ? (info.attributes.status?.labels?.[attrs.status] ?? attrs.status.replace(/^./, (c) => c.toUpperCase())) : '';
+        before.textContent = name === 'matrix' && attrs.y ? `↑ ${attrs.y}` : name === 'card' && attrs.badge ? attrs.badge
+          : name === 'decision' ? [status, attrs.date, attrs.by].filter(Boolean).join(' · ')
+          : name === 'release' ? attrs.date ?? ''
+          : name === 'ui' ? attrs.caption ?? '' : '';
+        after.textContent = name === 'matrix' && attrs.x ? `${attrs.x} →` : '';
+        before.hidden = !before.textContent;
+        after.hidden = !after.textContent;
+        // one more part, while the block has room for it
+        const part = partName(name, o.lang());
+        add.hidden = !part || !canAddPart(n);
+        if (part) { add.textContent = o.say('addPart', { name: part }); add.setAttribute('aria-label', o.say('addPartFull', { name: part })); }
       };
-      dom.append(head, body);
+      dom.append(head, before, body, after, add);
       return named(node, dom, fill, body);
     },
     leaf_directive(node, view, getPos) {
@@ -387,6 +462,8 @@ export function createVisualEditor(o: VisualOptions): VisualEditor {
         const parent = pos === undefined ? null : view.state.doc.resolve(pos).parent;
         dom.className = `ed-leaf ed-${n.attrs.name}`;
         if (n.attrs.attributes.variant) dom.dataset.variant = n.attrs.attributes.variant; else delete dom.dataset.variant;
+        // a UI specimen's component shows its state as the output does (disabled, loading)
+        if (n.attrs.attributes.state) dom.dataset.state = n.attrs.attributes.state; else delete dom.dataset.state;
         head.textContent = `${blockInfo(n, parent, o.lang()).title}:`;
       };
       dom.append(head, ' ', body);

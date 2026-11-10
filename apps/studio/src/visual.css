@@ -1,7 +1,15 @@
 /* LibKa Studio, visual mode: the editing surface in the document's look (tokens and the LibKa type), the handles,
    the menus, the Inspector, the structure tree and the preferences. Colours come from the tokens only. */
 
-/* ---- mode switch and toolbar ---- */
+/* ---- mode switch and toolbar: one row in a fixed order (formatting, + Block, the mode); the pane's name is for
+   screen readers; a narrow editor shows the format buttons' icons, their names stay their accessible names ---- */
+.st-editor-pane { container: editor-pane / inline-size; }
+.st-editor-pane > .st-pane-head { justify-content: flex-start; gap: 8px; }
+.st-editor-pane .st-pane-title { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); white-space: nowrap; }   /* (clipped, not overflow-hidden: text spacing cannot cut it) */
+.st-editor-pane .st-mode { margin-left: auto; }
+@container editor-pane (max-width: 640px) {
+  .st-format-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .st-mode button { min-width: 64px; justify-content: center; }
 .st-format { display: flex; flex-wrap: wrap; gap: 4px; }
 .st-format-btn {
@@ -13,25 +21,83 @@
 .st-format-glyph { font-family: var(--lk-font-mono); font-weight: 700; }
 .st-format-italic .st-format-glyph { font-style: italic; font-family: var(--lk-font-brand); }
 .st-format-strike .st-format-glyph { text-decoration: line-through; }
+/* in Source the format buttons stay in place, unavailable, with the reason beside them */
+.st-format[data-off="true"] .st-format-btn { color: var(--lk-text-secondary); border-style: dashed; cursor: not-allowed; }
+.st-format[data-off="true"] .st-format-btn:hover { background: var(--lk-bg-surface); }
+.st-format-why { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--lk-text-secondary); }
+/* "+ Block": the one way to insert from the toolbar (the "/" menu and the handle's + act at the cursor) */
+.st-insert-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px;
+  border: 1px solid var(--lk-action-accent-strong); border-radius: var(--lk-radius-sm);
+  background: color-mix(in oklab, var(--lk-status-info) 12%, var(--lk-bg-surface)); color: var(--lk-text-accent); font-size: .8125rem; font-weight: 600; cursor: pointer;
+}
+.st-insert-btn:hover, .st-insert-btn[aria-expanded="true"] { background: color-mix(in oklab, var(--lk-status-info) 22%, var(--lk-bg-surface)); }
+.st-insert-btn::before { content: "+"; font-size: 1rem; line-height: 1; }
+/* ---- the block bar: the block the author is in, its setting, one more part, Move, ⋯ and Properties; in the toolbar
+   after + Block, in Focus in the dock, on a phone a row above the bottom bar (a row of the layout, never over the text) ---- */
+.st-blockbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; padding-left: 8px; border-left: 1px solid var(--lk-border-default); font-size: .8125rem; }
+.st-blockbar-name { padding: 0 4px; font-weight: 600; color: var(--lk-text-accent); white-space: nowrap; }
+.st-blockbar-setting { display: inline-flex; align-items: center; gap: 6px; color: var(--lk-text-secondary); }
+.st-blockbar select {
+  min-height: 30px; padding: 0 6px; border: 1px solid var(--lk-border-control); border-radius: var(--lk-radius-sm);
+  background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; cursor: pointer;
+}
+.st-blockbar-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 30px; min-width: 30px; padding: 0 8px;
+  border: 1px solid transparent; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-primary); font: inherit; cursor: pointer; white-space: nowrap;
+}
+.st-blockbar-btn:hover { background: var(--lk-bg-elevated); border-color: var(--lk-border-default); }
+.st-blockbar-btn[aria-disabled="true"] { color: var(--lk-text-secondary); cursor: not-allowed; }
+.st-blockbar-btn[aria-disabled="true"]:hover { background: none; border-color: transparent; }
+.st-blockbar-icon { padding: 0 6px; font-size: 1rem; line-height: 1; }
+.st-blockbar-part { color: var(--lk-text-accent); font-weight: 600; }
+.st-blockbar-part::before { content: "+"; font-size: 1rem; line-height: 1; }
+/* the figure's alt text: missing is said in words and marked by a dashed border, written by a tick (not by colour alone) */
+.st-blockbar-alt[data-done="false"] { border: 1px dashed var(--lk-border-strong); color: var(--lk-text-warning); font-weight: 600; }
+.st-blockbar-alt[data-done="true"]::before { content: "✓"; color: var(--lk-text-success); }
+.st-blockbar-sep { width: 1px; height: 18px; margin: 0 2px; background: var(--lk-border-default); }
+/* the slot in the toolbar: in its row when the editor is wide, else a row of its own under it, there even while the
+   cursor is in plain text (the toolbar's height never changes with the cursor) */
+.st-blockbar-slot { display: flex; min-width: 0; }
+@container editor-pane (max-width: 1179px) {
+  .st-blockbar-slot { order: 1; flex-basis: 100%; min-height: 30px; }
+  .st-blockbar-slot > .st-blockbar { padding-left: 0; border-left: 0; }
+}
+@container editor-pane (max-width: 640px) {
+  .st-blockbar-key { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* in Focus's dock: the dock's own size, the bar's line between it and + Block */
+.st-dock:has(.st-blockbar) { flex-wrap: wrap; justify-content: center; max-width: calc(100% - 16px); border-radius: var(--lk-radius-lg); }
+.st-blockbar[data-where="dock"] { padding-inline: 8px; border-right: 1px solid var(--lk-border-default); }
+.st-blockbar[data-where="dock"] select, .st-blockbar[data-where="dock"] .st-blockbar-btn { min-height: 40px; }
+/* on a phone: a row of its own, 44 px targets */
+.st-blockbar[data-where="phone"] { padding: 4px 8px; border-left: 0; border-top: 1px solid var(--lk-border-default); background: var(--lk-bg-surface); }
+.st-blockbar[data-where="phone"] select, .st-blockbar[data-where="phone"] .st-blockbar-btn { min-height: 44px; }
+.st-blockbar[data-where="phone"] .st-blockbar-icon { min-width: 44px; }
+@media (max-width: 899px) { .st-blockbar[data-where="dock"] .st-blockbar-key { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+.st-blockbar[data-where="phone"] .st-blockbar-key { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /* the preference "text on buttons": off shows icons only (the name stays for screen readers) */
-.st-editor-pane[data-labels="false"] .st-format-text, .st-editor-pane[data-labels="false"] .st-blocks button > span:not([aria-hidden]) {
+.st-editor-pane[data-labels="false"] .st-format-text, .st-editor-pane[data-labels="false"] .st-insert-btn > span {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* ---- the visual editor and the palette ---- */
+/* ---- the visual editor, and the Catalog (the left pane) ---- */
 .st-visual { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
-.st-visual[data-palette="true"] { grid-template-columns: 156px 1fr; }
 .st-visual-editor { overflow: auto; }
-.st-palette { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--lk-border-default); background: var(--lk-bg-canvas); }
+/* a search field (the Catalog, the keyboard shortcuts) */
 .st-palette-search { margin: 8px; min-height: 32px; padding: 0 8px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; font-size: .8125rem; }
-.st-palette-list { overflow: auto; padding: 0 8px 16px; }
-.st-palette-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.st-palette-group { margin: 12px 4px 4px; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
-.st-palette-item {
-  width: 100%; min-height: 30px; padding: 4px 8px; text-align: left; cursor: grab; font-size: .8125rem;
-  border: 1px solid transparent; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-primary);
+.st-catalog .st-palette-search { display: block; width: 100%; margin: 0 0 4px; min-height: 34px; }
+.st-catalog section + section { margin-top: 2px; }
+.st-catalog-group { margin: 12px 2px 6px; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
+.st-catalog-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.st-catalog-item {
+  display: grid; justify-items: center; gap: 4px; width: 100%; min-height: 74px; padding: 8px 4px 6px; text-align: center; cursor: pointer;
+  font-size: .8125rem; line-height: 1.25; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary);
 }
-.st-palette-item:hover { background: var(--lk-bg-surface); border-color: var(--lk-border-default); }
+.st-catalog-item[draggable="true"] { cursor: grab; }
+.st-catalog-item:hover { background: var(--lk-bg-elevated); border-color: var(--lk-border-strong); }
+.st-catalog-item .st-thumb { width: 56px; height: 35px; }
 
 /* ---- ProseMirror's own rules (prosemirror-view/style/prosemirror.css), with token colours ---- */
 .ProseMirror { position: relative; word-wrap: break-word; white-space: pre-wrap; white-space: break-spaces; }
@@ -94,6 +160,125 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .ed-directive.ed-summary { border-left: 4px solid var(--lk-action-accent-strong); }
 .ed-directive.ed-statement .ed-dbody { font-family: var(--lk-font-brand); font-size: 1.35rem; line-height: 1.35; }
 .ed-directive.ed-section { border-style: dashed; }
+
+/* ---- blocks in their output's arrangement: the parts in a grid, a row or along a line, with the output's marks
+   (numbers, arrows, axes, ✓ and ✗, large figures); the block's name stays as the small label above ---- */
+.ed-laid > .ed-dbody > .ed-label { grid-column: 1 / -1; }
+.ed-dmark { display: block; font: 600 .75rem/1.4 var(--lk-font-ui); color: var(--lk-text-secondary); user-select: none; }
+.ed-dmark--before { margin-bottom: 6px; }
+.ed-dmark--after { margin-top: 6px; text-align: center; }
+/* a grid of parts (a matrix's quadrants, cards, pros beside cons, do beside don't) */
+.ed-grid > .ed-dbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.ed-grid > .ed-dbody > * + * { margin-top: 0; }
+.ed-cards > .ed-dbody { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ed-grid > .ed-dbody > .ed-directive { background: var(--lk-bg-surface); }
+.ed-grid > .ed-dbody > .ed-directive > .ed-dbody > .ed-label { padding-right: 52px; }
+.ed-q > .ed-dhead, .ed-card > .ed-dhead { display: none; }
+.ed-q { border-top: 3px solid var(--lk-action-accent-strong); }
+.ed-pros, .ed-do { border-top: 3px solid var(--lk-status-success); }
+.ed-cons, .ed-dont { border-top: 3px solid var(--lk-status-error); }
+.ed-pros > .ed-dhead, .ed-do > .ed-dhead { color: var(--lk-text-success); }
+.ed-cons > .ed-dhead, .ed-dont > .ed-dhead { color: var(--lk-text-error); }
+.ed-pros > .ed-dhead::before, .ed-do > .ed-dhead::before { content: "✓ "; }
+.ed-cons > .ed-dhead::before, .ed-dont > .ed-dhead::before { content: "✗ "; }
+.ed-card > .ed-dmark--before { display: inline-block; padding: 1px 8px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-full); color: var(--lk-text-primary); }
+/* a part's handle sits in its corner (a grid would put anything beside its parts into its first cell) */
+.ed-grid > .ed-dbody > .ed-directive > .ed-dbody > .ed-handles { left: auto; right: 6px; top: 6px; margin-top: 0; }
+.ed-grid > .ed-dbody > .ed-directive:hover > .ed-dbody > .ed-handles,
+.ed-grid > .ed-dbody > .ed-directive.ProseMirror-selectednode > .ed-dbody > .ed-handles,
+.ed-grid > .ed-dbody > .ed-directive.ed-selected > .ed-dbody > .ed-handles { opacity: 1; }
+/* a flow: its stages in a row, numbered, an arrow between them; a cycle says it goes back to the start */
+.ed-flow > .ed-dbody > ol { display: flex; gap: 22px; margin: 0; padding: 0; list-style: none; counter-reset: ed-stage; }
+.ed-flow > .ed-dbody > ol > li { position: relative; flex: 1 1 0; min-width: 0; padding: 8px 10px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); counter-increment: ed-stage; }
+.ed-flow > .ed-dbody > ol > li::before { content: counter(ed-stage); display: grid; place-items: center; width: 22px; height: 22px; margin-bottom: 4px; border: 1px solid var(--lk-action-accent-strong); border-radius: 50%; font: 600 .75rem/1 var(--lk-font-ui); color: var(--lk-text-accent); user-select: none; }
+.ed-flow > .ed-dbody > ol > li + li::after { content: "›"; position: absolute; left: -16px; top: 50%; transform: translateY(-50%); font: 700 1.125rem/1 var(--lk-font-ui); color: var(--lk-text-secondary); user-select: none; }
+.ed-flow > .ed-dbody > ol > li + li, .ed-metrics > .ed-dbody > ul > li + li { margin-top: 0; }
+.ed-flow[data-shape="cycle"] > .ed-dbody::after { content: "↻"; display: block; margin-top: 6px; text-align: center; font: 700 1.25rem/1 var(--lk-font-ui); color: var(--lk-text-secondary); user-select: none; }
+/* steps: numbered circles on a line */
+.ed-steps > .ed-dbody > ol { margin: 0; padding: 0; list-style: none; counter-reset: ed-step; }
+.ed-steps > .ed-dbody > ol > li { position: relative; min-height: 30px; padding: 3px 0 10px 42px; counter-increment: ed-step; }
+.ed-steps > .ed-dbody > ol > li::before { content: counter(ed-step); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--lk-action-accent-strong); border-radius: 50%; background: var(--lk-bg-surface); font: 700 .8125rem/1 var(--lk-font-ui); color: var(--lk-text-accent); user-select: none; }
+.ed-steps > .ed-dbody > ol > li:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 30px; bottom: 0; border-left: 2px solid var(--lk-border-default); }
+/* key figures: tiles, the bold figure large above its label */
+.ed-metrics > .ed-dbody > ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.ed-metrics > .ed-dbody > ul > li { padding: 10px 12px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); }
+.ed-metrics > .ed-dbody > ul > li > p > strong:first-child { display: block; font: 600 1.75rem/1.2 var(--lk-font-brand); }
+/* a timeline: dots on a line, the date above its text, the milestone that is now filled and marked */
+.ed-timeline > .ed-dbody > ul { margin: 0 0 0 6px; padding: 0; list-style: none; border-left: 2px solid var(--lk-border-default); }
+.ed-timeline > .ed-dbody > ul > li { position: relative; padding: 0 0 12px 20px; }
+.ed-timeline > .ed-dbody > ul > li::before { content: ""; position: absolute; left: -8px; top: .35em; width: 14px; height: 14px; border: 2px solid var(--lk-border-strong); border-radius: 50%; background: var(--lk-bg-surface); }
+.ed-timeline > .ed-dbody > ul > li.ed-current::before { border-color: var(--lk-action-accent-strong); background: var(--lk-action-accent-strong); }
+.ed-timeline > .ed-dbody > ul > li > p > strong:first-child { display: block; }
+.ed-timeline > .ed-dbody > ul > li.ed-current::after { content: attr(data-current); position: absolute; right: 0; top: 0; padding: 0 8px; border: 1px solid var(--lk-action-accent-strong); border-radius: var(--lk-radius-full); font: 600 .6875rem/1.6 var(--lk-font-ui); color: var(--lk-text-accent); user-select: none; }
+/* tabs: each tab's name drawn as a tab (underlined, as the chosen one), its panel under it; all of them editable */
+.ed-tabs > .ed-dbody > .ed-tab { border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); }
+.ed-tab > .ed-dhead, .ed-item > .ed-dhead { display: none; }
+.ed-tab > .ed-dbody > .ed-label { display: inline-block; padding: 0 2px 4px; border-bottom: 3px solid var(--lk-action-accent-strong); font-weight: 650; }
+/* an accordion: each item a row with its disclosure mark, the answer under its question (always open while editing) */
+.ed-accordion > .ed-dbody > .ed-item { padding: 8px 4px 8px 28px; border: 0; border-bottom: 1px solid var(--lk-border-default); border-radius: 0; background: none; }
+.ed-accordion > .ed-dbody > .ed-item:first-of-type { border-top: 1px solid var(--lk-border-default); }
+.ed-item > .ed-dbody > .ed-label { font-weight: 650; }
+.ed-item > .ed-dbody > .ed-label::before { content: "▾"; position: absolute; left: 8px; color: var(--lk-text-secondary); user-select: none; }
+/* a comparison: the recommended column outlined, its badge under its heading; yes, no and partial marked */
+.ed-root .ed-comparison table.ed-table td.ed-hl { background: color-mix(in srgb, var(--lk-action-accent-strong) 7%, var(--lk-bg-surface)); border-left: 2px solid var(--lk-action-accent-strong); border-right: 2px solid var(--lk-action-accent-strong); }
+.ed-root .ed-comparison table.ed-table td.ed-hl-head { border-top: 2px solid var(--lk-action-accent-strong); }
+.ed-root .ed-comparison table.ed-table td.ed-hl-last { border-bottom: 2px solid var(--lk-action-accent-strong); }
+.ed-comparison td.ed-hl-head::after { content: attr(data-badge); display: block; width: fit-content; margin-top: 4px; padding: 0 8px; border: 1px solid var(--lk-action-accent-strong); border-radius: var(--lk-radius-full); font: 600 .6875rem/1.6 var(--lk-font-ui); color: var(--lk-text-accent); user-select: none; }
+.ed-comparison td[data-mark]::before { font-weight: 700; user-select: none; }
+.ed-comparison td[data-mark="yes"]::before { content: "✓ "; color: var(--lk-text-success); }
+.ed-comparison td[data-mark="no"]::before { content: "✗ "; color: var(--lk-text-error); }
+.ed-comparison td[data-mark="partial"]::before { content: "◐ "; color: var(--lk-text-secondary); }
+/* a decision: its status (a coloured dot, the word, the date and who decided), its sections as ruled parts */
+.ed-decision > .ed-dmark--before::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: var(--lk-text-secondary); vertical-align: 1px; }
+.ed-decision[data-status="accepted"] > .ed-dmark--before::before { background: var(--lk-status-success); }
+.ed-decision[data-status="proposed"] > .ed-dmark--before::before { background: var(--lk-status-info); }
+.ed-decision[data-status="rejected"] > .ed-dmark--before::before { background: var(--lk-status-error); }
+.ed-decision > .ed-dmark--before { color: var(--lk-text-primary); }
+.ed-decision > .ed-dbody > .ed-directive, .ed-release > .ed-dbody > .ed-directive { padding: 2px 0 2px 14px; border: 0; border-left: 3px solid var(--lk-border-strong); border-radius: 0; background: none; }
+/* a release: its date, and each kind of change under its own coloured name */
+.ed-release > .ed-dbody > .ed-added { border-left-color: var(--lk-status-success); }
+.ed-release > .ed-dbody > .ed-fixed { border-left-color: var(--lk-status-info); }
+.ed-release > .ed-dbody > .ed-changed { border-left-color: var(--lk-action-accent-strong); }
+.ed-release > .ed-dbody > .ed-deprecated { border-left-color: var(--lk-status-warning); }
+.ed-release > .ed-dbody > .ed-removed, .ed-release > .ed-dbody > .ed-security { border-left-color: var(--lk-status-error); }
+.ed-release > .ed-dbody > .ed-directive > .ed-dhead { color: var(--lk-text-primary); }
+/* a UI specimen: its caption, then its components drawn as components, in a row or stacked */
+.ed-ui > .ed-dbody { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; padding: 12px; border: 1px dashed var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-canvas); }
+.ed-ui[data-layout="stack"] > .ed-dbody { flex-direction: column; }
+.ed-ui > .ed-dbody > * + * { margin-top: 0; }
+.ed-ui .ed-lhead { display: none; }
+.ed-ui .ed-leaf { display: inline-flex; padding: 0; }
+.ed-ui .ed-button { min-height: 34px; align-items: center; padding: 0 14px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); font-weight: 600; }
+.ed-ui .ed-button[data-variant="primary"] { background: var(--lk-action-primary); border-color: var(--lk-action-primary); color: var(--lk-bg-surface); }
+.ed-ui .ed-button[data-variant="destructive"] { background: var(--lk-action-destructive); border-color: var(--lk-action-destructive); color: var(--lk-action-on-destructive); }
+.ed-ui .ed-button[data-variant="accent"], .ed-ui .ed-button[data-variant="iris"] { border-color: var(--lk-action-accent-strong); color: var(--lk-text-accent); }
+.ed-ui .ed-button[data-variant="ghost"] { border-color: transparent; background: none; }
+/* (a state is shown by its shape, never by fading the text: the specimen's words stay readable) */
+.ed-ui .ed-leaf[data-state="disabled"] { border-style: dashed; }
+.ed-ui .ed-leaf[data-state="disabled"]::before { content: "⊘"; margin-right: 6px; user-select: none; }
+.ed-ui .ed-leaf[data-state="loading"]::after { content: "…"; margin-left: 4px; }
+.ed-ui .ed-leaf[data-state="focus"] { outline: 2px solid var(--lk-focus-ring); outline-offset: 2px; }
+.ed-ui .ed-field { flex-direction: column; gap: 4px; font-weight: 600; }
+.ed-ui .ed-field::after { content: ""; display: block; width: 200px; max-width: 100%; height: 34px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); }
+.ed-ui .ed-badge { padding: 1px 10px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-full); font-size: .8125rem; font-weight: 600; }
+.ed-ui .ed-toast, .ed-ui .ed-modal, .ed-ui .ed-empty { padding: 10px 14px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md); background: var(--lk-bg-surface); box-shadow: var(--lk-shadow-1); }
+.ed-ui .ed-empty { border-style: dashed; box-shadow: none; }
+/* one more part: a quiet button at the block's end (the block menu has it too, for the keyboard) */
+.ed-addpart {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 28px; margin-top: 8px; padding: 0 10px;
+  border: 1px dashed var(--lk-border-strong); border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-accent); font: 600 .8125rem/1 var(--lk-font-ui); cursor: pointer;
+}
+.ed-addpart::before { content: "+"; font-size: 1rem; }
+.ed-addpart:hover { background: var(--lk-bg-elevated); border-style: solid; }
+/* a narrower editor: a flow's stages one under another (1024 px with the preview), then the grids too (a phone), as
+   the outputs stack them */
+@container editor-pane (max-width: 720px) {
+  .ed-flow > .ed-dbody > ol { flex-direction: column; }
+  .ed-flow > .ed-dbody > ol > li + li::after { content: "↓"; left: 50%; top: -19px; transform: translateX(-50%); }
+}
+@container editor-pane (max-width: 520px) {
+  .ed-grid > .ed-dbody, .ed-cards > .ed-dbody { grid-template-columns: minmax(0, 1fr); }
+}
 .ed-leaf { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; }
 .ed-lhead { font: 600 .75rem/1.4 var(--lk-font-mono); color: var(--lk-text-secondary); user-select: none; }
 .ed-front-matter { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 14px; border-radius: var(--lk-radius-md); background: var(--lk-bg-canvas); border: 1px dashed var(--lk-border-strong); cursor: pointer; }
@@ -106,7 +291,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 /* selection, problems, the empty paragraph */
 .ed-root .ProseMirror-selectednode, .ed-root .ed-selected { outline: 2px solid var(--lk-focus-ring); outline-offset: 3px; border-radius: var(--lk-radius-xs); }
 .ed-root .ed-selected { background: color-mix(in srgb, var(--lk-aqua-500) 8%, transparent); }
-/* a block with a problem: a red bar at its left edge (the Problems tab and the Inspector say what it is) */
+/* a block with a problem: a red bar at its left edge (Checks and Properties say what it is) */
 .ed-has-problem { box-shadow: -10px 0 0 -6px var(--lk-status-error); }
 /* the problem mark at the right of a block: a click shows its problems and fixes */
 .ed-problem-mark {
@@ -133,7 +318,13 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .ed-handles:hover, .ed-handles:has(+ :hover), .ed-handles:has(+ .ProseMirror-selectednode), .ed-handles:has(+ .ed-selected),
 .st-visual[data-handles="always"] .ed-handles { opacity: 1; }
 /* a touch screen has no hover: the handles are always there to tap */
-@media (hover: none) { .ed-handles { opacity: 1; } }
+/* a block inside another (a paragraph in a callout) shows its handles when selected: always shown, they would sit over
+   the outer block's edge */
+@media (hover: none) {
+  .ed-handles { opacity: 1; }
+  .ed-dbody > .ed-handles:not(:has(+ .ProseMirror-selectednode)):not(:has(+ .ed-selected)) { opacity: 0; }
+  .ed-grid > .ed-dbody > .ed-directive > .ed-dbody > .ed-handles { opacity: 1; }
+}
 .ed-grip, .ed-plus {
   display: grid; place-items: center; width: 24px; height: 24px; padding: 0; cursor: pointer;
   border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-xs); background: var(--lk-bg-surface); color: var(--lk-text-secondary); font: 600 1rem/1 var(--lk-font-ui);
@@ -144,11 +335,21 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 
 /* ---- popovers: the "/" menu and the block menu ---- */
 .st-pop { position: fixed; z-index: var(--lk-z-dropdown); width: 320px; max-height: 400px; display: flex; flex-direction: column; background: var(--lk-bg-surface); border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-md); box-shadow: var(--lk-shadow-3); }
-.st-insert input { margin: 8px; min-height: 34px; padding: 0 10px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; }
+.st-insert-head { display: flex; align-items: center; gap: 4px; padding: 8px 6px 8px 8px; }
+.st-insert input { flex: 1; min-width: 0; margin: 0; min-height: 34px; padding: 0 10px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; }
 .st-insert-list { list-style: none; margin: 0; padding: 0 6px 6px; overflow: auto; }
-.st-insert-opt { display: grid; padding: 6px 8px; border-radius: var(--lk-radius-sm); cursor: pointer; }
+.st-insert { width: 360px; max-height: min(480px, calc(100vh - 24px)); }
+.st-insert-close { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-primary); cursor: pointer; }
+.st-insert-close:hover { background: var(--lk-bg-elevated); }
+.st-insert-opt { display: grid; grid-template-columns: 52px 1fr; column-gap: 10px; align-items: center; padding: 6px 8px; border-radius: var(--lk-radius-sm); cursor: pointer; }
+.st-insert-opt .st-thumb { grid-column: 1; grid-row: span 2; }
+.st-insert-name, .st-insert-summary { grid-column: 2; }
+.st-thumb { width: 52px; height: 33px; border-radius: 4px; background: var(--lk-bg-elevated); }
+.st-thumb-m { fill: var(--lk-border-strong); }
+.st-thumb-a { fill: var(--lk-action-accent); }
+@media (forced-colors: active) { .st-thumb-m { fill: GrayText; } .st-thumb-a { fill: Highlight; } }
 .st-insert-opt[aria-selected="true"] { background: var(--lk-bg-elevated); box-shadow: inset 3px 0 0 var(--lk-action-accent-strong); }
-.st-insert-group { margin: 6px 0 2px; font: 700 .6875rem/1.4 var(--lk-font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
+.st-insert-group { grid-column: 1 / -1; margin: 6px 0 4px; font: 700 .6875rem/1.4 var(--lk-font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
 .st-insert-name { font-weight: 600; }
 .st-insert-summary { font-size: .75rem; color: var(--lk-text-secondary); }
 .st-insert-none { padding: 8px; color: var(--lk-text-secondary); }
@@ -168,11 +369,15 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .st-insp-sub { margin: 0; font-size: .8125rem; color: var(--lk-text-secondary); }
 .st-insp-path ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px; font-size: .75rem; }
 .st-insp-path li + li::before { content: "›"; margin: 0 4px; color: var(--lk-text-secondary); }
-.st-insp-path button { padding: 2px 4px; border: 0; background: none; color: var(--lk-text-accent); text-decoration: underline; cursor: pointer; font: inherit; }
+.st-insp-path button { min-height: 24px; padding: 2px 6px; border: 0; background: none; color: var(--lk-text-accent); text-decoration: underline; cursor: pointer; font: inherit; }
 .st-insp-section { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--lk-border-default); }
 .st-insp-heading { margin: 0; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
 .st-field-row { display: grid; gap: 4px; }
-.st-field-label { font-weight: 600; font-size: .8125rem; font-family: var(--lk-font-mono); }
+/* a setting's plain name, with the key the Markdown uses beside it, smaller (the key wraps under it when narrow) */
+.st-field-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; }
+.st-field-label { font-weight: 600; font-size: .8125rem; }
+.st-field-key { font-size: .75rem; color: var(--lk-text-secondary); }
+.st-field-key code { font-family: var(--lk-font-mono); }
 .st-field-row input[type="text"], .st-field-row input[type="date"], .st-field-row select {
   min-height: 34px; padding: 0 8px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; width: 100%;
 }
@@ -227,30 +432,35 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .st-keys-table td:first-child { width: 42%; }
 kbd { font: 600 .8125rem/1.4 var(--lk-font-mono); padding: 1px 6px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-xs); background: var(--lk-bg-canvas); }
 
-/* visual mode: the document gets the room (it is the editor and the page at once) */
-@media (min-width: 1280px) {
-  .st-work[data-mode="visual"] { grid-template-columns: minmax(560px, 1.6fr) minmax(360px, 1fr) minmax(300px, 340px); }
-  /* Split: both editors get the room; the block palette gives way (the "/" menu and the palette command remain) */
-  .st-work[data-mode="split"] { grid-template-columns: minmax(760px, 2.4fr) minmax(300px, 1fr) minmax(280px, 320px); }
-}
+/* Split: the two editors share the editor's room (the panes take what they need, the editor the rest) */
 .st-split { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
 .st-split > .st-visual { border-right: 1px solid var(--lk-border-default); }
-.st-split .st-visual[data-palette="true"] { grid-template-columns: 1fr; }
-.st-split .st-palette { display: none; }
 .st-split .st-source-editor { overflow: hidden; }
 .st-editor .cm-lk-linked { background: color-mix(in srgb, var(--lk-aqua-500) 9%, transparent); }
 
-/* ---- focus mode: only the editor ---- */
-@media (min-width: 900px) {
-  .st-work[data-focus="true"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-  .st-work[data-focus="true"] > .st-preview-pane, .st-work[data-focus="true"] > .st-panel { display: none; }
-  .st-work[data-focus="true"] .ed-root { max-width: 860px; margin: 0 auto; }
+/* ---- Fokus: the page alone (no panes, no toolbar, no status bar), the text in a readable column, slightly larger,
+   and the dock under it (a row of the layout, never over the text: WCAG 2.4.11) ---- */
+.st-work[data-focus="true"] .st-pane-head { display: none; }
+.st-work[data-focus="true"] .st-main { background: var(--lk-bg-surface); }
+.st-work[data-focus="true"] .ed-root { max-width: 760px; margin: 0 auto; font-size: 1.0625rem; padding-top: 40px; }
+.st-work[data-focus="true"] .st-visual[data-density="compact"] .ed-root { font-size: 1rem; }
+.st-work[data-focus="true"] .st-source-editor .cm-content { max-width: 760px; margin-inline: auto; }
+.st-dock {
+  flex: none; align-self: center; display: flex; gap: 4px; margin: 8px 16px calc(12px + env(safe-area-inset-bottom)); padding: 4px;
+  background: var(--lk-bg-surface); border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-full); box-shadow: var(--lk-shadow-2);
 }
+.st-dock-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px;
+  border: 1px solid transparent; border-radius: var(--lk-radius-full); background: none; color: var(--lk-text-primary); font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.st-dock-btn:hover { background: var(--lk-bg-elevated); border-color: var(--lk-border-default); }
+.st-dock .st-insert-btn { min-height: 40px; font-size: inherit; border-color: var(--lk-action-accent-strong); }
 @media (max-width: 899px) {
-  .st-visual[data-palette="true"] { grid-template-columns: 1fr; }
-  .st-palette { display: none; }
   /* the block handles (two 24px buttons from 2px in, shown all the time on touch) keep clear of the text */
   .ed-root { padding-left: 56px; padding-right: 16px; }
+  .st-work[data-focus="true"] .ed-root { padding-top: 24px; }
+  .st-dock { margin-inline: 8px; }
+  .st-dock-btn { padding: 0 11px; }
 }
 
 /* ---- quick fixes and explained findings ---- */

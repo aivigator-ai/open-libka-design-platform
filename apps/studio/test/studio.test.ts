@@ -8,6 +8,12 @@ import { build } from '@libka/cli/src/libka.ts';
 import { serveStatic, type Served } from '@libka/cli/src/serve.ts';
 import { guardHtml, guardPage, launchBrowser, type GuardReport } from '@libka/guard';
 import { checkDocx } from '@libka/guard/docx';
+
+/** The interface language, chosen in View ▾. */
+async function chooseLang(page: Page, l: string): Promise<void> {
+  await page.click('#view-menu > summary');
+  await page.click(`#view-menu button[data-lang="${l}"]`);
+}
 import { strFromU8, unzipSync } from 'fflate';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -90,13 +96,17 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
   it('shows a source problem on its line, marks the line and jumps there', async () => {
     const page = await open();
     const lines = (await hook(page)).source.split('\n').length;
+    await page.click('#tab-checks');
     await append(page, '\n:::table\n| a |\n|---|\n| 1 |\n:::\n');
-    await page.waitForFunction(() => document.querySelector('#count-problems')!.textContent === '1');
-    expect(await page.textContent('#tp-problems')).toContain(`Line ${lines + 1}`);
+    await page.waitForFunction(() => document.querySelector('#count-checks')?.textContent === '1');
+    expect(await page.textContent('#checks-list')).toContain(`Line ${lines + 1}`);
+    // the readiness chip opens the list with the focus on its first item
+    await page.click('#status-chip');
+    await page.waitForFunction(() => document.activeElement?.classList.contains('st-item'));
     expect(await page.locator('.cm-lint-marker-error').count()).toBe(1);
     expect(await page.textContent('#status-text')).toMatch(/to fix/);
     await page.keyboard.press('Control+Home');
-    await page.click('#tp-problems .st-item');
+    await page.click('#checks-list .st-item');
     expect((await hook(page)).selection).toBe(':::table');
     await page.context().close();
   }, 60000);
@@ -109,11 +119,12 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     expect(await page.evaluate(() => (document.querySelector('#preview') as HTMLIFrameElement).srcdoc.includes('@media all'))).toBe(true);
     expect(await page.evaluate(() => localStorage.getItem('libka-studio:contrast'))).toBeNull();
 
-    await page.click('[data-lang="cs"]');
+    await chooseLang(page, 'cs');
     expect(await page.getAttribute('html', 'lang')).toBe('cs');
-    expect(await page.textContent('#tab-problems')).toContain('Problémy');
+    expect(await page.textContent('#tab-checks')).toContain('Kontroly');
     // the source editor takes its new label with its next update, a moment after the page's language
     await expect.poll(() => page.getAttribute('.cm-content', 'aria-label')).toBe('Zdroj dokumentu (LibKa Markdown)');
+    await page.click('#view-menu > summary');
     await page.click('#theme-toggle');
     expect(await page.getAttribute('html', 'data-theme')).toBe('dark');
     await page.reload();
@@ -135,10 +146,13 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     // a code block cannot be split: Guard reports the slide it overflows
     const code = Array.from({ length: 40 }, (_, i) => `step_${i + 1}()`).join('\n');
     await page.keyboard.insertText(`\n## A very long listing\n\n\`\`\`python\n${code}\n\`\`\`\n`);
-    await page.waitForFunction(() => document.querySelector('#count-guard')!.textContent === '1', undefined, { timeout: 30000 });
-    await page.click('#tab-guard');
-    expect(await page.textContent('#tp-guard')).toMatch(/slide-overflow.*A very long listing/);
-    await page.click('#tp-guard .st-item');
+    await page.click('#tab-checks');
+    const overflow = page.locator('#checks-list .st-item-row[data-rule="slide-overflow"]');
+    await overflow.waitFor({ timeout: 30000 });
+    expect(await overflow.textContent()).toMatch(/A very long listing.*Slides/);
+    // under Details, the slides' structure check counts one finding, as `libka check` does
+    expect(await page.textContent('#checks-details [data-output="slides"]')).toMatch(/1 to fix/);
+    await overflow.locator('.st-showpreview').click();
     // the deck goes to the slide Guard named (by its title: which slide number it is depends on the fonts); wait for it
     // rather than for a fixed time (a slow runner takes longer)
     await page.waitForFunction(() => {
@@ -151,18 +165,21 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
 
   it('toggles the outputs in the front matter and checks only what the document asks for', async () => {
     const page = await open();
-    await page.click('#file-menu summary');
-    expect(await page.$$eval('#outputs input', (boxes) => boxes.map((b) => `${(b as HTMLInputElement).value}=${(b as HTMLInputElement).checked}`)))
+    // Export ▾ → Choose outputs…: Properties at the document's outputs, the first box focused
+    await page.click('#export-menu summary');
+    await page.click('[data-command="outputs.choose"]');
+    await page.waitForFunction(() => document.activeElement?.matches('#doc-outputs-list input'));
+    expect(await page.$$eval('#doc-outputs-list input', (boxes) => boxes.map((b) => `${(b as HTMLInputElement).value}=${(b as HTMLInputElement).checked}`)))
       .toEqual(['web=true', 'pdf=true', 'deck=true', 'docx=true']);
     // without the web page there is no PDF and no Word file: they are made from it
-    await page.click('#outputs input[value="web"]');
+    await page.click('#doc-outputs-list input[value="web"]');
     expect((await hook(page)).source).toMatch(/\noutputs: \[deck\]\n---/);
     await page.waitForFunction(() => {
       const s = (window as unknown as { libkaStudio: Hook }).libkaStudio;
       return document.documentElement.dataset.guard === 'done' && s.checks?.every((c) => c.target === 'deck');
     }, undefined, { timeout: 30000 });
     // asking for the Word file brings the web page back
-    await page.click('#outputs input[value="docx"]');
+    await page.click('#doc-outputs-list input[value="docx"]');
     expect((await hook(page)).source).toMatch(/\noutputs: \[web, deck, docx\]\n---/);
     // the change is one step of the editor's undo
     await page.click('.cm-content');
@@ -171,9 +188,57 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     await page.context().close();
   }, 60000);
 
+  it('renames and duplicates from Document ▾, and names the document\'s properties in plain words', async () => {
+    const page = await open();
+    // Document ▾: three groups, each command's keys at the end of its row
+    await page.click('#doc-menu > summary');
+    expect(await page.$$eval('#doc-menu [data-command], #doc-menu hr', (els) => els.map((e) => e.getAttribute('data-command') ?? 'hr')))
+      .toEqual(['document.rename', 'document.duplicate', 'hr', 'save', 'version.save', 'versions.open', 'hr', 'document.properties']);
+    expect(await page.textContent('#doc-menu [data-command="save"] .st-menu-keys')).toBe('Ctrl+S');
+    expect(await page.getAttribute('#doc-menu [data-command="save"]', 'aria-keyshortcuts')).toBe('Control+S');
+    expect(await page.$('#file-menu')).toBeNull();
+    // Rename…: the title (the front matter) and the file name in one dialog
+    await page.click('#doc-menu [data-command="document.rename"]');
+    await page.waitForSelector('.st-dialog--form[open]');
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('form-title');
+    await page.fill('#form-title', 'A renamed guide');
+    await page.fill('#form-name', 'renamed');
+    await page.press('#form-name', 'Enter');
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'renamed.md');
+    expect((await hook(page)).source).toMatch(/\ntitle: A renamed guide\n/);
+    await page.waitForFunction(() => document.querySelector('#doc-title')?.textContent === 'A renamed guide');
+    // Cancel changes nothing
+    await page.click('#doc-menu > summary');
+    await page.click('#doc-menu [data-command="document.rename"]');
+    await page.fill('#form-title', 'Not this');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.st-dialog--form', { state: 'detached' });
+    expect((await hook(page)).source).toMatch(/\ntitle: A renamed guide\n/);
+    // Duplicate: the copy opens at once, and the toast says so
+    await saved(page);
+    await page.click('#doc-menu > summary');
+    await page.click('#doc-menu [data-command="document.duplicate"]');
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'renamed-copy.md');
+    await page.waitForSelector('#toast:has-text("You are now editing the copy, renamed-copy.md.")');
+    expect((await hook(page)).source).toMatch(/\ntitle: A renamed guide\n/);
+    // Document properties: plain names, the file's key beside them (and in the description), not where it repeats the name
+    await page.click('#doc-menu > summary');
+    await page.click('#doc-menu [data-command="document.properties"]');
+    await page.waitForSelector('#docprop-next-review');
+    expect(await page.textContent('#docprop-next-review-label')).toBe('Next review');
+    expect(await page.textContent('#docprop-next-review-key')).toBe('In the file: next-review');
+    expect(await page.getAttribute('#docprop-next-review', 'aria-describedby')).toMatch(/^docprop-next-review-key /);
+    expect(await page.textContent('#docprop-lang-label')).toBe('Language');
+    expect(await page.$('#docprop-title-key')).toBeNull();
+    await chooseLang(page, 'cs');
+    await page.waitForFunction(() => document.querySelector('#docprop-next-review-label')?.textContent === 'Příští revize');
+    expect(await page.textContent('#docprop-next-review-key')).toBe('V souboru: next-review');
+    await page.context().close();
+  }, 60000);
+
   it('downloads a Word file with the figure drawn, which passes the Word checks', async () => {
     const page = await open();
-    await page.click('#file-menu summary');
+    await page.click('#export-menu summary');
     const [download] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.click('[data-command="export.docx"]')]);
     expect(download.suggestedFilename()).toBe('guide.docx');
     const file = join(out, 'studio.docx');
@@ -246,7 +311,9 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
 
   it('keeps versions: names one, compares it with the text, restores it as a new version, and undo takes the restore back', async () => {
     const page = await open();
-    await page.click('#tab-history');
+    // Document ▾ › Versions… (the companion shows them until they are closed)
+    await page.click('#doc-menu summary');
+    await page.click('[data-command="versions.open"]');
     await page.click('#save-version');
     await page.fill('.st-dialog input', 'Before the new section');
     await page.click('.st-dialog button[type="submit"]');
@@ -268,10 +335,14 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     const kept = await page.$$eval('.st-version', (items) => items.map((i) => i.querySelector('.st-version-name')!.textContent!));
     expect(kept[0]).toMatch(/^Restored from/);
     expect(kept[1]).toMatch(/^(Before a restore|Automatic)$/);
-    expect(findings(await guardPage(page))).toEqual([]);   // the history tab
+    expect(findings(await guardPage(page))).toEqual([]);   // the versions tab
     await page.click('.cm-content');
     await page.keyboard.press('Control+z');
     expect((await hook(page)).source).toContain('Written after the version.');
+    // closed, the tab they replaced comes back
+    await page.click('#companion-close');
+    expect(await page.locator('#tab-versions').count()).toBe(0);
+    expect(await page.getAttribute('#tab-preview', 'aria-selected')).toBe('true');
     await page.context().close();
   }, 90000);
 
@@ -325,7 +396,7 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
       await write(dir, 'handbook.md', '---\ntitle: Team handbook\nlang: en\n---\n\n## Start\n\n![A logo](images/logo.svg "The logo")\n');
       await write(await dir.getDirectoryHandle('images', { create: true }), 'logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>');
     });
-    await page.click('#file-menu summary');
+    await page.click('#library-toggle');
     await page.click('[data-command="folder.open"]');
     await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'handbook.md');
     expect((await hook(page)).files).toEqual(['images/logo.svg']);

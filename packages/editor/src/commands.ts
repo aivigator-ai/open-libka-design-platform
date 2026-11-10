@@ -3,9 +3,10 @@
  * deleting them; changing a block's type (saying what would be lost); wrapping and unwrapping; inserting. Every
  * command is a ProseMirror command, so the Studio binds it to keys, menus and the Inspector alike.
  */
-import { Fragment, Slice, type Node as PMNode, type ResolvedPos } from 'prosemirror-model';
+import { toggleMark } from 'prosemirror-commands';
+import { Fragment, Slice, type MarkType, type Node as PMNode, type ResolvedPos } from 'prosemirror-model';
 import { NodeSelection, Selection, TextSelection, type Command, type EditorState, type Transaction } from 'prosemirror-state';
-import { InputRule, inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
+import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import type { Mapping } from 'prosemirror-transform';
 import { BLOCKS, block as definition } from '@libka/blocks';
 import { blocksFrom } from './blocks.ts';
@@ -410,9 +411,41 @@ export function sliceFromMarkdown(text: string): Slice {
   return new Slice(content, 0, 0);
 }
 
+/* ---------- text marks (bold, italic, code, strikethrough) ---------- */
+
+/**
+ * Whether a text mark shows as on, the way word processors show it: only when all of the selected text has it
+ * (spaces and text that cannot take it aside), so a paragraph with a little code in it does not show Code as on.
+ * A selected block is not text: no mark is on. With the cursor alone, the marks typing would use.
+ */
+export function markActive(state: EditorState, type: MarkType): boolean {
+  const { selection } = state;
+  if (selection instanceof NodeSelection || selection instanceof BlockSelection) return false;
+  if (selection.empty) return Boolean(type.isInSet(state.storedMarks ?? selection.$from.marks()));
+  let marked = false;
+  const missing = selection.ranges.some(({ $from, $to }) => {
+    let gap = false;
+    // the test toggleMark makes with removeWhenPresent: false, so the button's state and its click agree
+    state.doc.nodesBetween($from.pos, $to.pos, (node, pos, parent) => {
+      if (gap) return false;
+      if (type.isInSet(node.marks)) { marked = true; return; }
+      gap = Boolean(parent?.type.allowsMarkType(type))
+        && !(node.isText && /^\s*$/.test(node.textBetween(Math.max(0, $from.pos - pos), Math.min(node.nodeSize, $to.pos - pos))));
+    });
+    return gap;
+  });
+  return marked && !missing;
+}
+
+/** Toggles a text mark to match markActive: text only partly marked gets it all over, and all-marked text loses it. */
+export const toggleFormat = (type: MarkType): Command => toggleMark(type, null, { removeWhenPresent: false });
+
 /* ---------- Markdown shortcuts (a preference) ---------- */
 
-/** Typing "## ", "- ", "1. ", "> ", "```" or "---" at the start of a paragraph makes the block it stands for. */
+/**
+ * Typing "## ", "- ", "1. ", "> " or "```" at the start of a paragraph makes the block it stands for. "---" stays
+ * text: a horizontal rule shows in no output (a document that has one still loads and saves it as written).
+ */
 export function markdownShortcuts() {
   const N = schema.nodes;
   return inputRules({ rules: [
@@ -421,11 +454,5 @@ export function markdownShortcuts() {
     wrappingInputRule(/^(\d+)\.\s$/, N.ordered_list!, (m) => ({ start: Number(m[1]) }), (m, n) => n.childCount + n.attrs.start === Number(m[1])),
     wrappingInputRule(/^\s*>\s$/, N.blockquote!),
     textblockTypeInputRule(/^```([\w-]+)?\s$/, N.code_block!, (m) => ({ lang: m[1] ?? null })),
-    new InputRule(/^---$/, (state, _m, start, end) => {
-      const $start = state.doc.resolve(start);
-      // the paragraph holds exactly "--" and the third dash is being typed
-      if ($start.parent.type !== N.paragraph || $start.parent.textContent !== '--' || end - start !== 2) return null;
-      return state.tr.replaceWith($start.before(), $start.after(), [N.thematic_break!.create(), N.paragraph!.create()]);
-    }),
   ] });
 }

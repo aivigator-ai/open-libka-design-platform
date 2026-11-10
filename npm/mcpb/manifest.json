@@ -26,7 +26,7 @@
     { "name": "libka_list_blocks", "description": "Every LibKa block with the content it fits, and what to write for content without a block" },
     { "name": "libka_get_block", "description": "One block: syntax, attributes, outputs, accessibility rules, anti-patterns and JSON schema" },
     { "name": "libka_check", "description": "Parse LibKa Markdown: problems with line numbers, the outline and the slide count" },
-    { "name": "libka_build", "description": "Build the outputs, run Guard and sign; returns the files and every finding" }
+    { "name": "libka_build", "description": "Build the outputs, run Guard and sign; returns the files and every finding; removes this document's stale outputs" }
   ],
   "user_config": {
     "out_dir": {

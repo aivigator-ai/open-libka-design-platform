@@ -14,6 +14,7 @@ export function DialogHost() {
   const d = s.dialog.value;
   const ref = useRef<HTMLDialogElement>(null);
   const [value, setValue] = useState('');
+  const [values, setValues] = useState<Record<string, string>>({});
   const result = useRef<unknown>(null);
   /** Runs once the dialog has closed and the focus is back (a palette choice may open another dialog). */
   const after = useRef<(() => void) | null>(null);
@@ -23,12 +24,14 @@ export function DialogHost() {
     if (!d || !el) return;
     result.current = null;
     if (d.kind === 'prompt') setValue(d.value);
+    if (d.kind === 'form') setValues(Object.fromEntries(d.fields.map((f) => [f.id, f.value])));
     const back = document.activeElement as HTMLElement | null;
     el.showModal();
     const closed = () => {
       s.dialog.value = null;
       if (d.kind === 'confirm') d.resolve(result.current === true);
       else if (d.kind === 'prompt' || d.kind === 'choose') d.resolve(result.current as string | null);
+      else if (d.kind === 'form') d.resolve(result.current as Record<string, string> | null);
       if (back?.isConnected) back.focus();
       const next = after.current;
       after.current = null;
@@ -42,6 +45,8 @@ export function DialogHost() {
   const title = d.kind === 'compare' ? t('compare.title', { name: versionName(d.version), when: when(d.version.created) })
     : d.kind === 'shortcuts' ? t('keys.title') : d.kind === 'prefs' ? t('prefs.title') : d.kind === 'palette' ? t('cmdk.title') : d.kind === 'accessibility' ? t('a11y.title') : d.kind === 'about' ? t('about.title') : t(d.title);
   const wide = d.kind === 'compare' || d.kind === 'shortcuts';
+  // a long dialog opens at its top: its heading takes the focus (Tab goes on to the first control), not Close at the end
+  const long = d.kind === 'prefs' || d.kind === 'accessibility';
   if (d.kind === 'palette') {
     // the palette closes first (the focus goes back where it was), then the chosen thing runs there
     const run = (item: PaletteItem) => {
@@ -60,13 +65,15 @@ export function DialogHost() {
   // a new element for each kind: a dialog opened from the palette replaces it in the same render, and a screen reader
   // announces a dialog only when it is a new one (NVDA said nothing of Preferences opened from the palette)
   return (
-    <dialog key={d.kind} ref={ref} class={`st-dialog st-dialog--${d.kind}${wide ? ' st-dialog--wide' : ''}`} aria-labelledby="dialog-title">
+    <dialog key={d.kind} ref={ref} class={`st-dialog st-dialog--${d.kind}${wide ? ' st-dialog--wide' : ''}`} aria-labelledby="dialog-title"
+      aria-describedby={d.kind === 'form' && d.note ? 'dialog-note' : undefined}>
       <form method="dialog" class="st-dialog-body" onSubmit={(e) => {
         e.preventDefault();
         if (d.kind === 'confirm') close(true);
         else if (d.kind === 'prompt') close(value);
+        else if (d.kind === 'form') close(values);
       }}>
-        <h2 class="st-dialog-title" id="dialog-title">{title}</h2>
+        <h2 class="st-dialog-title" id="dialog-title" tabIndex={long ? -1 : undefined} autoFocus={long}>{title}</h2>
         {d.kind === 'confirm' ? <p>{d.message}</p> : null}
         {d.kind === 'prompt' ? (
           <label class="st-field">
@@ -74,6 +81,16 @@ export function DialogHost() {
             <input type="text" value={value} onInput={(e) => setValue(e.currentTarget.value)} autoFocus spellcheck={false} />
           </label>
         ) : null}
+        {d.kind === 'form' ? <>
+          {d.note ? <p id="dialog-note">{t(d.note)}</p> : null}
+          {d.fields.map((f, i) => (
+            <label key={f.id} class="st-field">
+              <span>{t(f.label)}</span>
+              <input type="text" id={`form-${f.id}`} value={values[f.id] ?? ''} autoFocus={i === 0} spellcheck={false}
+                onInput={(e) => { const v = e.currentTarget.value; setValues((all) => ({ ...all, [f.id]: v })); }} />
+            </label>
+          ))}
+        </> : null}
         {d.kind === 'choose' ? (
           <>
             <p>{d.message}</p>
@@ -89,8 +106,8 @@ export function DialogHost() {
         {d.kind === 'about' ? <AboutStudio /> : null}
         <div class="st-dialog-actions">
           {d.kind === 'compare' ? <button type="button" class="st-btn" onClick={() => { const v = d.version; close(null); void restoreVersion(v); }}>{t('history.restoreThis')}</button> : null}
-          <button type="button" class="st-btn" onClick={() => close(null)} autoFocus={d.kind !== 'prompt' && d.kind !== 'shortcuts'}>{t(d.kind === 'confirm' || d.kind === 'prompt' || d.kind === 'choose' ? 'dialog.cancel' : 'dialog.close')}</button>
-          {d.kind === 'confirm' || d.kind === 'prompt' ? (
+          <button type="button" class="st-btn" onClick={() => close(null)} autoFocus={!long && d.kind !== 'prompt' && d.kind !== 'form' && d.kind !== 'shortcuts'}>{t(d.kind === 'confirm' || d.kind === 'prompt' || d.kind === 'form' || d.kind === 'choose' ? 'dialog.cancel' : 'dialog.close')}</button>
+          {d.kind === 'confirm' || d.kind === 'prompt' || d.kind === 'form' ? (
             <button type="submit" class={`st-btn ${d.kind === 'confirm' && d.danger ? 'st-btn--danger' : 'st-btn--primary'}`}>{t(d.confirm)}</button>
           ) : null}
         </div>

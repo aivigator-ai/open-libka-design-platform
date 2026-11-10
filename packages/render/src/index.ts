@@ -4,11 +4,11 @@
  * the stylesheets as strings (see @libka/cli for reading them from the repository).
  */
 import type { PhrasingContent } from 'mdast';
-import { citationOrder, isDeprecated, kbdKeys, plainText, videoEmbed, type Block, type CalloutVariant, type Citation, type Footnote, type Inline, type LibkaDocument, type Reference } from '@libka/model';
+import { aiBadge, citationOrder, DEFAULT_DATE_FORMAT, isDeprecated, isIsoDate, kbdKeys, personText, plainText, sourceLine, videoEmbed, type AiProvenance, type Block, type CalloutVariant, type Citation, type DateFormat, type Footnote, type Inline, type LibkaDocument, type Person, type Reference } from '@libka/model';
 import { renderChart } from './chart.ts';
 import { escapeHtml, safeHref } from './escape.ts';
-import { fill, LABELS, langOf, type Labels, type Lang } from './labels.ts';
-import { typeset } from './typography.ts';
+import { fill, formatDate, LABELS, langOf, plural, type Labels, type Lang } from './labels.ts';
+import { czechText, typeset } from './typography.ts';
 import { withCsp, type HostSources } from './csp.ts';
 export type { HostSources } from './csp.ts';
 import type { PageLabels } from './page-runtime.ts';
@@ -16,7 +16,7 @@ import { PAGE_RUNTIME } from './runtimes.ts';
 import { renderUi, uiStageCss, usesUi } from './ui.ts';
 
 export { escapeHtml, safeHref } from './escape.ts';
-export { fill, LABELS, langOf, type Labels, type Lang } from './labels.ts';
+export { fill, formatDate, LABELS, langOf, plural, type Labels, type Lang } from './labels.ts';
 export { pageRuntime, type PageLabels } from './page-runtime.ts';
 export { describeUi, uiStageCss, usesUi } from './ui.ts';
 export { cleanDiagramSvg, MERMAID_CONFIG } from './diagram.ts';
@@ -42,7 +42,19 @@ export interface ManualOptions {
   source?: string;
   /** A site around the page (a docs site, a website); a document on its own has none. */
   frame?: SiteFrame;
+  /**
+   * Mark each top-level block with the source line it starts on (`data-lk-line`), so an editor can link a check's
+   * finding to its block. LibKa Studio's own render only: `libka build` never sets it, and exports strip it.
+   */
+  sourceLines?: boolean;
 }
+
+/** The first element of a block's HTML, marked with its source line (`data-lk-line`). */
+function withLine(html: string, line: number | undefined): string {
+  return line ? html.replace(/^(\s*<[a-zA-Z][\w-]*)/, `$1 data-lk-line="${line}"`) : html;
+}
+/** Removes the source-line marks of `sourceLines`, the blocks' and the slides' (a page that leaves the editor carries none). */
+export function withoutLines(html: string): string { return html.replace(/ data-lk-(?:slide-)?line="\d+"/g, ''); }
 
 /** What a site puts around its pages: its header and footer, their styles, and its choices for the page. */
 export interface SiteFrame {
@@ -71,9 +83,13 @@ export interface RenderContext {
   lang: Lang;
   labels: Labels;
   target: 'manual' | 'deck';
+  /** How dates are written (front matter "date-format"). */
+  dateFormat: DateFormat;
   next(prefix: string): string;
   /** The whole document's outline, notes and sources, when a whole document is rendered. */
   doc?: DocInfo;
+  /** Mark each top-level block with its source line (`data-lk-line`): LibKa Studio's own render only, never a build. */
+  sourceLines?: boolean;
 }
 
 /** One line of the contents: a ## or ### heading, a part (:::section), or the Notes and References sections. */
@@ -82,6 +98,10 @@ export interface TocEntry { id: string; text: string; level: 2 | 3; part: boolea
 /** What blocks need to know about the rest of the document: contents, note numbers, sources. */
 export interface DocInfo {
   toc: TocEntry[];
+  /** Where the automatic contents go: before the first block in them, so after the opening text. */
+  contentsAt: number;
+  /** How AI took part in the document (front matter "ai"): whether blocks show the AI badge depends on it. */
+  ai?: AiProvenance;
   /** Footnote id → its number. */
   notes: Map<string, number>;
   /** How often each note has been referred to so far (for unique back-link targets). */
@@ -100,20 +120,25 @@ export interface DocInfo {
 
 export const NOTES_ID = 'lk-notes';
 export const REFERENCES_ID = 'lk-references';
+export const REVISIONS_ID = 'lk-revisions';
 
 export function docInfo(doc: LibkaDocument, labels: Labels): DocInfo {
   const footnotes = doc.footnotes ?? [];
   const refsBlock = doc.blocks.find((b): b is Extract<Block, { type: 'references' }> => b.type === 'references');
   const order = citationOrder(doc);
   const listRefs = Boolean(doc.meta.references?.length) && (Boolean(refsBlock) || order.length > 0);
-  const toc: TocEntry[] = doc.blocks.flatMap((b): TocEntry[] => b.type === 'heading' && b.level <= 3 ? [{ id: b.id, text: plainText(b.text), level: b.level as 2 | 3, part: false }]
+  const entries = doc.blocks.map((b): TocEntry[] => b.type === 'heading' && b.level <= 3 ? [{ id: b.id, text: plainText(b.text), level: b.level as 2 | 3, part: false }]
     : b.type === 'section' ? [{ id: b.id, text: b.title, level: 2, part: true }]
     : b.type === 'release' ? [{ id: b.id, text: b.version, level: 2, part: false }]
+    : b.type === 'decision' ? [{ id: b.id, text: b.title, level: 2, part: false }]
+    : b.type === 'revisions' ? [{ id: REVISIONS_ID, text: b.title ?? labels.revisions, level: 2, part: false }]
     : b.type === 'references' && listRefs ? [{ id: REFERENCES_ID, text: b.title ?? labels.references, level: 2, part: false }] : []);
+  const toc = entries.flat();
+  const first = entries.findIndex((e) => e.length);
   if (footnotes.length) toc.push({ id: NOTES_ID, text: labels.notes, level: 2, part: false });
   if (listRefs && !refsBlock) toc.push({ id: REFERENCES_ID, text: labels.references, level: 2, part: false });
   return {
-    toc, footnotes, notes: new Map(footnotes.map((f, i) => [f.id, i + 1])), noteUses: new Map(),
+    toc, contentsAt: first < 0 ? doc.blocks.length : first, ...(doc.meta.ai ? { ai: doc.meta.ai } : {}), footnotes, notes: new Map(footnotes.map((f, i) => [f.id, i + 1])), noteUses: new Map(),
     refs: new Map((doc.meta.references ?? []).map((r) => [r.id, r])), citeNumber: new Map(order.map((id, i) => [id, i + 1])),
     style: refsBlock?.style ?? 'numeric', placedToc: doc.blocks.some((b) => b.type === 'toc'), listRefs, placedRefs: Boolean(refsBlock),
   };
@@ -122,9 +147,15 @@ export function docInfo(doc: LibkaDocument, labels: Labels): DocInfo {
 export function context(lang: string, target: 'manual' | 'deck' = 'manual', doc?: LibkaDocument): RenderContext {
   const l = langOf(lang);
   let n = 0;
-  return { lang: l, labels: LABELS[l], target, next: (prefix) => `lk-${prefix}-${++n}`, ...(doc ? { doc: docInfo(doc, LABELS[l]) } : {}) };
+  return { lang: l, labels: LABELS[l], target, dateFormat: doc?.meta.dateFormat ?? DEFAULT_DATE_FORMAT, next: (prefix) => `lk-${prefix}-${++n}`, ...(doc ? { doc: docInfo(doc, LABELS[l]) } : {}) };
 }
 const DEFAULT = () => context('en');
+
+/** A calendar date (2026, 2026-03, 2026-03-15) as a time element written as the document writes dates; other text stays. */
+export function dateHtml(value: string, ctx: Pick<RenderContext, 'lang' | 'dateFormat'>): string {
+  const v = value.trim();
+  return /^\d{4}(-\d{2}(-\d{2})?)?$/.test(v) ? `<time datetime="${escapeHtml(v)}">${escapeHtml(formatDate(v, ctx.lang, ctx.dateFormat))}</time>` : escapeHtml(value);
+}
 
 /** The page runtime inlined into a page, with its labels. */
 export function runtimeScript(ctx: RenderContext): string {
@@ -270,8 +301,22 @@ export function summary(b: Extract<Block, { type: 'summary' }>, ctx: RenderConte
   return [`<section class="lk-block lk-summary" aria-labelledby="${id}">`,
     labelledBy ? '' : `<p class="lk-summary-title" id="${id}">${escapeHtml(b.title ?? L.keyTakeaways)}</p>`,
     `<ul class="lk-summary-list">\n${b.items.map((i) => `  <li>${inline(i, ctx)}</li>`).join('\n')}\n</ul>`,
-    b.source === 'ai' ? `<p class="lk-summary-source"><span class="lk-badge lk-badge--ai">${escapeHtml(L.aiAssisted)}</span> ${escapeHtml(fill(L.reviewedBy, { name: b.reviewedBy ?? '' }))}</p>` : '',
+    // an AI summary is labelled only when the document turns its AI label on: with its own reviewer when it names one,
+    // as unreviewed when nobody is named; the document's reviewer is already under the title
+    b.source === 'ai' && ctx.doc?.ai?.label === true && (b.reviewedBy || !ctx.doc.ai.reviewedBy)
+      ? `<p class="lk-summary-source">${aiBadgeHtml(L)}${b.reviewedBy ? ` ${escapeHtml(fill(L.ai.reviewedApproved, { name: b.reviewedBy }))}` : ''}</p>` : '',
     '</section>'].filter(Boolean).join('\n');
+}
+
+const aiBadgeHtml = (L: Labels) => `<span class="lk-badge lk-badge--ai">${escapeHtml(L.ai.badge)}</span>`;
+
+/** The AI label's sentence when the document turns it on (ai: label: true): how AI took part, who reviewed and approved it. */
+export function aiLabelText(ai: AiProvenance | undefined, L: Labels): string {
+  if (ai?.label !== true) return '';
+  const { reviewedBy: r, approvedBy: a } = ai;
+  const who = r && (!a || a === r) ? fill(L.ai.reviewedApproved, { name: r })
+    : [r ? fill(L.ai.reviewed, { name: r }) : '', a ? fill(L.ai.approved, { name: a }) : ''].filter(Boolean).join(' ');
+  return [L.ai.created, who].filter(Boolean).join(' ');
 }
 
 /** Status words LibKa recognises get a badge color; the word itself always carries the meaning. */
@@ -283,14 +328,36 @@ function statusBadge(status: string): string {
 }
 
 /** [label, HTML value] pairs of a document's status fields, in reading order. */
-export function statusItems(s: { status?: string | undefined; owner?: string | undefined; reviewed?: string | undefined; nextReview?: string | undefined }, L: Labels): [string, string][] {
-  const time = (d: string) => `<time datetime="${escapeHtml(d)}">${escapeHtml(d)}</time>`;
+export function statusItems(s: { status?: string | undefined; owner?: string | undefined; reviewed?: string | undefined; nextReview?: string | undefined }, ctx: Pick<RenderContext, 'labels' | 'lang' | 'dateFormat'>): [string, string][] {
+  const L = ctx.labels;
+  const time = (d: string) => dateHtml(d, ctx);
   return [
     ...(s.status ? [[L.status, statusBadge(s.status)] as [string, string]] : []),
     ...(s.owner ? [[L.owner, escapeHtml(s.owner)] as [string, string]] : []),
     ...(s.reviewed ? [[L.reviewed, time(s.reviewed)] as [string, string]] : []),
     ...(s.nextReview ? [[L.nextReview, time(s.nextReview)] as [string, string]] : []),
   ];
+}
+
+/** "Authors" and the names with their roles as a [label, HTML value] pair; none without authors. */
+export function authorItems(people: readonly Person[] | undefined, lang: string, L: Labels): [string, string][] {
+  if (!people?.length) return [];
+  return [[plural(L.authors, people.length, langOf(lang)), people.map((p) => escapeHtml(personText(p))).join(', ')]];
+}
+
+/** A file size as readers see it, in the language's numbers: "2.1 MB", "2,1 MB"; 1024 bytes to a kilobyte, as Windows counts. */
+export function fileSize(bytes: number, lang: string, L: Labels): string {
+  let n = bytes;
+  let unit = 0;
+  while (n >= 1024 && unit < L.sizeUnits.length - 1) { n /= 1024; unit++; }
+  const digits = unit >= 2 && n < 100 ? 1 : 0;
+  return `${new Intl.NumberFormat(langOf(lang), { maximumFractionDigits: digits }).format(n)} ${L.sizeUnits[unit]}`;
+}
+
+/** What a download is, as its link says it: "PDF, 2.1 MB, 48 pages" (empty when nothing is known). */
+export function downloadDetails(b: Extract<Block, { type: 'download' }>, lang: string, L: Labels): string {
+  const size = b.size ?? (b.bytes === undefined ? undefined : fileSize(b.bytes, lang, L));
+  return [b.format, size, b.pages ? plural(L.pages, b.pages, langOf(lang)) : undefined].filter(Boolean).join(', ');
 }
 
 /** Contents as a nested list: parts as unnumbered rows, ### under their ##. */
@@ -390,9 +457,6 @@ export function referencesList(ctx: RenderContext): string {
     : `<ul class="lk-references-list lk-references-list--author-date">\n${refs.map((r) => `  <li id="lk-ref-${escapeHtml(fragment(r.id))}">${referenceEntry(r, ctx)}</li>`).join('\n')}\n</ul>`;
 }
 
-/** A date as a time element when it is a calendar date (2026, 2026-03, 2026-03-15); periods such as 2026-Q1 stay text. */
-const when = (w: string) => (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(w) ? `<time datetime="${w}">${w}</time>` : escapeHtml(w));
-
 /** Dated items; with current= the current item says "Now" and the others are named past or planned. */
 export function timelineBlock(b: Extract<Block, { type: 'timeline' }>, ctx: RenderContext): string {
   const L = ctx.labels;
@@ -400,7 +464,7 @@ export function timelineBlock(b: Extract<Block, { type: 'timeline' }>, ctx: Rend
   const items = b.items.map((it, i) => {
     const state = at < 0 ? '' : i < at ? 'past' : i === at ? 'current' : 'planned';
     const spoken = state === 'past' ? L.past : state === 'planned' ? L.planned : '';
-    return `  <li class="lk-timeline-item${state ? ` is-${state}` : ''}"><p class="lk-timeline-when">${spoken ? `<span class="lk-visually-hidden">${escapeHtml(spoken)}: </span>` : ''}${when(it.when)}`
+    return `  <li class="lk-timeline-item${state ? ` is-${state}` : ''}"><p class="lk-timeline-when">${spoken ? `<span class="lk-visually-hidden">${escapeHtml(spoken)}: </span>` : ''}${dateHtml(it.when, ctx)}`
       + `${state === 'current' ? ` <span class="lk-timeline-now">${escapeHtml(L.now)}</span>` : ''}</p><div class="lk-timeline-body">${blocks(it.body, ctx, true)}</div></li>`;
   });
   const list = `<ol class="lk-timeline-list"${b.caption ? '' : ` aria-label="${escapeHtml(L.timeline)}"`}>\n${items.join('\n')}\n</ol>`;
@@ -438,7 +502,7 @@ const RELEASE_ICONS: Record<string, string> = {
 /** One release: a level-2 heading with its date, then its groups; on a slide the slide heading names it. */
 export function releaseBlock(b: Extract<Block, { type: 'release' }>, ctx: RenderContext, labelledBy?: string): string {
   const L = ctx.labels;
-  const date = b.date ? ` <span class="lk-release-date"><span class="lk-visually-hidden">${escapeHtml(L.released)} </span><time datetime="${escapeHtml(b.date)}">${escapeHtml(b.date)}</time></span>` : '';
+  const date = b.date ? ` <span class="lk-release-date"><span class="lk-visually-hidden">${escapeHtml(L.released)} </span>${dateHtml(b.date, ctx)}</span>` : '';
   return [`<section class="lk-block lk-release" aria-labelledby="${escapeHtml(labelledBy ?? b.id)}">`,
     labelledBy ? '' : `<h2 id="${escapeHtml(b.id)}" class="lk-manual-h2 lk-release-title">${escapeHtml(b.version)}${date}</h2>`,
     b.intro?.length ? `<div class="lk-release-intro">${blocks(b.intro, ctx)}</div>` : '',
@@ -447,13 +511,73 @@ export function releaseBlock(b: Extract<Block, { type: 'release' }>, ctx: Render
     '</section>'].filter(Boolean).join('\n');
 }
 
+const DECISION_BADGES = { proposed: 'info', accepted: 'success', rejected: 'error', superseded: 'neutral' } as const;
+
+/** One decision: a level-2 heading, its status, date and who decided, the decision itself, then its parts as subheadings. */
+export function decisionBlock(b: Extract<Block, { type: 'decision' }>, ctx: RenderContext, labelledBy?: string): string {
+  const L = ctx.labels;
+  const hidden = (t: string) => `<span class="lk-visually-hidden">${escapeHtml(t)}: </span>`;
+  const meta = [`${hidden(L.status)}<span class="lk-badge lk-badge--${DECISION_BADGES[b.status]}">${escapeHtml(L.decision[b.status])}</span>`,
+    ...(b.date ? [`<span>${hidden(L.date)}${dateHtml(b.date, ctx)}</span>`] : []),
+    ...(b.by ? [`<span>${escapeHtml(L.decision.by)}: ${escapeHtml(b.by)}</span>`] : [])];
+  return [`<section class="lk-block lk-decision" aria-labelledby="${escapeHtml(labelledBy ?? b.id)}">`,
+    labelledBy ? '' : `<h2 id="${escapeHtml(b.id)}" class="lk-manual-h2 lk-decision-title">${escapeHtml(b.title)}</h2>`,
+    `<p class="lk-decision-meta">${meta.join(' ')}</p>`,
+    b.intro?.length ? `<div class="lk-decision-intro">${blocks(b.intro, ctx)}</div>` : '',
+    ...b.parts.map((p) => `<div class="lk-decision-part"><h3 class="lk-decision-kind">${escapeHtml(L.decision[p.kind])}</h3>`
+      + `<div class="lk-decision-body">${blocks(p.body, ctx)}</div></div>`),
+    '</section>'].filter(Boolean).join('\n');
+}
+
 /** A Notes or References section in a manual (an h2, so it is in the outline and the contents). */
 function endSection(id: string, title: string, cls: string, body: string): string {
   return body ? `<section class="lk-block ${cls}" aria-labelledby="${id}">\n<h2 id="${id}" class="lk-manual-h2">${escapeHtml(title)}</h2>\n${body}\n</section>` : '';
 }
 
+/** The revision history's table; its caption is for screen readers, since the heading above it shows the title. */
+function revisionsTable(b: Extract<Block, { type: 'revisions' }>, title: string, ctx: RenderContext): string {
+  const date = b.columns.indexOf('date');
+  // the version and date columns keep to one line
+  const cls = (i: number) => (b.columns[i] === 'version' || b.columns[i] === 'date' ? ` class="lk-revisions-${b.columns[i]}"` : '');
+  const cell = (c: Inline, i: number) => {
+    const text = plainText(c).trim();
+    return i === date && isIsoDate(text) ? dateHtml(text, ctx) : inline(c, ctx);
+  };
+  return [`<div class="lk-table-scroll" role="region" tabindex="0" aria-label="${escapeHtml(title)}">`,
+    '<table class="lk-block lk-table lk-revisions">',
+    `  <caption class="lk-visually-hidden">${escapeHtml(title)}</caption>`,
+    `  <thead>\n    <tr>\n${b.head.map((c, i) => `      <th scope="col"${cls(i)}>${inline(c, ctx)}</th>`).join('\n')}\n    </tr>\n  </thead>`,
+    `  <tbody>\n${b.rows.map((r) => `    <tr>\n${r.map((c, i) => `      <td${cls(i)}>${cell(c, i)}</td>`).join('\n')}\n    </tr>`).join('\n')}\n  </tbody>`,
+    '</table>', '</div>'].join('\n');
+}
+
+/**
+ * How wide the longest word of a set of key figures is, in em of the figure's font, rounded up to half an em
+ * (from 2 to 10). The CSS sizes the columns and the figures by it, so a figure such as "184,000" never breaks
+ * inside; only a regular space breaks one, a no-break space does not. The widths are a little over the brand font's
+ * (whose digits are proportional).
+ */
+export function metricsFit(values: readonly string[]): number {
+  const width = (ch: string) => ch === '0' ? 0.7 : ch === '1' ? 0.5 : /[2-9]/.test(ch) ? 0.65 : /[.,:;'’]/.test(ch) ? 0.3
+    : /[MW]/.test(ch) ? 1.08 : /[mw]/.test(ch) ? 0.97 : /[A-Z]/.test(ch) ? 0.82 : /[a-z]/.test(ch) ? 0.62 : /[-–]/.test(ch) ? 0.45 : 0.82;
+  const words = values.flatMap((v) => v.normalize('NFD').replace(/\p{M}/gu, '').split(/ +/));
+  const em = Math.max(0, ...words.map((w) => [...w].reduce((sum, ch) => sum + width(ch), 0)));
+  return Math.min(10, Math.max(2, Math.ceil(em * 2) / 2));
+}
+
 export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
+  const line = ctx.sourceLines ? sourceLine(b) : undefined;
+  return withLine(blockHtml(b, ctx, line), line);
+}
+
+function blockHtml(b: Block, ctx: RenderContext, line: number | undefined): string {
   const L = ctx.labels;
+  // AI-generated content nobody is named as having reviewed gets a badge at its start, when the AI label is on
+  if (b.type !== 'summary' && aiBadge(b, { ...(ctx.doc?.ai ? { ai: ctx.doc.ai } : {}) })) {
+    const { ai: _, ...rest } = b;
+    // (the badge and the block both carry the line: the block is a copy without its mark)
+    return `<p class="lk-ai-badge">${aiBadgeHtml(L)}</p>\n${withLine(block(rest as Block, ctx), line)}`;
+  }
   switch (b.type) {
     case 'heading':
       return `<h${b.level} id="${escapeHtml(b.id)}" class="lk-manual-h${b.level}">${inline(b.text, ctx)}</h${b.level}>`;
@@ -503,11 +627,15 @@ export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
       return comparisonBlock(b, ctx);
     case 'release':
       return releaseBlock(b, ctx);
+    case 'decision':
+      return decisionBlock(b, ctx);
     case 'references':
       return endSection(REFERENCES_ID, b.title ?? L.references, 'lk-references', referencesList(ctx));
+    case 'byline':
+      return `<p class="lk-block lk-byline">${authorItems(b.author, ctx.lang, L).map(([k, v]) => `<span class="lk-byline-label">${escapeHtml(k)}:</span> ${v}`).join('')}</p>`;
     case 'doc-status':
       return [`<section class="lk-block lk-doc-status" aria-label="${escapeHtml(L.docStatus)}">`,
-        `<dl class="lk-doc-status-list">${statusItems(b, L).map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`,
+        `<dl class="lk-doc-status-list">${statusItems(b, ctx).map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`,
         '</section>'].join('\n');
     case 'section':
       return [`<div class="lk-block lk-section${b.break === 'page' ? ' lk-section--page' : ''}">`,
@@ -517,6 +645,16 @@ export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
     case 'dl': {
       const list = `<dl class="${b.caption ? '' : 'lk-block '}lk-dl-list">\n${b.items.map((i) => `  <div><dt>${escapeHtml(i.term)}</dt><dd>${blocks(i.body, ctx, true)}</dd></div>`).join('\n')}\n</dl>`;
       return b.caption ? `<figure class="lk-block lk-dl">\n<figcaption class="lk-dl-caption">${escapeHtml(b.caption)}</figcaption>\n${list}\n</figure>` : list;
+    }
+    case 'download': {
+      const href = safeHref(b.href);
+      const details = downloadDetails(b, ctx.lang, L);
+      // the format, size and pages are part of the link text; a web address is written out in print and on slides
+      const name = `${escapeHtml(b.label)}${details ? `<span class="lk-download-details"> (${escapeHtml(details)})</span>` : ''}`;
+      const url = /^https?:/i.test(b.href) ? `<span class="lk-download-url">${escapeHtml(b.href)}</span>` : '';
+      const link = href === null ? `<span class="lk-download-link">${name}</span>` : `<a class="lk-download-link" href="${escapeHtml(href)}">${name}</a>`;
+      return [`<div class="lk-block lk-download">`, `<p class="lk-download-action">${link}${url}</p>`,
+        b.text ? `<p class="lk-download-text">${inline(b.text, ctx)}</p>` : '', '</div>'].filter(Boolean).join('\n');
     }
     case 'cta': {
       const href = safeHref(b.href);
@@ -544,6 +682,12 @@ export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
         `  <thead>\n    <tr>\n${b.head.map((c) => `      <th scope="col">${inline(c, ctx)}</th>`).join('\n')}\n    </tr>\n  </thead>`,
         `  <tbody>\n${b.rows.map((r) => `    <tr>\n${r.map((c) => `      <td>${inline(c, ctx)}</td>`).join('\n')}\n    </tr>`).join('\n')}\n  </tbody>`,
         '</table>', '</div>'].join('\n');
+    case 'revisions': {
+      const title = b.title ?? L.revisions;
+      // the section's heading names the table; on a slide the slide's heading does
+      const table = revisionsTable(b, title, ctx);
+      return ctx.target === 'deck' ? table : endSection(REVISIONS_ID, title, 'lk-revisions-section', table);
+    }
     case 'figure': {
       const src = safeHref(b.src);
       const media = src === null
@@ -576,6 +720,38 @@ export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
         ...b.items.map((i) => `<section class="lk-compare-item lk-compare-item--${i.kind}"><p class="lk-compare-kind"><span aria-hidden="true">${i.kind === 'do' ? '✓' : '✗'}</span> ${escapeHtml(i.kind === 'do' ? L.do : L.dont)}</p>` +
           `<p class="lk-compare-title">${escapeHtml(i.title)}</p><div class="lk-compare-body">${blocks(i.body, ctx)}</div></section>`),
         '</div>'].join('\n');
+    case 'pros-cons': {
+      // the side is a written word; the sign beside it is for the eye only
+      const id = ctx.next('pros-cons');
+      const side = (kind: 'pros' | 'cons', items: Block[][]) =>
+        `<div class="lk-pros-cons-side lk-pros-cons-side--${kind}"><p class="lk-pros-cons-kind"><span aria-hidden="true">${kind === 'pros' ? '+' : '−'}</span> ${escapeHtml(L[kind])}</p>\n` +
+        `${block({ type: 'list', ordered: false, items }, ctx)}</div>`;
+      return [`<div class="lk-block lk-pros-cons" role="group" aria-labelledby="${id}">`, `<p class="lk-pros-cons-title" id="${id}">${escapeHtml(b.title)}</p>`,
+        `<div class="lk-pros-cons-sides">`, side('pros', b.pros), side('cons', b.cons), '</div>', '</div>'].join('\n');
+    }
+    case 'flow': {
+      // the arrows are drawn shapes; a cycle's return to the start is written out
+      const id = ctx.next('process');
+      const first = b.stages[0]?.[0];
+      const again = b.shape === 'cycle' && first?.type === 'paragraph'
+        ? `<p class="lk-process-again"><span aria-hidden="true">↻</span> ${escapeHtml(L.flowAgain)}${inline(first.text, ctx)}</p>` : '';
+      return [`<div class="lk-block lk-process" role="group" aria-labelledby="${id}">`, `<p class="lk-process-title" id="${id}">${escapeHtml(b.title)}</p>`,
+        `<ol class="lk-process-list${b.stages.length > 4 ? ' lk-process-list--long' : ''}">`, ...b.stages.map((s) => `  <li class="lk-process-stage"><div class="lk-process-body">${blocks(s, ctx)}</div></li>`), '</ol>',
+        again, '</div>'].filter(Boolean).join('\n');
+    }
+    case 'matrix': {
+      // the axes come before the quadrants in reading order; the grid places them beside and below
+      const id = ctx.next('matrix');
+      const axis = (which: 'x' | 'y', text?: string) => text
+        ? `<p class="lk-matrix-axis lk-matrix-axis--${which}"><span class="lk-visually-hidden">${escapeHtml(which === 'x' ? L.axisX : L.axisY)}</span>${escapeHtml(text)}</p>` : '';
+      const quadrant = (q: { label?: string; body: Block[] }, i: number) =>
+        `<div class="lk-matrix-q lk-matrix-q--${i + 1}" role="group" aria-labelledby="${id}-${i + 1}"><p class="lk-matrix-label" id="${id}-${i + 1}">${escapeHtml(q.label ?? (b.kind === 'swot' ? L.swot[i] ?? '' : ''))}</p>\n` +
+        `<div class="lk-matrix-body">${blocks(q.body, ctx)}</div></div>`;
+      return [`<div class="lk-block lk-matrix${b.kind === 'swot' ? ' lk-matrix--swot' : ''}" role="group" aria-labelledby="${id}">`,
+        `<p class="lk-matrix-title" id="${id}">${escapeHtml(b.title)}</p>`,
+        axis('y', b.y), axis('x', b.x),
+        '<div class="lk-matrix-grid">', ...b.quadrants.map(quadrant), '</div>', '</div>'].filter(Boolean).join('\n');
+    }
     case 'quote': {
       const cite = b.cite ? safeHref(b.cite) : null;
       const source = b.source ? (cite ? `<a href="${escapeHtml(cite)}"><cite>${escapeHtml(b.source)}</cite></a>` : `<cite>${escapeHtml(b.source)}</cite>`) : '';
@@ -591,8 +767,12 @@ export function block(b: Block, ctx: RenderContext = DEFAULT()): string {
       }).join('\n')}\n</ul>`;
     case 'statement':
       return `<p class="lk-block lk-statement">${inline(b.text, ctx)}</p>`;
-    case 'metrics':
-      return `<ul class="lk-block lk-metrics">\n${b.items.map((i) => `  <li><span class="lk-metric-value">${escapeHtml(i.value)}</span> <span class="lk-metric-label">${inline(i.label, ctx)}</span></li>`).join('\n')}\n</ul>`;
+    case 'metrics': {
+      // a figure's digit groups stay together in every language ("184 000"); a Czech page binds its units too
+      const figure = (v: string) => v.replace(/(\d) (?=\d{3}(?!\d))/g, '$1\u00a0');
+      const fit = metricsFit(b.items.map((i) => (ctx.lang === 'cs' ? czechText(i.value) : figure(i.value))));
+      return `<ul class="lk-block lk-metrics" data-fit="${fit}">\n${b.items.map((i) => `  <li><span class="lk-metric-value">${escapeHtml(figure(i.value))}</span> <span class="lk-metric-label">${inline(i.label, ctx)}</span></li>`).join('\n')}\n</ul>`;
+    }
     case 'gallery':
       return `<ul class="lk-block lk-gallery">\n${b.images.map((i) => `  <li>${block({ type: 'figure', ...i }, ctx)}</li>`).join('\n')}\n</ul>`;
     case 'video':
@@ -616,17 +796,25 @@ export function renderManual(doc: LibkaDocument, options: ManualOptions): string
   const { meta } = doc;
   const { styles } = options;
   const ctx = context(meta.lang, 'manual', doc);
+  if (options.sourceLines) ctx.sourceLines = true;
   const L = ctx.labels;
   const d = ctx.doc!;
-  // parts (:::section), ## sections, Notes and References make the automatic contents, unless a :::toc places them
+  // parts (:::section), ## sections, Notes and References make the automatic contents, unless a :::toc places them;
+  // they stand after the opening text, before the first of them
   const headings = d.placedToc ? [] : d.toc.filter((e) => e.level === 2);
   // owner and review dates go under the title unless a :::doc-status panel shows them
   const panel = doc.blocks.some((b) => b.type === 'doc-status');
-  const status = statusItems(meta, L);
+  const status = statusItems(meta, ctx);
+  // the authors too, unless a :::byline shows them
+  const byline = doc.blocks.some((b) => b.type === 'byline');
   const metaItems = [
-    ...[[L.version, meta.version], [L.date, meta.date]].filter(([, v]) => v).map(([k, v]) => `    <span>${k}: ${escapeHtml(v!)}</span>`),
+    ...(byline ? [] : authorItems(meta.author, meta.lang, L)).map(([k, v]) => `    <span>${k}: ${v}</span>`),
+    ...(meta.version ? [`    <span>${L.version}: ${escapeHtml(meta.version)}</span>`] : []),
+    ...(meta.date ? [`    <span>${L.date}: ${dateHtml(meta.date, ctx)}</span>`] : []),
     ...status.filter(([k]) => !panel || k === L.status).map(([k, v]) => `    <span>${k}: ${v}</span>`),
   ];
+  // the AI label, at the reader's first sight of the document, only when the author turns it on
+  const aiLabel = aiLabelText(meta.ai, L);
   const banner = isDeprecated(meta.status)
     ? `<div class="lk-block lk-doc-banner" role="note"><p class="lk-doc-banner-title">${escapeHtml(L.deprecated)}</p><p>${escapeHtml(L.deprecatedText)}</p></div>\n` : '';
   const footerStatus = status.length ? `<p class="lk-manual-footer-status">${status.map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>` : '';
@@ -637,17 +825,18 @@ export function renderManual(doc: LibkaDocument, options: ManualOptions): string
   const body = `<div class="lk-manual">
 <header class="lk-block lk-doc-header">
   <h1 class="lk-doc-title">${escapeHtml(meta.title)}</h1>
-${meta.subtitle ? `  <p class="lk-doc-subtitle">${escapeHtml(meta.subtitle)}</p>\n` : ''}${metaItems.length ? `  <div class="lk-doc-meta">\n${metaItems.join('\n')}\n  </div>\n` : ''}</header>
-${banner}${options.frame?.contents === false ? '' : toc}
-<main id="content" class="lk-manual-content">
-${[...doc.blocks.map((b) => block(b, ctx)),
+${meta.subtitle ? `  <p class="lk-doc-subtitle">${escapeHtml(meta.subtitle)}</p>\n` : ''}${metaItems.length ? `  <div class="lk-doc-meta">\n${metaItems.join('\n')}\n  </div>\n` : ''}${aiLabel ? `  <p class="lk-doc-ai">${escapeHtml(aiLabel)}</p>\n` : ''}</header>
+${banner}<main id="content" class="lk-manual-content">
+${[...doc.blocks.slice(0, d.contentsAt).map((b) => block(b, ctx)),
+  options.frame?.contents === false ? '' : toc,
+  ...doc.blocks.slice(d.contentsAt).map((b) => block(b, ctx)),
   endSection(NOTES_ID, L.notes, 'lk-notes', notesList(ctx)),
   d.placedRefs ? '' : endSection(REFERENCES_ID, L.references, 'lk-references', referencesList(ctx))].filter(Boolean).join('\n')}
 </main>
 <footer class="lk-manual-footer">${footerStatus}${L.builtWith}${options.source ? ` ${L.from} ${escapeHtml(options.source)}` : ''}.</footer>
 </div>`;
   return renderPage({
-    lang: meta.lang, title: meta.title, styles, body, script: runtimeScript(ctx),
+    lang: meta.lang, title: meta.title, ...(meta.author ? { author: meta.author.map((p) => p.name).join(', ') } : {}), styles, body, script: runtimeScript(ctx),
     css: usesUi(doc.blocks) ? uiStageCss(styles.tokens, styles.bridge) : '',
     ...(options.fontsHref ? { fontsHref: options.fontsHref } : {}), ...(options.frame ? { frame: options.frame } : {}),
   });
@@ -657,6 +846,8 @@ ${[...doc.blocks.map((b) => block(b, ctx)),
 export interface PageParts {
   lang: string;
   title: string;
+  /** The authors' names, for the page's author metadata (and the PDF's author). */
+  author?: string;
   styles: ManualStyles;
   fontsHref?: string;
   /** Everything after the skip link: a `main` with id="content" in it. */
@@ -693,7 +884,7 @@ ${indent([cssBlock(styles.tokens, '[data-theme="dark"][data-contrast="high"]'), 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="LibKa">
-<title>${escapeHtml(p.title)}</title>
+${p.author ? `<meta name="author" content="${escapeHtml(p.author)}">\n` : ''}<title>${escapeHtml(p.title)}</title>
 ${frame?.head ? `${frame.head}\n` : ''}${p.fontsHref ? `<link rel="stylesheet" href="${escapeHtml(p.fontsHref)}">\n` : ''}<style>
 :root {
 ${cssBlock(styles.tokens, ':root')}

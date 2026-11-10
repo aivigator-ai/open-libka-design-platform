@@ -6,12 +6,12 @@ outputs: [web, pdf]
 
 ## Welcome
 
-This document teaches LibKa by doing. The **Tutorial** tab next to it lists the steps, and each one ticks itself when you have done it. Nothing can break: every change can be undone, and History keeps earlier versions.
+This document teaches LibKa by doing. The **Tutorial** tab next to it lists the steps, and each one ticks itself when you have done it. Nothing can break: every change can be undone, and earlier versions are under the document's title, in Versions.
 
-Start by giving the document a title of your own: select **Document properties** at the top and change the title in the Inspector, or change `title:` in the source.
+Start by giving the document a title of your own: select **Document properties** at the top and change the title in Properties, or change `title:` in the source.
 
 :::calout[A block with a typo]{variant=tip}
-This block's name is misspelt, so the Studio does not know what it is. The **Problems** tab offers a fix for it: one click.
+This block's name is misspelt, so the Studio does not know what it is. The **Checks** tab offers a fix for it: one click.
 :::
 
 ## A picture

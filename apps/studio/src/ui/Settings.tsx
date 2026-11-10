@@ -6,7 +6,7 @@ import { conflicts, keyOverrides, keysFromEvent, keysOf, keyText as commandKeys,
 import { editorPrefs, setPref, type EditorPrefs } from '../state/prefs.ts';
 import { t } from '../state/text.ts';
 
-function Toggle({ k, label, help }: { k: 'palette' | 'shortcuts' | 'labels' | 'focus' | 'typewriter'; label: Key; help: Key }) {
+function Toggle({ k, label, help }: { k: 'shortcuts' | 'labels' | 'focus' | 'typewriter'; label: Key; help: Key }) {
   const id = `pref-${k}`;
   return (
     <div class="st-pref">
@@ -33,7 +33,6 @@ export function PreferencesForm() {
     <div class="st-prefs">
       <section aria-labelledby="prefs-visual">
         <h3 id="prefs-visual" class="st-insp-heading">{t('prefs.visual')}</h3>
-        <Toggle k="palette" label="prefs.palette" help="prefs.paletteHelp" />
         <Toggle k="shortcuts" label="prefs.shortcuts" help="prefs.shortcutsHelp" />
         <Toggle k="labels" label="prefs.labels" help="prefs.labelsHelp" />
         <Choice k="handles" label="prefs.handles" options={[['hover', 'prefs.handlesHover'], ['always', 'prefs.handlesAlways']]} />

@@ -82,7 +82,7 @@ describe('LibKa MCP server over stdio', () => {
     const { data } = await call('libka_build', { markdown, name: 'release', outDir: out, outputs: ['web', 'deck'] });
     expect(data.problems).toEqual([]);
     expect(data.ok).toBe(true);
-    expect(data.files.map((f: string) => f.split(/[\\/]/).pop())).toEqual(['release.html', 'release.manifest.json', 'release.deck.html', 'release.deck.manifest.json']);
+    expect(data.files.map((f: string) => f.split(/[\\/]/).pop())).toEqual(['release.html', 'release.manifest.json', 'release.conformance.md', 'release.deck.html', 'release.deck.manifest.json', 'release.deck.conformance.md']);
     expect(data.guard.slides.every((c: { violations: number }) => c.violations === 0)).toBe(true);
   }, 120000);
 });

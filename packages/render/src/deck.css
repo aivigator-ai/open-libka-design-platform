@@ -47,8 +47,10 @@ body { margin: 0; background: var(--lk-bg-elevated); color: var(--lk-text-primar
 .lk-deck .lk-statement { font-size: 1.6rem; max-width: 34ch; }
 .lk-deck .lk-slide--statement { justify-content: center; }
 .lk-deck .lk-slide--statement .lk-statement { font-size: 2.6rem; }
-.lk-deck .lk-metric-value { font-size: 2rem; }
-.lk-slide .lk-chart-svg { max-height: 360px; min-width: 0; }
+.lk-deck .lk-metrics { --lk-metric-size: 2rem; }
+/* a process is always a row on the canvas (up to six stages fit), whatever its container queries say */
+.lk-slide .lk-process .lk-process-list { flex-direction: row; gap: var(--lk-space-8); }
+.lk-slide .lk-process .lk-process-stage:not(:last-child)::after { top: 50%; bottom: auto; left: auto; right: calc(-1 * var(--lk-space-8) / 2 - 6px); transform: translateY(-50%) rotate(45deg); }.lk-slide .lk-chart-svg { max-height: 360px; min-width: 0; }
 .lk-deck .lk-chart-data, .lk-deck .lk-video-transcript, .lk-deck .lk-diagram-source { display: none; }
 /* on a slide a diagram takes the space left under the heading and text (up to 420px high), and the viewBox
    scales it to fit; below 200px it overflows instead, so Guard reports a slide that is really too full */
@@ -66,7 +68,7 @@ body { margin: 0; background: var(--lk-bg-elevated); color: var(--lk-text-primar
 .lk-deck .lk-slide--part { border-left: 24px solid var(--lk-action-accent-strong); }
 .lk-deck .lk-slide--part .lk-slide-heading { font-size: 3rem; line-height: 1.05; }
 .lk-deck .lk-slide--part .lk-section-body, .lk-deck .lk-slide--part .lk-slide-body p { font-size: 1.2rem; color: var(--lk-text-secondary); }
-.lk-slide .lk-cta-url { display: inline; }
+.lk-slide .lk-cta-url, .lk-slide .lk-download-url { display: inline; }
 .lk-slide .lk-section { margin-top: 0; }
 .lk-deck .lk-slide--title { position: relative; }
 /* navigation and sources: the agenda fills its slide; notes and sources are set small so a list fits */
@@ -85,7 +87,10 @@ body { margin: 0; background: var(--lk-bg-elevated); color: var(--lk-text-primar
 .lk-slide .lk-release-group { gap: var(--lk-space-1); padding-left: var(--lk-space-3); }
 .lk-slide .lk-release-body { gap: var(--lk-space-1); font-size: .9rem; line-height: 1.4; }
 .lk-slide .lk-release-body ul { gap: var(--lk-space-1); }
+.lk-slide .lk-decision { gap: var(--lk-space-2); }
 .lk-slide-status { position: absolute; left: var(--lk-slide-pad-x); right: var(--lk-slide-pad-x); bottom: var(--lk-slide-pad-y); margin: 0; font-size: .7rem; color: var(--lk-text-secondary); }
+.lk-slide-ai { display: block; }
+.lk-slide-ai:not(:first-child) { margin-top: .25em; }
 
 /* ---- control bar ---- */
 .lk-deck-bar {

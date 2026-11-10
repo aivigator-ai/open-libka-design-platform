@@ -1,28 +1,8 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Node as PMNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
-import { BLOCKS } from '@libka/blocks';
 import { parse } from '@libka/model';
 import { load, save, schema } from '../src/index.ts';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => {
-  const p = join(dir, f);
-  return f === 'node_modules' ? [] : statSync(p).isDirectory() ? walk(p) : p.endsWith('.md') ? [p] : [];
-});
-
-/** Folders of more LibKa documents a repository lists in check.extra.json ("corpus"), if it has one. */
-const extra: string[] = existsSync(join(root, 'check.extra.json'))
-  ? (JSON.parse(readFileSync(join(root, 'check.extra.json'), 'utf8')) as { corpus?: string[] }).corpus ?? [] : [];
-
-/** Every LibKa document in the repository: the registry's examples, the examples, the catalog and any extra corpus. */
-const corpus: [string, string][] = [
-  ...BLOCKS.map((b) => [`block ${b.name}`, b.frontMatter ? `---\n${b.frontMatter}\n---\n\n${b.example}\n` : b.example] as [string, string]),
-  ...[join(root, 'examples', 'manual', 'guide.md'), join(root, 'examples', 'open-source-guide', 'guide.md'), join(root, 'docs', 'blocks.md'),
-    ...extra.flatMap((dir) => walk(join(root, dir)))].map((p) => [relative(root, p).split('\\').join('/'), readFileSync(p, 'utf8')] as [string, string]),
-];
+import { corpus, extra } from './corpus.ts';
 
 /** The parsed document without source positions, for comparing meaning. */
 function meaning(md: string): unknown {
@@ -131,7 +111,17 @@ Body.
     }
     const figure = parse('![Contrast 4.5:1 and 7:1](images/a.png "Ratio 4.5:1")\n').document.blocks[0];
     expect(figure).toMatchObject({ alt: 'Contrast 4.5:1 and 7:1', caption: 'Ratio 4.5:1' });
-    // text typed in the editor is written so that it is never read as a directive
-    expect(save(schema.nodes.doc!.create(null, schema.nodes.paragraph!.create(null, schema.text('ratio a:b'))), null)).toBe('ratio a\\:b\n');
+    // text typed in the editor is escaped only where it would be read as one of LibKa's inline directives
+    const typed = (text: string) => save(schema.nodes.doc!.create(null, schema.nodes.paragraph!.create(null, schema.text(text))), null);
+    expect(typed('ratio a:b at 10:30')).toBe('ratio a:b at 10:30\n');
+    expect(typed('press :kbd[Ctrl+K] or :badge[New]')).toBe('press \\:kbd\\[Ctrl+K] or \\:badge\\[New]\n');
+    expect(JSON.stringify(parse(typed('press :kbd[Ctrl+K]')).document.blocks[0])).not.toContain('textDirective');
+  });
+
+  it('loads a colon before a word or number as text, as the model reads it', () => {
+    const loaded = load('Slides are 16:9, the talk at 10:30, see note:a and :kbd[Ctrl+K].\n');
+    const inline: string[] = [];
+    loaded.doc.child(0).forEach((n) => inline.push(n.isText ? `text:${n.text}` : n.type.name));
+    expect(inline).toEqual(['text:Slides are 16:9, the talk at 10:30, see note:a and ', 'inline_directive', 'text:.']);
   });
 });

@@ -34,14 +34,14 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { normalize as normalizeUrlPath } from 'node:path/posix';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AXE_VERSION, formatReport, guardHtml, launchBrowser, type CheckResult, type GuardReport } from '@libka/guard';
-import { linkTexts, remediate, type RemediateReport } from '@libka/pdf';
+import { linkTexts, pageCount, remediate, type RemediateReport } from '@libka/pdf';
 import { findVeraPdf, KNOWN_LIMITS, validatePdfs, veraPdfVersion, type VeraPdfResult } from '@libka/pdf/verapdf';
 import { buildManifest, embedManifest, loadSigningKey, verifyHtml, type AiContent, type SigningKey, type Verification } from '@libka/guard/manifest';
 import { conformance, conformanceMarkdown } from '@libka/guard/wcag';
 import { checkDocx } from '@libka/guard/docx';
 import { renderDocx, sniffPicture, type DocxPicture } from '@libka/docx';
-import { OUTPUTS, outputsOf, parse, type Block, type LibkaDocument, type OutputName } from '@libka/model';
-import { cleanDiagramSvg, MERMAID_CONFIG, renderManual, safeHref } from '@libka/render';
+import { aiMarks, aiReminders, OUTPUTS, outputsOf, parse, revisionEntries, type Block, type LibkaDocument, type OutputName } from '@libka/model';
+import { cleanDiagramSvg, LABELS, langOf, MERMAID_CONFIG, renderManual, safeHref } from '@libka/render';
 import { renderDeck, slides, type DeckLayout, type Slide } from '@libka/render/deck';
 import { emptyFitting, FIT_ROUNDS, fitStep, measureSlides, type SlideFit } from '@libka/render/fit';
 import { plainText } from '@libka/model';
@@ -72,13 +72,16 @@ export interface Output {
 
 /** Content marked as written by AI: summaries with source=ai (and their reviewer) and AI badges, with their section. */
 export function aiContent(document: LibkaDocument): AiContent[] {
-  const out: AiContent[] = [];
+  // the marked blocks and AI summaries (with the document's reviewer when they name none), then the AI badges in the text
+  const out: AiContent[] = aiMarks(document).map((m): AiContent => ({
+    kind: m.block === 'summary' ? 'summary' : 'block', section: m.section, ...(m.block === 'summary' ? {} : { block: m.block }),
+    use: m.use, ...(m.reviewedBy ? { reviewedBy: m.reviewedBy } : {}),
+  }));
   let section = document.meta.title;
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) { node.forEach(walk); return; }
     if (!node || typeof node !== 'object') return;
-    const n = node as { type?: string; source?: string; reviewedBy?: string; name?: string; attributes?: { variant?: string }; children?: unknown };
-    if (n.type === 'summary' && n.source === 'ai') out.push({ kind: 'summary', section, ...(n.reviewedBy ? { reviewedBy: n.reviewedBy } : {}) });
+    const n = node as { type?: string; name?: string; attributes?: { variant?: string }; children?: unknown };
     if (n.type === 'textDirective' && n.name === 'badge' && n.attributes?.variant === 'ai') out.push({ kind: 'badge', section, label: plainText((n.children ?? []) as never) });
     for (const v of Object.values(n)) if (v && typeof v === 'object') walk(v);
   };
@@ -103,7 +106,12 @@ export interface BuildResult extends Partial<Output> {
   ok: boolean;
   problems: string[];
   deck?: Output;
+  /** This document's outputs from an earlier build that this one did not make again: deleted, so none is left stale. */
+  removed?: string[];
 }
+
+/** The files a build can write for a document, after its name: only these are ever removed. */
+const OWN_OUTPUTS = ['.html', '.pdf', '.docx', '.manifest.json', '.conformance.md', '.deck.html', '.deck.pdf', '.deck.manifest.json', '.deck.conformance.md'];
 
 /** The product version, which the tokens carry too (one version for everything). */
 export const tokensVersion = (): string => VERSION;
@@ -303,26 +311,46 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
   return { pictures, drawings };
 }
 
+/** Every download, nested ones included. */
+function downloadRefs(value: unknown, out: Extract<Block, { type: 'download' }>[] = []): Extract<Block, { type: 'download' }>[] {
+  if (Array.isArray(value)) value.forEach((v) => downloadRefs(v, out));
+  else if (value && typeof value === 'object') {
+    const v = value as { type?: string };
+    if (v.type === 'download') out.push(v as Extract<Block, { type: 'download' }>);
+    for (const [k, x] of Object.entries(v)) if (k !== 'position' && x && typeof x === 'object') downloadRefs(x, out);
+  }
+  return out;
+}
+
 /**
- * Copy the relative, local images of figures and galleries into the output folder; report missing ones on their line.
- * An image outside the document's folder (`../images/a.png`) would land outside the output folder: it goes to
- * `_up/images/a.png` inside it instead (one `_up` per level), and the document points at the copy. A build never
- * writes outside its output folder.
+ * Copy the relative, local images of figures and galleries and the files of downloads into the output folder; report
+ * missing ones on their line. A file outside the document's folder (`../images/a.png`) would land outside the output
+ * folder: it goes to `_up/images/a.png` inside it instead (one `_up` per level), and the document points at the copy.
+ * A build never writes outside its output folder. A download learns its file's size, and a PDF's pages, unless the
+ * author wrote them.
  */
-function placeImages(doc: LibkaDocument, text: string, sourceDir: string, outDir: string, file: string): string[] {
+async function placeFiles(doc: LibkaDocument, text: string, sourceDir: string, outDir: string, file: string): Promise<string[]> {
   const problems: string[] = [];
   const lines = text.split(/\r?\n/);
-  const at = (src: string) => {
-    const i = lines.findIndex((l) => l.includes(`](${src}`));
-    return i < 0 ? file : `${file}:${i + 1}`;
-  };
-  for (const ref of imageRefs(doc.blocks)) {
-    const href = safeHref(ref.src);
-    if (href === null || /^(https?:|mailto:|#|\/)/i.test(href)) continue;
+  const at = (i: number) => (i < 0 ? file : `${file}:${i + 1}`);
+  const refs = [
+    ...imageRefs(doc.blocks).map((ref) => ({ what: 'image', get: () => ref.src, set: (p: string) => { ref.src = p; }, line: () => lines.findIndex((l) => l.includes(`](${ref.src}`)), download: undefined })),
+    ...downloadRefs(doc.blocks).map((ref) => ({ what: 'file', get: () => ref.href, set: (p: string) => { ref.href = p; }, line: () => lines.findIndex((l) => /^\s*:::+download\b/.test(l) && l.includes(ref.href)), download: ref })),
+  ];
+  for (const ref of refs) {
+    const src = ref.get();
+    const href = safeHref(src);
+    if (!src || href === null || /^(https?:|mailto:|#|\/)/i.test(href)) continue;
     const from = resolve(sourceDir, decodePath(href));
     if (!existsSync(from) || !statSync(from).isFile()) {
-      problems.push(`${at(ref.src)}: image not found: ${ref.src}`);
+      problems.push(`${at(ref.line())}: ${ref.what} not found: ${src}`);
       continue;
+    }
+    const d = ref.download;
+    if (d && !d.size) d.bytes = statSync(from).size;
+    if (d && !d.pages && /\.pdf$/i.test(from)) {
+      const pages = await pageCount(readFileSync(from));
+      if (pages) d.pages = pages;
     }
     if (resolve(sourceDir) === resolve(outDir)) continue;
     // a browser reads "\" in a path as "/"; leading ".." segments become "_up" folders inside the output folder
@@ -332,10 +360,10 @@ function placeImages(doc: LibkaDocument, text: string, sourceDir: string, outDir
     const to = resolve(outDir, decodePath(target));
     const rel = relative(outDir, to);
     if (up < 0 || !rel || rel.startsWith('..') || isAbsolute(rel)) {
-      problems.push(`${at(ref.src)}: image path leaves the output folder: ${ref.src}`);
+      problems.push(`${at(ref.line())}: ${ref.what} path leaves the output folder: ${src}`);
       continue;
     }
-    if (up > 0) ref.src = target;
+    if (up > 0) ref.set(target);
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(from, to);
   }
@@ -357,9 +385,12 @@ export async function printPdf(htmlPath: string, pdfPath: string, browser?: Brow
     // every tab and accordion answer on paper
     await page.evaluate(() => (window as unknown as { libka?: { expandAll(): void } }).libka?.expandAll());
     const printed = await page.pdf({ printBackground: true, preferCSSPageSize: true, tagged: true, outline: true });
-    const { title, lang } = await page.evaluate(() => ({ title: document.title, lang: document.documentElement.lang || 'en' }));
+    const { title, lang, author } = await page.evaluate(() => ({
+      title: document.title, lang: document.documentElement.lang || 'en',
+      author: document.querySelector('meta[name="author"]')?.getAttribute('content') ?? '',
+    }));
     await page.close();
-    const { pdf, report } = await remediate(printed, { title, lang, links: linkTexts(readFileSync(htmlPath, 'utf8')) });
+    const { pdf, report } = await remediate(printed, { title, lang, ...(author ? { author } : {}), links: linkTexts(readFileSync(htmlPath, 'utf8')) });
     writeFileSync(pdfPath, pdf);
     return report;
   } finally {
@@ -418,6 +449,16 @@ export function chosenOutputs(document: LibkaDocument, options: BuildOptions): O
 }
 
 export async function build(input: string, options: BuildOptions = {}): Promise<BuildResult> {
+  // once the document is known to build, its earlier outputs go, so dist/ holds only this build's (also when Guard fails)
+  const earlier: string[] = [];
+  const result = await buildOutputs(input, options, (outDir, name) => {
+    for (const p of OWN_OUTPUTS.map((s) => join(outDir, name + s))) if (existsSync(p)) { rmSync(p); earlier.push(p); }
+  });
+  const removed = earlier.filter((p) => !existsSync(p));
+  return removed.length ? { ...result, removed } : result;
+}
+
+async function buildOutputs(input: string, options: BuildOptions, clear: (outDir: string, name: string) => void): Promise<BuildResult> {
   const source = resolve(input);
   const file = posix(relative(process.cwd(), source)) || basename(source);
   if (!existsSync(source)) return { ok: false, problems: [`${file}: file not found`] };
@@ -434,10 +475,11 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
   }
   const outDir = resolve(options.out ?? join(dirname(source), 'dist'));
   mkdirSync(outDir, { recursive: true });
-  messages.push(...placeImages(document, text, dirname(source), outDir, file));
+  messages.push(...await placeFiles(document, text, dirname(source), outDir, file));
   if (messages.length) return { ok: false, problems: messages };
 
   const name = basename(source, extname(source));
+  if (!OWN_OUTPUTS.some((s) => join(outDir, name + s) === source)) clear(outDir, name);
   const fontsHref = fontsFor(outDir);
   const check = options.check !== false;
   // Chrome is needed to draw diagrams, to check and to print; it is started once, only when needed
@@ -519,7 +561,7 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
       // the Word file belongs to the web page: made from the same document, checked, signed in its manifest
       const i = pages.findIndex((p) => p.target === 'manual');
       const out = outputs[i]!;
-      // every local image is in the output folder by now (placeImages), at the src the document holds
+      // every local image is in the output folder by now (placeFiles), at the src the document holds
       const { pictures, drawings } = await docxPictures(document, outDir, async () => (browser ??= await launchBrowser()));
       const epoch = Number(process.env.SOURCE_DATE_EPOCH);
       const docx = await renderDocx(document, {
@@ -546,6 +588,7 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
   if (check) {
     const key = projectKey(projectRoot(source));
     const ai = aiContent(document);
+    const history = document.blocks.find((b): b is Extract<Block, { type: 'revisions' }> => b.type === 'revisions');
     const facts = { media: hasBlock(document.blocks, 'video'), forms: false };   // LibKa outputs hold no forms (UI specimens are inert)
     for (const [i, p] of pages.entries()) {
       const out = outputs[i]!;
@@ -554,14 +597,14 @@ export async function build(input: string, options: BuildOptions = {}): Promise<
         target: p.target, sourceName: basename(source), source: text, tokensVersion: tokensVersion(), html: p.html,
         report: out.report!, axe: AXE_VERSION, key, ...(out.pdf ? { pdf: readFileSync(out.pdf) } : {}), ...(out.docx ? { docx: readFileSync(out.docx) } : {}),
         ...(out.pdfua ? { pdfua: out.pdfua } : {}),
-        conformance: wcag, ai,
+        conformance: wcag, ...(document.meta.ai ? { provenance: document.meta.ai } : {}), ai, ...(document.meta.author ? { author: document.meta.author } : {}), ...(history ? { revisions: revisionEntries(history) } : {}),
       });
       writeFileSync(p.path, embedManifest(p.html, manifest));
       out.manifest = p.path.replace(/\.html$/, '.manifest.json');
       writeFileSync(out.manifest, JSON.stringify(manifest, null, 2) + '\n');
       // the same result for people: every WCAG 2.2 A/AA criterion with its EN 301 549 clause and status
       out.conformance = p.path.replace(/\.html$/, '.conformance.md');
-      writeFileSync(out.conformance, conformanceMarkdown(document.meta.title, p.target, wcag, Boolean(out.pdf), Boolean(out.docx), out.pdfua && 'skipped' in out.pdfua ? out.pdfua.skipped : undefined));
+      writeFileSync(out.conformance, conformanceMarkdown(document.meta.title, p.target, wcag, Boolean(out.pdf), Boolean(out.docx), out.pdfua && 'skipped' in out.pdfua ? out.pdfua.skipped : undefined, document.meta.lang));
     }
   }
   collect(result, pages, outputs);
@@ -620,7 +663,7 @@ export interface LintResult {
   outline: { level: number; text: string }[];
   blocks: Record<string, number>;
   slides: number;
-  /** Advice, not errors: slides that will probably not fit (the build measures them exactly). */
+  /** Advice, not errors: slides that will probably not fit (the build measures them exactly), what no output shows, the frame, AI marks. */
   hints: string[];
 }
 
@@ -638,6 +681,7 @@ function words(value: unknown): number {
     if (o.type === 'chart' || o.type === 'diagram') n += 80;
     if (o.type === 'ui') n += (o.items?.length ?? 0) * (o.layout === 'stack' ? 30 : 8);
     if (o.type === 'release') n += ((o as { groups?: unknown[] }).groups?.length ?? 0) * 10;   // a label and spacing per group
+    if (o.type === 'decision') n += 10 + ((o as { parts?: unknown[] }).parts?.length ?? 0) * 10;   // the status line, a heading per part
     if (o.type === 'comparison') {
       // rows are tall (padding, icons) and the mark words are generated, so they are not in the text
       const rows = (o as { rows?: { mark?: string }[][] }).rows ?? [];
@@ -712,7 +756,7 @@ function frameHints(document: LibkaDocument, today: string): string[] {
 
 /** Parse only: what an author or an AI agent needs to fix before building. `today` is YYYY-MM-DD. */
 export function lint(markdown: string, today = new Date().toISOString().slice(0, 10)): LintResult {
-  const { document, problems } = parse(markdown);
+  const { document, problems, hints } = parse(markdown);
   const deck = slides(document);
   const blocks: Record<string, number> = {};
   const walk = (list: unknown): void => {
@@ -727,12 +771,15 @@ export function lint(markdown: string, today = new Date().toISOString().slice(0,
   return {
     ok: problems.length === 0, problems, title: document.meta.title, outputs: outputsOf(document.meta),
     outline: document.blocks.flatMap((b) => (b.type === 'heading' ? [{ level: b.level, text: plainText(b.text) }]
-      : b.type === 'section' ? [{ level: 2, text: b.title }] : b.type === 'release' ? [{ level: 2, text: b.version }] : [])),
+      : b.type === 'section' ? [{ level: 2, text: b.title }] : b.type === 'release' ? [{ level: 2, text: b.version }] : b.type === 'decision' ? [{ level: 2, text: b.title }]
+      : b.type === 'revisions' ? [{ level: 2, text: b.title ?? LABELS[langOf(document.meta.lang ?? 'en')].revisions }] : [])),
     blocks, slides: deck.length,
     hints: [...deck.flatMap((s, i) => {
       const n = words(s.body);
-      return n > SLIDE_WORDS ? [`slide ${i + 1} ("${typeof s.heading === 'string' ? s.heading : plainText(s.heading)}") has about ${n} words; a slide holds about ${SLIDE_WORDS - 10}: the build will shrink it a little or continue it on a new slide; to choose the break yourself, split it with ###`] : [];
-    }), ...frameHints(document, today)],
+      // a decision takes no ###: the build continues it at its parts, so there is nothing to choose
+      const decision = s.body[0]?.type === 'decision';
+      return n > SLIDE_WORDS ? [`slide ${i + 1} ("${typeof s.heading === 'string' ? s.heading : plainText(s.heading)}") has about ${n} words; a slide holds about ${SLIDE_WORDS - 10}: the build will shrink it a little or continue it on a new slide; ${decision ? 'a decision continues at its parts by itself, so nothing needs to change' : 'to choose the break yourself, split it with ###'}`] : [];
+    }), ...hints.map((h) => `line ${h.line}: ${h.message}`), ...frameHints(document, today), ...aiReminders(document)],
   };
 }
 
@@ -842,8 +889,12 @@ async function run(argv: string[]): Promise<number> {
     ...(out ? { out } : {}), ...(outputs ? { outputs: outputs as OutputName[] } : {}),
     pdf: rest.includes('--pdf'), deck: rest.includes('--deck'), docx: rest.includes('--docx'), check: !rest.includes('--no-check'),
   });
-  if (result.report) console.log(formatReport(result.report));
-  if (result.deck?.report) console.log(`deck:\n${formatReport(result.deck.report)}`);
+  // the web page's checks cover its PDF and Word file, the deck's its PDF; PDF/UA-2 is shown, never a gate
+  const ua2 = (o: Partial<Output>) => o.pdfua && 'ua2' in o.pdfua && !o.pdfua.ua2.compliant
+    ? `\n  PDF/UA-2 (recorded, not required; the PDF is made to PDF/UA-1): ${o.pdfua.ua2.failedRules} rule(s) not met, listed by veraPDF --flavour ua2` : '';
+  if (result.report) console.log(`web:\n${formatReport(result.report)}${ua2(result)}`);
+  if (result.deck?.report) console.log(`deck:\n${formatReport(result.deck.report)}${ua2(result.deck)}`);
+  for (const p of result.removed ?? []) console.log(`libka: removed ${rel(p)} (from an earlier build)`);
   if (!result.ok) {
     for (const p of result.problems) console.error(p);
     console.error(result.report
@@ -851,7 +902,9 @@ async function run(argv: string[]): Promise<number> {
       : `libka: ${result.problems.length} problem(s), nothing written`);
     return 1;
   }
-  for (const p of [result.html, result.pdf, result.docx, result.manifest, result.deck?.html, result.deck?.pdf, result.deck?.manifest]) if (p) console.log(`libka: wrote ${rel(p)}`);
+  for (const p of [result.html, result.pdf, result.docx, result.manifest, result.conformance, result.deck?.html, result.deck?.pdf, result.deck?.manifest, result.deck?.conformance]) {
+    if (p) console.log(`libka: wrote ${rel(p)}`);
+  }
   if (!result.manifest) console.log('libka: not checked (--no-check), so not signed');
   return 0;
 }

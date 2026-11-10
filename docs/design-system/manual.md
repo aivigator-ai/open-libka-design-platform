@@ -1,16 +1,10 @@
 # LibKa Design System Manual
-**Version 2.0.2** | 2026-10-28
-
----
+**Version 2.0.3** | 2026-11-09
 
 What changed in each release is in the CHANGELOG. The token files in `tokens/` are the source of truth; this manual explains how to use them.
 
----
-
 :::section[Part A — Core Manual]
 :::
-
----
 
 ## 1. Overview
 
@@ -55,8 +49,6 @@ The LibKa design system is the set of design tokens, rules and component styles 
 - values outside the token set
 - marketing language in documentation
 
----
-
 ## 2. Design principles
 
 :::table{caption="The design principles and the rule behind each"}
@@ -73,8 +65,6 @@ The LibKa design system is the set of design tokens, rules and component styles 
 | Semantic intent | Every token carries a meaning, not just a value |
 
 :::
-
----
 
 ## 3. Visual direction
 
@@ -94,8 +84,6 @@ Calm and readable first: neutral surfaces, one accent colour for actions, genero
 | Typography | Serif for brand moments, sans for UI, mono for system values |
 
 :::
-
----
 
 ## 4. Color system
 
@@ -261,8 +249,6 @@ Generated from the token files by `generate.py`:
 :::
 <!-- END GENERATED: hc-table -->
 
----
-
 ## 5. Typography
 
 ### 5.1 Font roles
@@ -314,8 +300,6 @@ The three families are self-hosted in `fonts/` (variable WOFF2, Latin and Latin 
 - Mono is used exclusively for `type.code` and system value display.
 - Optical size (`opsz`) must be enabled for Fraunces — use `font-variation-settings: "opsz" 144` at display sizes, `"opsz" 36` at heading sizes.
 - `type.overline` is always uppercase via `text-transform: uppercase`.
-
----
 
 ## 6. Layout tokens
 
@@ -466,8 +450,6 @@ Every layer has a named place in the stacking order.
 
 :::
 
----
-
 ## 7. Motion
 
 ### 7.1 Duration tokens
@@ -531,8 +513,6 @@ Under `prefers-reduced-motion`, only `fade.in` opacity is preserved; all transfo
 - Full-page transition animations
 - Auto-playing carousels or slideshows
 
----
-
 ## 8. Icons
 
 ### 8.1 Icon style rules
@@ -583,8 +563,6 @@ Under `prefers-reduced-motion`, only `fade.in` opacity is preserved; all transfo
 - Icons that visually resemble AI tropes (sparkles, neural networks, robot faces)
 - Mixing icon libraries within one product surface
 
----
-
 ## 9. Logo system
 
 ### 9.1 Symbol
@@ -627,8 +605,6 @@ The LibKa symbol is a **single glowing dot**.
 - Drop shadow on the wordmark
 - Outlined or hollow dot
 - Dot in any color other than `color.aqua.500` (default) or `color.cloud.50` (dark surface)
-
----
 
 ## 10. Component rules
 
@@ -771,8 +747,6 @@ This rule exists because a table built from `<div>` grids can look right and sti
 
 :::
 
----
-
 ## 11. Data visualization
 
 ### 11.1 Chart color sequence
@@ -846,8 +820,6 @@ Use this order when assigning colors to multi-series charts. Never assign colors
 - Decorative gradients on data bars
 - Animations on initial data load (reduced motion impact)
 
----
-
 ## 12. Patterns
 
 ### 12.1 Hero
@@ -889,8 +861,6 @@ Required:
 - Progress indicator
 - Completion confirmation
 
----
-
 ## 13. Accessibility
 
 :::table{caption="Accessibility requirements by area"}
@@ -911,8 +881,6 @@ Required:
 | Live regions | Use `aria-live` for toast and dynamic content updates |
 
 :::
-
----
 
 ## 14. Implementation
 
@@ -1286,8 +1254,6 @@ primitive → semantic → component → implementation
 ```
 Never skip layers: a component references semantic tokens. The exceptions are fills with no semantic role of their own: the buttons' hover fills (`button.*.hover`), the translucent tints (the badge backgrounds, the AI card's tint, the active navigation item, table rows on hover and when selected), the modal overlay and the ghost button's transparent fill. They are set as values in the component tokens, and the dark theme sets its own for all of them except the overlay and the transparent fill.
 
----
-
 ## 15. Final checks
 
 :::table{caption="The final checks and the requirement for each"}
@@ -1307,14 +1273,8 @@ Never skip layers: a component references semantic tokens. The exceptions are fi
 
 :::
 
----
-
----
-
 :::section[Part B — Appendices]
 :::
-
----
 
 ## Appendix A — AI Governance
 
@@ -1509,8 +1469,6 @@ Every AI output must pass this checklist before acceptance.
 - Duplicate primary actions in one decision area
 - Emoji used as UI icons
 
----
-
 ## Appendix B — Token Reference
 
 *See accompanying files: `tokens/*.tokens.json` and `libka.resolver.json`*
@@ -1535,8 +1493,6 @@ Values CSS needs but DTCG cannot express (fluid `clamp()` sizes, `em` letter-spa
 
 When the manual and the token files conflict, the token files are correct for implementation and the manual should be updated.
 
----
-
 ## Appendix C — Version control and governance
 
 ### C1. Token change rules
@@ -1555,8 +1511,6 @@ When the manual and the token files conflict, the token files are correct for im
 - New components must follow the existing token mapping pattern.
 - New patterns must include an anti-patterns section.
 - Every addition to the manual must include a corresponding token or rule — no orphaned guidance.
-
----
 
 ## Appendix D — Verification & Build
 

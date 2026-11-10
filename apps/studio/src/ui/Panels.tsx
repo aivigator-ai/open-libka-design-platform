@@ -1,54 +1,34 @@
-/** The side panel's tabs: source problems (with their fixes), Guard's checks (explained in plain words) and the outline. */
-import { Fragment, type ComponentChildren } from 'preact';
+/**
+ * The Checks tab, one list (since 2.0.3): what must be fixed and what is advice, by place in the document
+ * (heading › block), each item tagged with where it fails (the source, the web page and PDF, the slides, the Word
+ * file), with its fixes, Guard's explanation in plain words, "Show in the preview" and a way to the text. The checks'
+ * own numbers, as `libka check` reports them, are under Details. Also: the Outline's headings.
+ */
+import { blockTitle } from '@libka/editor';
 import { plainText, type Block } from '@libka/model';
 import { axeVersion } from 'studio:assets';
 import type { Key } from '../i18n.ts';
 import * as s from '../state/store.ts';
+import { checksFilter, showEditor, showPanel } from '../state/layout.ts';
 import { t } from '../state/text.ts';
 import { bridge } from '../app/project.ts';
 import { explain } from '../core/explain.ts';
+import { forPlace, outputOf, placeAt, placesOf, type Group, type Item, type Output } from '../core/checklist.ts';
 import { FixButtons } from './Inspector.tsx';
+import { selectedLine } from './Visual.tsx';
 
-function Item({ where, message, meta, title, onClick, children }: { where: string; message: string; meta: string; title: string; onClick(): void; children?: ComponentChildren }) {
-  return (
-    <li class="st-item-row">
-      <button type="button" class="st-item" title={title} onClick={onClick}>
-        {/* the messages of the source checks and of Guard are English in both interfaces: marked so (WCAG 3.1.2) */}
-        <span class="st-item-where">{where}</span><span class="st-item-msg" lang="en">{message}</span><span class="st-item-meta">{meta}</span>
-      </button>
-      {children}
-    </li>
-  );
-}
 const Empty = ({ text, ok = false }: { text: string; ok?: boolean }) => <p class={`st-empty${ok ? ' st-empty--ok' : ''}`}>{text}</p>;
 
 export function goToLine(line: number): void {
-  s.pane.value = 'write';
+  showEditor();
   bridge.editor?.goToLine(line);
 }
-
-export function ProblemsPanel() {
-  const list = s.problems.value;
-  if (!list.length) return <Empty text={t('problems.none')} ok />;
-  return (
-    <ul class="st-list">
-      {list.map((p, i) => (
-        <Item key={i} where={t('problems.line', { n: p.line })} message={p.message} meta="" title={t('problems.goto', { n: p.line })} onClick={() => goToLine(p.line)}>
-          <FixButtons problem={p} />
-        </Item>
-      ))}
-    </ul>
-  );
-}
-
-const CHECK_TITLE: Record<string, Key> = { 'axe/standard': 'guard.axe', 'contrast/standard': 'guard.contrast', 'structure/standard': 'guard.structure', 'contrast/more-contrast': 'guard.contrastMore', 'docx/standard': 'guard.docx' };
-const GROUP_TITLE: Record<s.Target, Key> = { manual: 'guard.manual', deck: 'guard.deck', docx: 'guard.word' };
 
 /** Shows a finding in the preview: the right output and contrast, the slide it is on, outlined. */
 function highlight(target: string, highContrast: boolean, output: s.Target): void {
   if (highContrast !== s.highContrast.value) s.highContrast.value = highContrast;
   if ((output === 'deck') !== (s.device.value === 'slides')) s.device.value = output === 'deck' ? 'slides' : 'web';
-  s.pane.value = 'preview';
+  showPanel('preview');
   const preview = document.getElementById('preview') as HTMLIFrameElement;
   const show = () => {
     const doc = preview.contentDocument!;
@@ -66,13 +46,6 @@ function highlight(target: string, highContrast: boolean, output: s.Target): voi
   };
   // the preview may reload for the switch: show it once it has
   setTimeout(() => { if (preview.contentDocument?.readyState === 'complete') show(); else preview.addEventListener('load', show, { once: true }); }, 50);
-}
-
-/** Goes to the source line that holds the quoted text of a finding, such as a heading's. */
-function findInSource(message: string): void {
-  const quoted = message.match(/"([^"]{3,}?)…?"/)?.[1]?.replace(/…$/, '');
-  const line = quoted ? s.source.value.split('\n').findIndex((l) => l.includes(quoted)) : -1;
-  if (line >= 0) goToLine(line + 1); else s.pane.value = 'write';
 }
 
 /**
@@ -93,7 +66,7 @@ function goToText(target: string): void {
   s.toast(t('guard.notFound'));
 }
 
-/** A finding's rule in plain words, once per rule in a check. */
+/** A finding's rule in plain words. */
 function Explained({ rule }: { rule: string }) {
   const e = explain(rule, s.lang.value);
   if (!e) return null;
@@ -105,40 +78,111 @@ function Explained({ rule }: { rule: string }) {
   );
 }
 
-export function GuardPanel() {
-  const checks = s.checks.value;
-  if (!checks) return <Empty text={t(s.guardRunning.value ? 'guard.running' : 'guard.idle')} />;
+/** What the place is called: its section and the block's name ("Before you start › Figure"). */
+function placeTitle(p: Group['place']): string {
+  if (p === 'document') return t('checks.document');
+  if (p === 'unplaced') return t('checks.unplaced');
+  const name = blockTitle(p.type, s.lang.value);
+  if (p.type === 'heading') return p.section ?? name;
+  return p.section ? `${p.section} › ${name}` : name;
+}
+
+const OUTPUT_KEY: Record<Output, Key> = { source: 'checks.outSource', web: 'checks.outWeb', slides: 'checks.outSlides', word: 'checks.outWord' };
+
+function ItemRow({ item }: { item: Item }) {
+  const where = item.line ? t('problems.line', { n: item.line }) : t('checks.whole');
+  const finding = item.findings[0];
+  const inPreview = item.findings.find((f) => f.target !== 'docx');
+  const go = () => { if (item.line) goToLine(item.line); else if (inPreview) goToText(inPreview.selector); };
   return (
-    <>
-      {checks.map((c, i) => (
-        <Fragment key={i}>
-          {c.target !== checks[i - 1]?.target ? <h3 class="st-group">{t(GROUP_TITLE[c.target])}</h3> : null}
-          <section class="st-check" data-ok={String(c.violations.length === 0)}>
-            <div class="st-check-head">
-              <span class="st-check-mark" aria-hidden="true">{c.violations.length ? '✗' : '✓'}</span>
-              <h4 class="st-check-title">{t(CHECK_TITLE[`${c.id}/${c.mode}`]!, { v: axeVersion })}</h4>
-              <span class="st-check-sum">{t('guard.summary', { checked: c.checked, violations: c.violations.length }) + (c.skipped ? ` · ${t('guard.skipped', { n: c.skipped })}` : '')}</span>
-            </div>
-            {c.violations.length ? (
-              <ul class="st-list">
-                {c.violations.map((v, j) => {
-                  const first = c.violations.findIndex((x) => x.rule === v.rule) === j;
-                  return c.target === 'docx'
-                    ? <Item key={j} where={v.rule} message={v.message} meta="" title={t('guard.showSource')} onClick={() => findInSource(v.message)}>{first ? <Explained rule={v.rule} /> : null}</Item>
-                    : (
-                      <Item key={j} where={v.rule} message={v.message} meta={v.target} title={t('guard.show')} onClick={() => highlight(v.target, c.mode === 'more-contrast', c.target)}>
-                        {first ? <Explained rule={v.rule} /> : null}
-                        <button type="button" class="st-btn st-btn--small st-gotext" onClick={() => goToText(v.target)}>{t('guard.goText')}</button>
-                      </Item>
-                    );
-                })}
-              </ul>
-            ) : null}
-          </section>
-        </Fragment>
-      ))}
+    <li class="st-item-row" data-kind={item.kind} data-rule={item.rule}>
+      <button type="button" class="st-item" title={item.line ? t('problems.goto', { n: item.line }) : t('guard.goText')} onClick={go}>
+        <span class="st-item-where">{where}</span>
+        {/* the messages of the source checks and of Guard are English in both interfaces: marked so (WCAG 3.1.2) */}
+        <span class="st-item-msg" lang="en">{item.message}</span>
+        <span class="st-item-meta">
+          <span class="st-item-kind">{t(item.kind === 'fix' ? 'checks.fix' : 'checks.advice')}</span>
+          <span class="st-item-tags">{item.outputs.map((o) => t(OUTPUT_KEY[o])).join(' · ')}</span>
+        </span>
+      </button>
+      {item.problems.map((p, i) => <FixButtons key={i} problem={p} />)}
+      {finding ? <Explained rule={finding.rule} /> : null}
+      {inPreview ? (
+        <button type="button" class="st-btn st-btn--small st-showpreview" onClick={() => highlight(inPreview.selector, inPreview.mode === 'more-contrast', inPreview.target)}>{t('checks.show')}</button>
+      ) : null}
+    </li>
+  );
+}
+
+const CHECK_TITLE: Record<string, Key> = { 'axe/standard': 'guard.axe', 'contrast/standard': 'guard.contrast', 'structure/standard': 'guard.structure', 'contrast/more-contrast': 'guard.contrastMore', 'docx/standard': 'guard.docx' };
+const OUTPUT_TITLE: Record<s.Target, Key> = { manual: 'guard.manual', deck: 'guard.deck', docx: 'guard.word' };
+
+/** Details: each output's checks with their numbers, as `libka check` reports them; a passing output stays folded. */
+function Details() {
+  const checks = s.checks.value;
+  if (!checks) return null;
+  const outputs = [...new Set(checks.map((c) => c.target))];
+  return (
+    <section class="st-checks-details" id="checks-details" aria-labelledby="checks-details-title">
+      <h3 class="st-group" id="checks-details-title">{t('checks.details')}</h3>
+      {outputs.map((target) => {
+        const list = checks.filter((c) => c.target === target);
+        const failing = list.filter((c) => c.violations.length).length;
+        return (
+          <details key={target} class="st-out" data-output={outputOf(target)} open={failing > 0}>
+            <summary>
+              <span class="st-out-name">{t(OUTPUT_TITLE[target])}</span>
+              <span class="st-out-sum" data-ok={String(!failing)}>{failing ? t('checks.outFailing', { n: list.length, failing }) : t('checks.outPassed', { n: list.length })}</span>
+            </summary>
+            {list.map((c, i) => (
+              <div key={i} class="st-check" data-ok={String(c.violations.length === 0)}>
+                <div class="st-check-head">
+                  <span class="st-check-mark" aria-hidden="true">{c.violations.length ? '✗' : '✓'}</span>
+                  <h4 class="st-check-title">{t(CHECK_TITLE[`${c.id}/${c.mode}`]!, { v: axeVersion })}</h4>
+                  <span class="st-check-sum">{t('guard.summary', { checked: c.checked, violations: c.violations.length }) + (c.skipped ? ` · ${t('guard.skipped', { n: c.skipped })}` : '')}</span>
+                </div>
+              </div>
+            ))}
+          </details>
+        );
+      })}
       <p class="st-note">{t('guard.signNote').split('libka build').flatMap((part, i) => (i ? [<code key={i}>libka build</code>, part] : [part]))}</p>
-    </>
+    </section>
+  );
+}
+
+/** Checks: one list by place, with the filters All | This block. */
+export function ChecksPanel() {
+  const list = s.checklist.value;
+  const filter = checksFilter.value;
+  const places = placesOf(s.doc.value);
+  const here = filter === 'block' ? (placeAt(places, selectedLine()) ?? 'document') : null;
+  void s.selectionTick.value;
+  const groups = filter === 'block' ? forPlace(list, here) : list.groups;
+  const running = !s.checks.value;
+  const summary = list.fix || list.advice
+    ? [list.fix ? t('checks.toFix', { n: list.fix }) : '', list.advice ? t('checks.adviceCount', { n: list.advice }) : ''].filter(Boolean).join(' · ')
+    : running ? '' : t('checks.nothing');
+  return (
+    <div class="st-checks">
+      <div class="st-checks-bar">
+        <div class="st-seg st-checks-filter" role="group" aria-label={t('checks.filter')}>
+          <button type="button" id="checks-all" aria-pressed={filter === 'all'} onClick={() => { checksFilter.value = 'all'; }}>{t('checks.all')}</button>
+          <button type="button" id="checks-block" aria-pressed={filter === 'block'} onClick={() => { checksFilter.value = 'block'; }}>{t('checks.thisBlock')}</button>
+        </div>
+        <p class="st-checks-sum" id="checks-sum">{summary}{running ? <span class="st-checks-running">{t(s.guardRunning.value ? 'guard.running' : 'guard.idle')}</span> : null}</p>
+      </div>
+      {filter === 'block' && here ? <p class="st-checks-here" id="checks-here">{placeTitle(here === 'document' ? 'document' : here)}</p> : null}
+      <div id="checks-list">
+        {groups.length ? groups.map((g) => (
+          <section key={typeof g.place === 'string' ? g.place : g.place.index} class="st-checks-group" aria-label={placeTitle(g.place)}>
+            {filter === 'all' ? <h3 class="st-checks-place">{placeTitle(g.place)}</h3> : null}
+            <ul class="st-list">{g.items.map((item) => <ItemRow key={item.key} item={item} />)}</ul>
+          </section>
+        )) : <Empty text={t(filter === 'block' ? 'checks.nothingHere' : running ? 'checks.nothingYet' : 'checks.nothing')} ok={!running || filter === 'block'} />}
+      </div>
+      <Details />
+    </div>
   );
 }
 

@@ -1,18 +1,17 @@
 /** The Studio's frame: the top bar, the library or the workspace, the status bar, dialogs and the hidden check frames. */
-import { axeVersion, buildId, tokensVersion } from 'studio:assets';
 import * as s from '../state/store.ts';
 import { t } from '../state/text.ts';
 import { bridge } from '../app/project.ts';
 import { Library } from './Library.tsx';
-import { TopBar } from './TopBar.tsx';
+import { TopBar, wordCount } from './TopBar.tsx';
+import { editorPrefs } from '../state/prefs.ts';
 import { Workspace } from './Workspace.tsx';
 import { DialogHost, Toast } from './Dialogs.tsx';
 import { Tour } from './Tour.tsx';
+import { PresentHost } from '../app/present.tsx';
 
 function StatusBar() {
-  const text = s.source.value;
-  const body = text.replace(/^---[\s\S]*?\n---\n/, '');
-  const words = (body.match(/[\p{L}\p{N}]+/gu) ?? []).length;
+  const words = wordCount(s.source.value);
   const editor = s.view.value === 'editor';
   return (
     <footer class="st-statusbar">
@@ -22,10 +21,6 @@ function StatusBar() {
         <span id="sb-read">{t('status.read', { n: Math.max(1, Math.round(words / 200)) })}</span>
         <span id="sb-blocks">{t('status.blocks', { n: s.doc.value?.blocks.length ?? 0 })}</span>
       </> : <span>{t('status.projects', { n: s.projects.value.length })}</span>}
-      <span class="st-sb-spacer" />
-      <span id="sb-tokens">{t('status.tokens', { v: tokensVersion })}</span>
-      <span id="sb-axe">{`axe-core ${axeVersion}`}</span>
-      <span id="sb-build">{t('status.build', { v: buildId })}</span>
     </footer>
   );
 }
@@ -51,11 +46,13 @@ export function App() {
       <TopBar />
       {library ? <Library /> : null}
       <div class="st-workspace" hidden={library}><Workspace /></div>
-      <StatusBar />
+      {/* (not on a phone: its line and word count head the ⋯ menu; not in Fokus: the page alone) */}
+      {s.phone.value || (!library && editorPrefs.value.focus) ? null : <StatusBar />}
       <UpdateBanner />
       <Toast />
       <div class="st-visually-hidden" aria-live="polite" id="announcer">{s.announcement.value}</div>
       <DialogHost />
+      <PresentHost />
       <Tour />
       {/* Guard, slide fitting and Word pictures render here, unseen: in the viewport (so the browser lays them out and paints them) but transparent and inert */}
       <div class="st-offstage" aria-hidden="true">

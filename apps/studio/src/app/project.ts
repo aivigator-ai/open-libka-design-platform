@@ -16,6 +16,7 @@ import { render, scheduleRender } from '../core/pipeline.ts';
 import type { ActiveEditor } from '../editor/active.ts';
 import { editorPrefs, noteRecent } from '../state/prefs.ts';
 import { parse } from '@libka/model';
+import { withField } from '../core/frontmatter.ts';
 
 let db: StudioDb | null = null;
 const store = (): StudioDb => { if (!db) throw new Error('storage is not open'); return db; };
@@ -227,6 +228,43 @@ export async function rename(p: ProjectRecord): Promise<void> {
   await refreshLibrary();
 }
 
+/**
+ * Document ▾ → Rename…: the open document's title (its front matter, shown on every output) and its file name, in one
+ * dialog. An emptied title is left as it was (a document needs one); an emptied file name too.
+ */
+export async function renameOpen(): Promise<void> {
+  const p = s.project.value;
+  if (!p) return;
+  const title = s.doc.value?.meta.title ?? '';
+  const got = await s.promptForm({
+    title: 'docMenu.renameTitle', note: 'docMenu.renameNote', confirm: 'library.rename',
+    fields: [{ id: 'title', label: 'field.title', value: title }, { id: 'name', label: 'library.fileName', value: p.name }],
+  });
+  if (!got) return;
+  const nextTitle = got.title?.trim() ?? '';
+  if (nextTitle && nextTitle !== title) {
+    const text = currentText();
+    const next = withField(text, 'title', nextTitle);
+    if (next !== null && next !== text) bridge.editor?.replaceAll(next);
+  }
+  const nextName = got.name?.trim() ?? '';
+  if (nextName && nextName !== p.name) {
+    const renamed = await renameProject(store(), p.id, nextName);
+    if (s.project.value?.id === p.id) s.project.value = { ...renamed, source: s.project.value.source };
+    await refreshLibrary();
+  }
+}
+
+/** Document ▾ → Duplicate: a copy of the open document (its files too), opened at once and announced. */
+export async function duplicateOpen(): Promise<void> {
+  const p = s.project.value;
+  if (!p) return;
+  await flushSave();
+  const copy = await duplicateProject(store(), p.id, safeName(t('library.copySuffix')));
+  await openProject(copy.id);
+  s.toast(t('docMenu.duplicated', { name: copy.name }));
+}
+
 export async function duplicate(p: ProjectRecord): Promise<void> {
   await flushSave();
   await duplicateProject(store(), p.id, safeName(t('library.copySuffix')));
@@ -276,8 +314,18 @@ export async function addImages(list: File[]): Promise<void> {
   s.toast(t('image.dropped'));
 }
 
+/** Starter text for the most used blocks in the source editor, shorter than the registry's examples. */
+export const SNIPPETS: Record<string, string> = {
+  heading: '## Section title\n\nText of the section.\n',
+  callout: ':::callout[Short title]{variant=info}\nWhat the reader needs to know.\n:::\n',
+  steps: ':::steps\n1. **First step** What to do.\n2. **Second step** What to do next.\n:::\n',
+  table: ':::table{caption="What this table shows"}\n| Column | Column |\n|---|---|\n| Value | Value |\n:::\n',
+  checklist: ':::checklist\n- [ ] First item\n- [ ] Second item\n:::\n',
+  figure: '![](images/picture.png "")\n',
+};
+
 /** Inserts a block's starter text at the cursor, on its own lines. */
-export function insertBlock(kind: string, snippets: Record<string, string>): void {
+export function insertBlock(kind: string, snippets: Record<string, string> = SNIPPETS): void {
   const snippet = snippets[kind] ?? blockDefinition(kind)?.example ?? '';
   bridge.editor?.insertMarkdown(snippet);
   noteRecent(kind);

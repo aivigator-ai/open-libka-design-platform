@@ -1,7 +1,7 @@
 ---
 title: LibKa blocks
 subtitle: Every block with its syntax, an example, and what it does on the web, in PDF, on slides and in Word
-version: "2.0.2"
+version: "2.0.3"
 status: Generated from the block registry
 lang: en
 references:
@@ -15,7 +15,7 @@ references:
 A LibKa document is written in LibKa Markdown: Markdown plus the blocks below. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.
 
 :::metrics
-- **35** blocks in 8 groups
+- **42** blocks in 8 groups
 - **4** outputs from one source: web, PDF, slides, Word
 - **0** blocks that need a script to be read
 :::
@@ -203,12 +203,12 @@ Status, owner and review dates. Front matter keys status, owner, reviewed and ne
 
 :::table{caption="Document status: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `status` | Draft, Approved, Deprecated ... (or set it in front matter). Deprecated shows a banner at the top. | no |
-| `owner` | Who keeps the document correct: a team or a role. | no |
-| `reviewed` | Date of the last review, YYYY-MM-DD. | no |
-| `next-review` | When the next review is due, YYYY-MM-DD; lint warns once it has passed. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `status` | Status | Draft, Approved, Deprecated ... (or set it in front matter). Deprecated shows a banner at the top. | no |
+| `owner` | Owner | Who keeps the document correct: a team or a role. | no |
+| `reviewed` | Last reviewed | Date of the last review, YYYY-MM-DD. | no |
+| `next-review` | Next review | When the next review is due, YYYY-MM-DD; lint warns once it has passed. | no |
 
 :::
 
@@ -229,6 +229,87 @@ Status, owner and review dates. Front matter keys status, owner, reviewed and ne
 :::
 ::::
 
+### Byline
+
+The authors, each with an optional role, from the front matter key author. Without the block they appear under the title; `:::byline` shows them where it stands instead. The names also go into the page, PDF and Word metadata.
+
+**Use it when:** Articles, reports, policies and proposals where readers want to know who wrote them. The front matter key author shows the authors under the title by itself; place `:::byline` only to show them elsewhere, such as at the end of an article.
+
+In the front matter:
+
+```yaml
+author:
+  - name: Ann Novak
+    role: Security lead
+  - name: Petr Svoboda
+```
+
+In the text:
+
+```markdown
+:::byline
+:::
+```
+
+*Not shown here, since this page has no authors: with the front matter above, the result is the line "Authors: Ann Novak (Security lead), Petr Svoboda" where the block stands.*
+
+::::accordion
+:::item[In each output]
+- **Web:** A line with the authors and their roles; the names are also in the page's author metadata.
+- **PDF:** Same; the names are the PDF's author.
+- **Slides:** A line on its slide; without the block, the authors are on the title slide.
+- **Word:** A line with the authors; the names are the Word file's author.
+:::
+:::item[Accessibility]
+- Plain text with a written label ("Authors:"), no icon or photo standing for a name.
+:::
+:::item[Avoid]
+- A team or role as the author: who keeps the document correct is the owner (front matter owner, `:::doc-status`).
+- A byline block without author in the front matter (reported).
+:::
+::::
+
+### Revision history
+
+The versions of the document as a Markdown table: version, date and change, optionally author and approved by. It is a section of its own: a level-2 heading with an anchor (Revision history unless the label names it), listed in the contents, so it needs no heading of yours above it. The columns are recognised by their headings in English or Czech (Verze, Datum, Změna, Autor, Schválil, Schválila or Schválení), the dates are checked and the rows must run newest first or oldest first. The versions with their dates and approvers go into the signed manifest.
+
+**Use it when:** Policies, procedures, manuals and proposals that change over time and must show what changed in each version, when, and who approved it.
+
+```markdown
+:::revisions[Revision history]
+| Version | Date | Change | Approved by |
+|---|---|---|---|
+| 1.1 | 2026-09-15 | Remote work up to three days a week | Ann Novak |
+| 1.0 | 2026-03-01 | First version | Ann Novak |
+:::
+```
+
+:::revisions[Revision history]
+| Version | Date | Change | Approved by |
+|---|---|---|---|
+| 1.1 | 2026-09-15 | Remote work up to three days a week | Ann Novak |
+| 1.0 | 2026-03-01 | First version | Ann Novak |
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** A level-2 heading with an anchor over a table with column headers; dates are time elements.
+- **PDF:** Same; the header row repeats on every page.
+- **Slides:** A slide of its own headed by the title; a long table continues on the next one.
+- **Word:** Heading 1 with a bookmark over a Word table with a repeating header row, as policy templates have it.
+:::
+:::item[Accessibility]
+- A real table with column headers; its caption, the title, is there for screen readers.
+- Dates are written YYYY-MM-DD in the source; the outputs write them in the document's language (date-format), and the web page keeps the ISO date in each time element's datetime.
+:::
+:::item[Avoid]
+- A heading of your own right above it (reported): the title goes in its brackets.
+- A column the block does not know, or a revision without its version, date or change (reported).
+- Rows in no order (reported): newest first or oldest first, by date and version.
+- More than one revision history in a document (reported).
+:::
+::::
+
 ### Table of contents
 
 The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.
@@ -244,9 +325,9 @@ The contents, placed where it stands: ## sections and parts (depth=2, the defaul
 
 :::table{caption="Table of contents: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `depth` | 2 lists ## sections and parts, 3 adds ### subsections. One of: `2`, `3`. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `depth` | Depth | 2 lists ## sections and parts, 3 adds ### subsections. One of: `2`, `3`. | no |
 
 :::
 
@@ -299,9 +380,9 @@ Images need a text alternative [@wcag22].
 
 :::table{caption="References: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `style` | numeric: [1] in the text and a numbered list (default); author-date: (Author, 2023) and a list sorted by author. One of: `numeric`, `author-date`. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `style` | Citation style | numeric: [1] in the text and a numbered list (default); author-date: (Author, 2023) and a list sorted by author. One of: `numeric`, `author-date`. | no |
 
 :::
 
@@ -350,9 +431,9 @@ One version with its date and its changes in typed groups. Each release is a lev
 
 :::table{caption="Release notes: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `date` | Release date, YYYY-MM-DD (required unless the version is Unreleased). | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `date` | Date | Release date, YYYY-MM-DD (required unless the version is Unreleased). | no |
 
 :::
 
@@ -373,6 +454,72 @@ One version with its date and its changes in typed groups. Each release is a lev
 :::
 ::::
 
+### Decision record
+
+One decision as a section of its own: its title states the decision, a badge says whether it is proposed, accepted, rejected or superseded, with the date and who decided. A sentence that states the decision may come first, then `:::context` (required), `:::options` and `:::consequences`, always shown in that order. Options may hold a `:::comparison` (one more colon on each outer block). Each decision is a level-2 heading with an anchor, listed in the contents and its own slide.
+
+**Use it when:** A decision readers must be able to trace: an architecture or policy decision, a choice between suppliers or tools, a board resolution. Why it was needed, what was considered, what was decided, when and by whom, and what follows from it.
+
+```markdown
+::::decision[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"}
+We keep documents and their versions in the PostgreSQL database we already run.
+:::context
+The document store needs versions, full-text search and backups that the operations team already knows.
+:::
+:::options
+- **PostgreSQL**: one database to run, versions as rows, full-text search built in.
+- **A document database**: flexible records, but a second system to run and back up.
+:::
+:::consequences
+- Schema changes go through migrations.
+- Full-text search in Czech needs its own dictionary.
+:::
+::::
+```
+
+::::decision[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"}
+We keep documents and their versions in the PostgreSQL database we already run.
+:::context
+The document store needs versions, full-text search and backups that the operations team already knows.
+:::
+:::options
+- **PostgreSQL**: one database to run, versions as rows, full-text search built in.
+- **A document database**: flexible records, but a second system to run and back up.
+:::
+:::consequences
+- Schema changes go through migrations.
+- Full-text search in Czech needs its own dictionary.
+:::
+::::
+
+:::table{caption="Decision record: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `status` | Status | Where the decision stands: proposed, accepted, rejected or superseded. One of: `proposed`, `accepted`, `rejected`, `superseded`. | yes |
+| `date` | Date | When it was decided (or proposed), YYYY-MM-DD; required unless the status is proposed. | no |
+| `by` | Decided by | Who decided: a person, a board or a team; required unless the status is proposed. Who proposes a decision goes in its opening sentence. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** A section heading with an anchor, the status as a badge with the date and who decided, then Context, Options considered and Consequences as subheadings.
+- **PDF:** Same; listed in the contents.
+- **Slides:** One decision per slide, headed by its title.
+- **Word:** Heading 1 with the title, a line with the status, date and who decided, and each part as Heading 2.
+:::
+:::item[Accessibility]
+- A real heading per decision and per part, so a decision log can be navigated by headings and the contents.
+- The status is a word on the badge; its color only repeats it.
+:::
+:::item[Avoid]
+- A decision without its context, or a decision that was taken without its date or who took it (reported).
+- A title that names the topic ("Database") instead of the decision ("Store documents in PostgreSQL").
+- Editing an accepted decision to change it: write a new decision and mark the old one superseded.
+:::
+::::
+
 ### Section divider
 
 A part divider: a rule and a large heading, with an optional sentence; break=page starts a new page in print. On slides it is a full section slide.
@@ -389,9 +536,9 @@ What we measured and what changed.
 
 :::table{caption="Section divider: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `break` | page starts the part on a new page in the PDF. One of: `page`, `none`. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `break` | Page break | page starts the part on a new page in the PDF. One of: `page`, `none`. | no |
 
 :::
 
@@ -433,10 +580,10 @@ npx @libka/cli build guide.md
 
 :::table{caption="Code: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `title` | File name or label shown above the code: title="install.sh". | no |
-| `{n,m-k}` | Lines to highlight, e.g. {2} or {1,3-5}. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `title` | Title above the code | File name or label shown above the code: title="install.sh". | no |
+| `{n,m-k}` | Highlighted lines | Lines to highlight, e.g. {2} or {1,3-5}. | no |
 
 :::
 
@@ -594,9 +741,9 @@ Open `Setup.dmg`.
 
 :::table{caption="Tabs: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `:::tab label` | Tab name in brackets: `:::tab[Windows]`. | yes |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `:::tab label` | Tab name | Tab name in brackets: `:::tab[Windows]`. | yes |
 
 :::
 
@@ -646,9 +793,9 @@ Yes, every output is one local file.
 
 :::table{caption="Accordion / FAQ: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `:::item label` | The question or topic: `:::item[Question?]`. | yes |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `:::item label` | Question or topic | The question or topic: `:::item[Question?]`. | yes |
 
 :::
 
@@ -688,9 +835,9 @@ A table of keys and what they do.
 
 :::table{caption="Keyboard shortcuts: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `caption` | What the shortcuts are for. | yes |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `caption` | Caption | What the shortcuts are for. | yes |
 
 :::
 
@@ -735,9 +882,9 @@ Export your data before you upgrade.
 
 :::table{caption="Callout: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `variant` | Meaning of the message. One of: `info`, `success`, `warning`, `error`, `note`, `tip`, `important`, `caution`. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `variant` | Kind | Meaning of the message. One of: `info`, `success`, `warning`, `error`, `note`, `tip`, `important`, `caution`. | no |
 
 :::
 
@@ -822,7 +969,7 @@ flowchart LR
 - **Web:** An inline SVG with its caption; "Show the source" reveals the Mermaid text. No script at runtime.
 - **PDF:** The same SVG.
 - **Slides:** The SVG in the space left under the heading and text (up to 420px high); wide slides suit flowchart LR. Below 200px Guard reports the slide as too full.
-- **Word:** Picture drawn in Chrome with the description as alternative text; the source in a Diagram sources appendix.
+- **Word:** Picture drawn in Chrome with the description as alternative text; the Mermaid source stays in the LibKa Markdown file.
 :::
 :::item[Accessibility]
 - The SVG is an image named by accTitle and described by accDescr; write the description as the steps a reader would otherwise see.
@@ -863,10 +1010,10 @@ Good and bad examples next to each other.
 
 :::table{caption="Do and don't: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `:::do label` | What to do. | yes |
-| `:::dont label` | What to avoid. | yes |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `:::do label` | What to do | What to do. | yes |
+| `:::dont label` | What to avoid | What to avoid. | yes |
 
 :::
 
@@ -882,6 +1029,169 @@ Good and bad examples next to each other.
 :::
 :::item[Avoid]
 - A don't without a do: always show the better way.
+:::
+::::
+
+### Pros and cons
+
+The pros and cons of one option, as two lists under the words "Pros" and "Cons". The label names the option; `:::pros` and `:::cons` each hold one bulleted list, always shown pros first. Several options are several blocks; inside a decision's `:::options`, one per option (each outer block then gets one more colon).
+
+**Use it when:** Weighing one option: what speaks for it and what against it, in a proposal, a decision record, or a review of a tool or a supplier.
+
+```markdown
+::::pros-cons[Work from home three days a week]
+:::pros
+- No commute on most days
+- Quiet time for focused work
+:::
+:::cons
+- Fewer chance meetings with colleagues
+- A desk to set up at home
+:::
+::::
+```
+
+::::pros-cons[Work from home three days a week]
+:::pros
+- No commute on most days
+- Quiet time for focused work
+:::
+:::cons
+- Fewer chance meetings with colleagues
+- A desk to set up at home
+:::
+::::
+
+::::accordion
+:::item[In each output]
+- **Web:** The option's name, then Pros and Cons side by side where there is room, each a list under its word; stacked on a phone.
+- **PDF:** Side by side, kept on one page.
+- **Slides:** Side by side.
+- **Word:** The option's name, then a shaded panel for Pros and one for Cons, each with its word and a bulleted list.
+:::
+:::item[Accessibility]
+- "Pros" and "Cons" are written, never shown by color or a sign alone.
+- Each side is a real list, so a screen reader says how many points it has.
+:::
+:::item[Avoid]
+- Two options in one block: use one block per option, or a `:::comparison` to set options against the same criteria.
+- Guidance on a right and a wrong way: use ::::compare (do and don't).
+- A side left empty to look balanced: say in the text that there is nothing against it.
+:::
+::::
+
+### Process
+
+A process as a row of 2 to 6 numbered stages joined by arrows, one list item per stage. `shape=cycle` marks a process that starts again, and the return to the first stage is also written under the stages. Stacked with arrows down on a phone, and on the page and in print with five or six stages, so that long words are never broken; on slides always a row.
+
+**Use it when:** How a process runs, stage by stage: a request from arrival to closing, a product's life cycle, a review or improvement cycle. Not instructions for the reader to follow (that is `:::steps`).
+
+```markdown
+:::flow[How a support request runs]
+1. The customer writes in
+2. Support sorts it by urgency
+3. An agent answers or passes it on
+4. The customer confirms it is solved
+:::
+```
+
+:::flow[How a support request runs]
+1. The customer writes in
+2. Support sorts it by urgency
+3. An agent answers or passes it on
+4. The customer confirms it is solved
+:::
+
+:::table{caption="Process: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `shape` | Shape | linear (the default) or cycle (it starts again from the first stage). One of: `linear`, `cycle`. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** The title, then the numbered stages in a row joined by arrows drawn in CSS; a cycle adds a line saying it starts again; stacked with arrows down on a phone, and with five or six stages.
+- **PDF:** Same, kept on one page.
+- **Slides:** The stages in a row.
+- **Word:** The title, a numbered list of the stages, and for a cycle the line saying it starts again.
+:::
+:::item[Accessibility]
+- The stages are a real numbered list, so a screen reader says how many there are and which one it is on.
+- The arrows are drawn shapes with no text; a cycle's return to the start is written out, never shown by an arrow alone.
+:::
+:::item[Avoid]
+- Instructions the reader carries out: use `:::steps`.
+- Long paragraphs in a stage: keep each to a short phrase.
+- More than six stages or branches: use a ```mermaid diagram.
+:::
+::::
+
+### Matrix
+
+Four quadrants in a 2 × 2 grid, read left to right, top row first. `type=swot` fills in the quadrants' names (Strengths, Weaknesses, Opportunities, Threats); `type=grid` needs a name on each `:::q`, and `x=` and `y=` say in words what changes across and down. Each quadrant holds a short list or a sentence.
+
+**Use it when:** Points sorted into four quadrants: a SWOT analysis, effort against impact, urgent against important, risk by likelihood and impact.
+
+```markdown
+::::matrix[Where to start]{type=grid x="Effort, low on the left and high on the right" y="Impact, high at the top and low at the bottom"}
+:::q[Quick wins]
+- Fix the broken sign-up link
+:::
+:::q[Big projects]
+- Rebuild the customer portal
+:::
+:::q[Fill-ins]
+- Tidy the help pages
+:::
+:::q[Not now]
+- Translate old newsletters
+:::
+::::
+```
+
+::::matrix[Where to start]{type=grid x="Effort, low on the left and high on the right" y="Impact, high at the top and low at the bottom"}
+:::q[Quick wins]
+- Fix the broken sign-up link
+:::
+:::q[Big projects]
+- Rebuild the customer portal
+:::
+:::q[Fill-ins]
+- Tidy the help pages
+:::
+:::q[Not now]
+- Translate old newsletters
+:::
+::::
+
+:::table{caption="Matrix: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `type` | Kind | swot (the four names are filled in) or grid (you name each quadrant). One of: `swot`, `grid`. | yes |
+| `x` | Horizontal axis | A grid only: what changes from left to right, in words ("Effort: low on the left, high on the right"). | no |
+| `y` | Vertical axis | A grid only: what changes from top to bottom, in words ("Impact: high at the top, low at the bottom"). | no |
+| `:::q label` | Quadrant name | The quadrant's name; required in a grid, filled in for a SWOT. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** The title, then four named quadrants in a 2 × 2 grid with the axes written beside it; stacked on a phone.
+- **PDF:** The 2 × 2 grid, kept on one page.
+- **Slides:** The 2 × 2 grid.
+- **Word:** A 2 × 2 table under a header row with the title; each cell starts with the quadrant's name.
+:::
+:::item[Accessibility]
+- Each quadrant is a group named by its visible name, so a screen reader says which quadrant a point is in.
+- The axes are written as text, never shown by position alone.
+:::
+:::item[Avoid]
+- A matrix of long paragraphs: keep each quadrant to a few points.
+- A quadrant left empty: say in it that nothing belongs there.
+- Two options weighed against each other: use ::::pros-cons per option or a `:::comparison`.
 :::
 ::::
 
@@ -903,10 +1213,10 @@ Content can be presented in different ways without losing information or structu
 
 :::table{caption="Quote: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `source` | Who or what is quoted. | no |
-| `cite` | Link to the source. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `source` | Source | Who or what is quoted. | no |
+| `cite` | Source link | Link to the source. | no |
 
 :::
 
@@ -956,11 +1266,11 @@ Bar, line and donut charts drawn from a table.
 
 :::table{caption="Cards: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `:::card label` | Card title. | yes |
-| `:::card href` | Where the card leads. | no |
-| `:::card badge` | A short label, such as "New". | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `:::card label` | Card title | Card title. | yes |
+| `:::card href` | Link | Where the card leads. | no |
+| `:::card badge` | Badge | A short label, such as "New". | no |
 
 :::
 
@@ -1050,7 +1360,7 @@ Two to four numbers with what they mean.
 
 ### Summary
 
-Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-assisted, reviewed by …" label.
+Key takeaways in a box, 3 to 5 points. source=ai marks a summary an AI wrote (like ai=generated), with reviewed-by for the person who checked it; the AI label shows only when the document turns it on (front matter ai, label: true).
 
 **Use it when:** Three to five key points a busy reader needs first: the top of a report, a proposal or a long page. Mark it source=ai when an AI wrote it, with the person who checked it.
 
@@ -1070,28 +1380,28 @@ Key takeaways in a box, 3 to 5 points. source=ai with reviewed-by shows an "AI-a
 
 :::table{caption="Summary: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `source` | Who wrote the summary: human (default) or ai. One of: `human`, `ai`. | no |
-| `reviewed-by` | Name of the person who checked an AI summary, optionally with the role (required with source=ai). | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `source` | Written by | Who wrote the summary: human (default) or ai. One of: `human`, `ai`. | no |
+| `reviewed-by` | Reviewed by | Name of the person who checked an AI summary, optionally with the role; lint reminds you when an AI summary names nobody. | no |
 
 :::
 
 ::::accordion
 :::item[In each output]
-- **Web:** A labelled box with the points and, for AI summaries, the AI label.
+- **Web:** A labelled box with the points; an AI summary shows the AI label when the document turns it on.
 - **PDF:** Kept on one page.
 - **Slides:** Its own slide when it comes before the first ## section; otherwise a box on its slide.
-- **Word:** Shaded panel with the title and a bulleted list; AI-assisted with the reviewer when source=ai.
+- **Word:** Shaded panel with the title and a bulleted list, and the AI label when the document turns it on.
 :::
 :::item[Accessibility]
 - A region named by its title, with a real list.
-- The AI label is text ("AI-assisted, reviewed by …"), not only a badge color.
+- The AI label is text ("AI-generated", "Reviewed and approved by …"), not only a badge color.
 :::
 :::item[Avoid]
 - More than 5 points: it stops being a summary.
 - Points that repeat the headings instead of the findings.
-- An AI summary nobody reviewed (reported).
+- An invented reviewer: name only the person who really checked it.
 :::
 ::::
 
@@ -1113,10 +1423,10 @@ It takes about ten minutes.
 
 :::table{caption="Call to action: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `href` | Where the action leads: an address, a file or #a-heading. | yes |
-| `variant` | primary for the main action (default), secondary for an alternative. One of: `primary`, `secondary`. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `href` | Link | Where the action leads: an address, a file or #a-heading. | yes |
+| `variant` | Emphasis | primary for the main action (default), secondary for an alternative. One of: `primary`, `secondary`. | no |
 
 :::
 
@@ -1220,11 +1530,11 @@ A short animated film without dialogue: a large rabbit enjoys a quiet day in the
 
 :::table{caption="Video: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `src` | A video file (mp4, webm) or a YouTube or Vimeo address. | yes |
-| `captions` | WebVTT captions for a video file (required for files). | no |
-| `poster` | Image shown before the video plays. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `src` | Video | A video file (mp4, webm) or a YouTube or Vimeo address. | yes |
+| `captions` | Captions | WebVTT captions for a video file (required for files). | no |
+| `poster` | Poster image | Image shown before the video plays. | no |
 
 :::
 
@@ -1242,6 +1552,50 @@ A short animated film without dialogue: a large rabbit enjoys a quiet day in the
 :::item[Avoid]
 - Autoplaying or looping video.
 - Video as the only way to get the information.
+:::
+::::
+
+### Download
+
+A link to a file with its format, size and, for a PDF, its pages, and an optional sentence about it. For a file next to the document the build works them out and copies the file with the outputs; a file on another site needs type and size.
+
+**Use it when:** A file readers take away: a report, a form, a template, a data set. The name says what it is, and the format, size and (for a PDF) pages tell readers what they are about to open.
+
+```markdown
+:::download[Annual report 2025]{href="https://example.org/annual-report-2025.pdf" type=PDF size="2.1 MB" pages=48}
+The full report with all tables.
+:::
+```
+
+:::download[Annual report 2025]{href="https://example.org/annual-report-2025.pdf" type=PDF size="2.1 MB" pages=48}
+The full report with all tables.
+:::
+
+:::table{caption="Download: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `href` | File | The file: a path next to the document (copied with the outputs) or a web address. | yes |
+| `type` | Format | The format readers know it by (PDF, Word, Excel, CSV ...). Worked out from the file name when left out; required for a web address. | no |
+| `size` | File size | The size as readers see it, such as 2.1 MB. Measured for a local file when left out; required for a web address. | no |
+| `pages` | Pages | The number of pages. Counted for a local PDF when left out. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** A link named by the file, with its format, size and pages in the link text, and the sentence after it.
+- **PDF:** Same; a web address is written out.
+- **Slides:** Same on its slide; a web address is written out.
+- **Word:** The name, format, size and pages as a link, then the sentence.
+:::
+:::item[Accessibility]
+- The format, size and pages are part of the link text, so a screen reader hears them with the name.
+- The name says what the file is, never "Download" or "Click here".
+:::
+:::item[Avoid]
+- A link to a large file with nothing that says it is a file, its format or its size.
+- A web address without type and size (reported): the build cannot measure a file on another site.
 :::
 ::::
 
@@ -1269,9 +1623,9 @@ A Markdown table with a caption.
 
 :::table{caption="Table: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `caption` | What the data shows. | yes |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `caption` | Caption | What the data shows. | yes |
 
 :::
 
@@ -1313,9 +1667,9 @@ Dates or periods with what happens, in order; each item starts with the date in 
 
 :::table{caption="Timeline: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `current` | The date of the current item, exactly as written in bold: current="2026-Q2". | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `current` | Current item | The date of the current item, exactly as written in bold: current="2026-Q2". | no |
 
 :::
 
@@ -1364,10 +1718,10 @@ A table of options against features with one column highlighted. Cells written y
 
 :::table{caption="Comparison table: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `highlight` | The heading of the recommended column, exactly as written: highlight=Team. That column gets a border and a visible "Recommended" badge, so do not write "recommended" yourself. | no |
-| `badge` | The badge text when the source says something else than "Recommended": badge="Most popular" (needs highlight). | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `highlight` | Recommended column | The heading of the recommended column, exactly as written: highlight=Team. That column gets a border and a visible "Recommended" badge, so do not write "recommended" yourself. | no |
+| `badge` | Badge text | The badge text when the source says something else than "Recommended": badge="Most popular" (needs highlight). | no |
 
 :::
 
@@ -1414,11 +1768,11 @@ A bar, line or donut chart drawn from a Markdown table; the table stays availabl
 
 :::table{caption="Chart: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `type` | Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: `bar`, `line`, `donut`. | yes |
-| `caption` | What the chart shows. | yes |
-| `unit` | Unit of the values, such as % or €. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `type` | Chart type | Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: `bar`, `line`, `donut`. | yes |
+| `caption` | Caption | What the chart shows. | yes |
+| `unit` | Unit | Unit of the values, such as % or €. | no |
 
 :::
 
@@ -1465,37 +1819,37 @@ Real LibKa components shown as they look (light, dark or both), for manuals, pro
 
 :::table{caption="UI specimen: attributes"}
 
-| Attribute | Meaning | Required |
-|---|---|---|
-| `caption` | What the specimen shows. | yes |
-| `theme` | Show it in the light theme, the dark theme or both side by side. One of: `light`, `dark`, `both`. | no |
-| `layout` | Components in a row (default) or stacked. One of: `row`, `stack`. | no |
-| `:::button label` | Button text, a verb: ::button[Save draft]. | yes |
-| `:::button variant` | Manual 10.1. One of: `primary`, `accent`, `iris`, `secondary`, `destructive`, `ghost`. | no |
-| `:::button state` | Manual 10.1 states. One of: `default`, `hover`, `focus`, `disabled`, `loading`. | no |
-| `:::field label` | Visible label: ::field[Email]. | yes |
-| `:::field type` | Kind of input. One of: `text`, `email`, `password`, `number`, `textarea`, `select`, `checkbox`, `radio`, `switch`. | no |
-| `:::field value` | Filled-in value (or the selected option). | no |
-| `:::field placeholder` | Example text; never instead of the label. | no |
-| `:::field hint` | Helper text under the field. | no |
-| `:::field error` | Error message: specific and recoverable. | no |
-| `:::field options` | Choices for select and radio, separated by \|. | no |
-| `:::field state` | Manual 10.2 states. One of: `default`, `hover`, `focus`, `disabled`, `readonly`. | no |
-| `:::field required` | Marks the field as required. | no |
-| `:::badge label` | Short status: ::badge[Beta]. | yes |
-| `:::badge variant` | Meaning. One of: `neutral`, `info`, `success`, `warning`, `error`, `ai`. | no |
-| `:::toast label` | The message title: ::toast[Draft saved]. | yes |
-| `:::toast variant` | Meaning. One of: `info`, `success`, `warning`, `error`. | no |
-| `:::toast text` | One sentence of detail. | no |
-| `:::toast action` | One action, such as Undo. | no |
-| `:::modal label` | Dialog title: ::modal[Delete the draft?]. | yes |
-| `:::modal text` | What happens, in one or two sentences. | yes |
-| `:::modal primary` | Label of the main action. | yes |
-| `:::modal secondary` | Label of the way out, such as Cancel. | no |
-| `:::modal destructive` | The main action removes something (red). | no |
-| `:::empty label` | Empty state title: ::empty[No projects yet]. | yes |
-| `:::empty text` | Why it is empty and what to do. | yes |
-| `:::empty action` | The one action that fills it. | no |
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `caption` | Caption | What the specimen shows. | yes |
+| `theme` | Theme | Show it in the light theme, the dark theme or both side by side. One of: `light`, `dark`, `both`. | no |
+| `layout` | Layout | Components in a row (default) or stacked. One of: `row`, `stack`. | no |
+| `:::button label` | Button text | Button text, a verb: ::button[Save draft]. | yes |
+| `:::button variant` | Variant | Manual 10.1. One of: `primary`, `accent`, `iris`, `secondary`, `destructive`, `ghost`. | no |
+| `:::button state` | State | Manual 10.1 states. One of: `default`, `hover`, `focus`, `disabled`, `loading`. | no |
+| `:::field label` | Label | Visible label: ::field[Email]. | yes |
+| `:::field type` | Input type | Kind of input. One of: `text`, `email`, `password`, `number`, `textarea`, `select`, `checkbox`, `radio`, `switch`. | no |
+| `:::field value` | Value | Filled-in value (or the selected option). | no |
+| `:::field placeholder` | Placeholder | Example text; never instead of the label. | no |
+| `:::field hint` | Hint | Helper text under the field. | no |
+| `:::field error` | Error message | Error message: specific and recoverable. | no |
+| `:::field options` | Options | Choices for select and radio, separated by \|. | no |
+| `:::field state` | State | Manual 10.2 states. One of: `default`, `hover`, `focus`, `disabled`, `readonly`. | no |
+| `:::field required` | Required | Marks the field as required. | no |
+| `:::badge label` | Text | Short status: ::badge[Beta]. | yes |
+| `:::badge variant` | Meaning | Meaning. One of: `neutral`, `info`, `success`, `warning`, `error`, `ai`. | no |
+| `:::toast label` | Title | The message title: ::toast[Draft saved]. | yes |
+| `:::toast variant` | Meaning | Meaning. One of: `info`, `success`, `warning`, `error`. | no |
+| `:::toast text` | Text | One sentence of detail. | no |
+| `:::toast action` | Action | One action, such as Undo. | no |
+| `:::modal label` | Title | Dialog title: ::modal[Delete the draft?]. | yes |
+| `:::modal text` | Text | What happens, in one or two sentences. | yes |
+| `:::modal primary` | Main action | Label of the main action. | yes |
+| `:::modal secondary` | Way out | Label of the way out, such as Cancel. | no |
+| `:::modal destructive` | Removes something | The main action removes something (red). | no |
+| `:::empty label` | Title | Empty state title: ::empty[No projects yet]. | yes |
+| `:::empty text` | Text | Why it is empty and what to do. | yes |
+| `:::empty action` | Action | The one action that fills it. | no |
 
 :::
 

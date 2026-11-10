@@ -43,12 +43,50 @@ export interface DocumentMeta {
   reviewed?: string;
   /** Next review due, YYYY-MM-DD (front matter "next-review"). */
   nextReview?: string;
+  /** Who wrote the document (front matter "author"), shown under the title or where :::byline stands. */
+  author?: Person[];
   /** Sources that [@id] citations point to (front matter "references"), in the author's order. */
   references?: Reference[];
   /** What the build makes (front matter "outputs"); absent means DEFAULT_OUTPUTS. */
   outputs?: OutputName[];
+  /** How AI took part in the document (front matter "ai"), as the author declares it; absent for content without AI. */
+  ai?: AiProvenance;
+  /** How the outputs write a YYYY-MM-DD date (front matter "date-format"); absent means DEFAULT_DATE_FORMAT. */
+  dateFormat?: DateFormat;
   lang: string;
 }
+
+/**
+ * How the outputs write a date the source gives as YYYY-MM-DD, in the document's language: long "28 October 2026" /
+ * "28. října 2026", short "28/10/2026" / "28. 10. 2026", iso "2026-10-28". The machine-readable date stays ISO.
+ */
+export const DATE_FORMATS = ['long', 'short', 'iso'] as const;
+export type DateFormat = (typeof DATE_FORMATS)[number];
+export const DEFAULT_DATE_FORMAT: DateFormat = 'long';
+
+/** How AI took part in a document: it helped with a person's text (assisted) or wrote it (generated). */
+export const AI_USES = ['ai-assisted', 'ai-generated'] as const;
+export type AiUse = (typeof AI_USES)[number];
+/** How AI took part in one block (the attribute ai=…). */
+export const AI_BLOCK_USES = ['generated', 'assisted'] as const;
+export type AiBlockUse = (typeof AI_BLOCK_USES)[number];
+/**
+ * The front matter "ai". Only `use` is required. `reviewedBy` is the person who checked the content and holds editorial
+ * responsibility for it (the exception in Article 50(4) of the EU AI Act); the rest is optional detail. The label is
+ * shown only when `label` is true: whether a document needs one is the author's call, not the tool's.
+ */
+export interface AiProvenance {
+  use: AiUse;
+  reviewedBy?: string;
+  approvedBy?: string;
+  tool?: string;
+  date?: string;
+  checked?: string[];
+  label?: boolean;
+}
+const AI_FIELDS = ['use', 'reviewed-by', 'approved-by', 'tool', 'date', 'checked', 'label'];
+/** Blocks LibKa itself fills in, which AI cannot have written: they take no ai attribute. */
+const AI_UNMARKABLE = ['toc', 'references', 'byline', 'doc-status'];
 
 /** The outputs a document can ask for: the web page, its A4 PDF, 16:9 slides, a Word file. */
 export const OUTPUTS = ['web', 'pdf', 'deck', 'docx'] as const;
@@ -57,6 +95,110 @@ export type OutputName = (typeof OUTPUTS)[number];
 export const DEFAULT_OUTPUTS: readonly OutputName[] = ['web', 'pdf'];
 /** The outputs a document asks for, in the canonical order. */
 export const outputsOf = (meta: Pick<DocumentMeta, 'outputs'>): OutputName[] => OUTPUTS.filter((o) => (meta.outputs ?? DEFAULT_OUTPUTS).includes(o));
+
+/** A person in the front matter "author": the name, and the role when it is given. */
+export interface Person {
+  name: string;
+  role?: string;
+}
+const PERSON_FIELDS = ['name', 'role'];
+/** File formats readers know by a name other than their extension. */
+const FORMATS: Readonly<Record<string, string>> = { doc: 'Word', docx: 'Word', xls: 'Excel', xlsx: 'Excel', ppt: 'PowerPoint', pptx: 'PowerPoint', jpeg: 'JPEG', jpg: 'JPEG', htm: 'HTML' };
+/** A file's format from its name: "report.pdf" → "PDF", "plan.xlsx" → "Excel"; none without an extension. */
+export function fileFormat(href: string): string | undefined {
+  const ext = /\.([a-z0-9]{1,8})$/i.exec(href.split(/[?#]/)[0]!)?.[1]?.toLowerCase();
+  return ext ? FORMATS[ext] ?? ext.toUpperCase() : undefined;
+}
+
+/** What a column of :::revisions holds, recognised by its heading. */
+export type RevisionColumn = 'version' | 'date' | 'change' | 'author' | 'approved';
+/** The headings each column is recognised by, in English and Czech (lower case, without a closing colon). */
+const REVISION_HEADINGS: Readonly<Record<RevisionColumn, RegExp>> = {
+  version: /^(version|revision|rev\.?|verze|revize)$/,
+  date: /^(date|effective date|datum|platnost od|účinnost od)$/,
+  change: /^(changes?|description|summary of changes|what changed|změn[ay]?|popis|popis změny|popis změn|obsah změny)$/,
+  author: /^(author|changed by|autor|zpracoval|zpracovala|zpracoval\(a\))$/,
+  approved: /^(approved by|approver|approval|schválil|schválila|schválil\(a\)|schválení|schvaluje)$/,
+};
+/** The column a heading of :::revisions names ("Approved by", "Schválil" → approved), or none. */
+export function revisionColumn(heading: string): RevisionColumn | undefined {
+  const h = heading.trim().replace(/:$/, '').replace(/\s+/g, ' ').toLowerCase();
+  return (Object.keys(REVISION_HEADINGS) as RevisionColumn[]).find((c) => REVISION_HEADINGS[c].test(h));
+}
+/** A block the author marked as AI's (ai=… or :::summary{source=ai}), the section it is in, and who reviewed it. */
+export interface AiMark { block: string; use: AiBlockUse; section: string; reviewedBy?: string }
+
+/** How AI took part in a block: its ai attribute, or an AI summary, which counts as generated. */
+export const aiUseOf = (b: Block): AiBlockUse | undefined => b.ai ?? (b.type === 'summary' && b.source === 'ai' ? 'generated' : undefined);
+
+/** Every block marked as AI's, at any depth, with its section; the reviewer is a summary's own, else the document's. */
+export function aiMarks(doc: LibkaDocument): AiMark[] {
+  const out: AiMark[] = [];
+  let section = doc.meta.title;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (!node || typeof node !== 'object') return;
+    const b = node as Block;
+    const use = typeof b.type === 'string' ? aiUseOf(b) : undefined;
+    if (use) {
+      const reviewedBy = (b.type === 'summary' ? b.reviewedBy : undefined) ?? doc.meta.ai?.reviewedBy;
+      out.push({ block: b.type, use, section, ...(reviewedBy ? { reviewedBy } : {}) });
+    }
+    for (const v of Object.values(node)) if (v && typeof v === 'object') walk(v);
+  };
+  for (const b of doc.blocks) {
+    if (b.type === 'heading') section = plainText(b.text);
+    else if (b.type === 'section' || b.type === 'decision') section = b.title;
+    else if (b.type === 'release') section = b.version;
+    walk(b);
+  }
+  return out;
+}
+
+/** Whether the document shows its AI label under the title: only when the author turns it on (ai: label: true). */
+export const aiLabelShown = (meta: Pick<DocumentMeta, 'ai'>): boolean => meta.ai?.label === true;
+
+/** Whether a block shows the AI badge: the label is on, and the block is AI-generated with nobody named who reviewed it. */
+export function aiBadge(b: Block, meta: Pick<DocumentMeta, 'ai'>): boolean {
+  const reviewed = (b.type === 'summary' && b.reviewedBy) || meta.ai?.reviewedBy;
+  return aiLabelShown(meta) && aiUseOf(b) === 'generated' && !reviewed;
+}
+
+/**
+ * Reminders for AI-generated content nobody is named as having reviewed, while the document shows no label. Never
+ * problems: whether a document informs the public on matters of public interest (EU AI Act, Article 50(4)) is for its
+ * author to judge.
+ */
+export function aiReminders(doc: LibkaDocument): string[] {
+  const ai = doc.meta.ai;
+  if (aiLabelShown(doc.meta)) return [];
+  const how = 'name who checked it and holds editorial responsibility (reviewed-by under ai), or show the label (label: true under ai); AI-generated text that informs the public on matters of public interest needs one or the other (EU AI Act, Article 50(4))';
+  if (ai?.use === 'ai-generated' && !ai.reviewedBy) return [`the document is marked ai-generated and names nobody who reviewed it: ${how}`];
+  return aiMarks(doc).filter((m) => m.use === 'generated' && !m.reviewedBy)
+    .map((m) => `${m.block === 'summary' ? 'the AI summary' : `:::${m.block}`} in "${m.section}" is marked as AI-generated and names nobody who reviewed it: ${how}`);
+}
+
+/** Two versions compared by their numbers (v1.2 < 1.10 < 2.0); undefined when either is not numbers and dots. */
+export function compareVersions(a: string, b: string): number | undefined {
+  const parse = (v: string) => /^v?(\d+(?:\.\d+)*)$/i.exec(v.trim())?.[1]?.split('.').map(Number);
+  const x = parse(a);
+  const y = parse(b);
+  if (!x || !y) return undefined;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+  return 0;
+}
+/** The rows of a revision history as plain text: each version, its date and who approved it (for the manifest). */
+export function revisionEntries(b: Extract<Block, { type: 'revisions' }>): { version: string; date: string; approvedBy?: string }[] {
+  const at = (c: RevisionColumn) => b.columns.indexOf(c);
+  const cell = (r: Inline[], i: number) => (i < 0 ? '' : plainText(r[i] ?? []).trim());
+  return b.rows.map((r) => {
+    const approvedBy = cell(r, at('approved'));
+    return { version: cell(r, at('version')), date: cell(r, at('date')), ...(approvedBy ? { approvedBy } : {}) };
+  });
+}
+
+/** A person as the outputs write them: "Ann Novak (Security lead)". */
+export const personText = (p: Person): string => (p.role ? `${p.name} (${p.role})` : p.name);
 
 /** One source in the front matter "references" list. */
 export interface Reference {
@@ -90,8 +232,14 @@ const ALERTS: Readonly<Record<string, CalloutVariant>> = { NOTE: 'note', TIP: 't
 export const isDeprecated = (status: string | undefined): boolean => /^(deprecated|obsolete|zastaral[ýéá])$/i.test(status?.trim() ?? '');
 /** The status fields a document can carry, as front matter keys and :::doc-status attributes. */
 const STATUS_KEYS = { status: 'status', owner: 'owner', reviewed: 'reviewed', 'next-review': 'nextReview' } as const;
+/** Front matter keys of a Marp deck (Marpit's directives, Marp Core's and Marp CLI's metadata) that LibKa does not use. */
+const MARP_KEYS: readonly string[] = ['marp', 'theme', 'style', 'headingDivider', 'math', 'size', 'paginate', 'header', 'footer', 'class',
+  'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize', 'color', 'transition', 'description', 'image', 'keywords', 'url'];
 
-export type Block =
+/** A block, with how AI took part in it when the author marked it (ai=generated or ai=assisted). */
+export type Block = BlockContent & { ai?: AiBlockUse };
+
+type BlockContent =
   | { type: 'heading'; level: 2 | 3 | 4; id: string; text: Inline }
   | { type: 'paragraph'; text: Inline }
   | { type: 'list'; ordered: boolean; start?: number; items: Block[][] }
@@ -101,10 +249,17 @@ export type Block =
   | { type: 'dl'; caption?: string; items: { term: string; body: Block[] }[] }
   /** The document's status fields, shown where the block stands (the values are also in the meta). */
   | { type: 'doc-status'; status?: string; owner?: string; reviewed?: string; nextReview?: string }
+  /** The authors from the front matter, shown where the block stands instead of under the title. */
+  | { type: 'byline'; author?: Person[] }
   /** A part divider: a level-2 heading that groups the ## sections after it. */
   | { type: 'section'; title: string; id: string; break: 'page' | 'none'; body: Block[] }
   | { type: 'summary'; title?: string; items: Inline[]; source: 'human' | 'ai'; reviewedBy?: string }
   | { type: 'cta'; label: string; href: string; variant: 'primary' | 'secondary'; text?: Inline }
+  /**
+   * A file to download: its format (the type attribute, else from the file name), its size as the author wrote it or
+   * in bytes as the build measured it, and a PDF's pages.
+   */
+  | { type: 'download'; label: string; href: string; format?: string; size?: string; bytes?: number; pages?: number; text?: Inline }
   /** Contents placed explicitly (resolved when rendering); replaces the manual's automatic contents. */
   | { type: 'toc'; title?: string; depth: 2 | 3;
       /** On slides only: the agenda entries this piece shows (set by the deck, so a long agenda can continue on the next slide). */
@@ -121,10 +276,14 @@ export type Block =
   | { type: 'code-group'; items: CodeBlock[] }
   /** One version of a changelog: a level-2 heading with typed groups in the Keep a Changelog order. */
   | { type: 'release'; version: string; id: string; date?: string; intro?: Block[]; groups: { kind: ReleaseKind; body: Block[] }[] }
+  /** A decision record: a level-2 heading with its status, date and who decided, the decision itself, then its parts. */
+  | { type: 'decision'; title: string; id: string; status: DecisionStatus; date?: string; by?: string; intro?: Block[]; parts: { kind: DecisionPart; body: Block[] }[] }
   /** `start` continues the numbering of a procedure split in parts (the list starts at "4."). */
   | { type: 'steps'; start?: number; steps: { title: Inline; body: Block[] }[] }
   | { type: 'checklist'; items: { done: boolean; text: Inline }[] }
   | { type: 'table'; caption: string; head: Inline[]; rows: Inline[][] }
+  /** The document's revision history: a table whose columns are recognised by their headings (`columns`, in order). */
+  | { type: 'revisions'; title?: string; columns: RevisionColumn[]; head: Inline[]; rows: Inline[][] }
   | { type: 'figure'; src: string; alt: string; caption: string }
   /** Speaker notes: shown only in decks (notes panel and presenter view), never in the manual. */
   | { type: 'notes'; body: Block[] }
@@ -133,6 +292,12 @@ export type Block =
   | { type: 'shortcuts'; caption: string; items: { keys: string[]; text: Inline }[] }
   | { type: 'glossary'; items: { term: string; id: string; body: Block[] }[] }
   | { type: 'compare'; items: { kind: 'do' | 'dont'; title: string; body: Block[] }[] }
+  /** One option weighed: the points for and against it, each side the items of one bulleted list. */
+  | { type: 'pros-cons'; title: string; pros: Block[][]; cons: Block[][] }
+  /** How a process runs: its stages in order, each the items of one list; a cycle starts again from the first. */
+  | { type: 'flow'; title: string; shape: 'linear' | 'cycle'; stages: Block[][] }
+  /** Four quadrants, read left to right, top row first; a SWOT's names are filled in by the renderer when the label is empty. */
+  | { type: 'matrix'; title: string; kind: 'swot' | 'grid'; x?: string; y?: string; quadrants: { label?: string; body: Block[] }[] }
   | { type: 'quote'; body: Block[]; source?: string; cite?: string }
   | { type: 'cards'; cards: { title: string; href?: string; badge?: string; body: Block[] }[] }
   | { type: 'statement'; text: Inline }
@@ -174,6 +339,11 @@ function comparisonCell(text: Inline): ComparisonCell {
 /** Keep a Changelog groups, in its order. */
 export const RELEASE_KINDS = ['added', 'changed', 'deprecated', 'removed', 'fixed', 'security'] as const;
 export type ReleaseKind = (typeof RELEASE_KINDS)[number];
+/** The parts of a decision record, in reading order. */
+export const DECISION_PARTS = ['context', 'options', 'consequences'] as const;
+export type DecisionPart = (typeof DECISION_PARTS)[number];
+export const DECISION_STATUSES = ['proposed', 'accepted', 'rejected', 'superseded'] as const;
+export type DecisionStatus = (typeof DECISION_STATUSES)[number];
 
 /** One component in a :::ui specimen (manual section 10). */
 export interface UiItem {
@@ -231,7 +401,8 @@ export type Fix =
   | { kind: 'wrap'; block: string; attributes?: Record<string, string> }
   | { kind: 'heading-level'; level: number }
   | { kind: 'list-type'; ordered: boolean }
-  | { kind: 'set-front-matter'; key: string; value: string | string[] };
+  | { kind: 'set-front-matter'; key: string; value: string | string[] }
+  | { kind: 'remove-front-matter'; keys: string[] };
 
 export interface Problem {
   line: number;
@@ -242,22 +413,30 @@ export interface Problem {
   fixes?: Fix[];
 }
 
+/** The number of single-letter edits between two words (Levenshtein). */
+function distance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0]!;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = row[j]!;
+      row[j] = Math.min(row[j]! + 1, row[j - 1]! + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+  }
+  return row[b.length]!;
+}
+
+/** The `n` options closest to `word`, nearest first (a message names a few instead of all of them). */
+export function closest(word: string, options: readonly string[], n = 3): string[] {
+  const w = word.toLowerCase();
+  return options.map((o, i) => ({ o, i, d: distance(w, o.toLowerCase()) })).sort((a, b) => a.d - b.d || a.i - b.i).slice(0, n).map((x) => x.o);
+}
+
 /** The closest of `options` to `word` when it is a likely misspelling (at most two edits, or a third of its length). */
 export function nearest(word: string, options: readonly string[]): string | undefined {
   const w = word.toLowerCase();
-  const distance = (a: string, b: string): number => {
-    const row = Array.from({ length: b.length + 1 }, (_, i) => i);
-    for (let i = 1; i <= a.length; i++) {
-      let prev = row[0]!;
-      row[0] = i;
-      for (let j = 1; j <= b.length; j++) {
-        const cur = row[j]!;
-        row[j] = Math.min(row[j]! + 1, row[j - 1]! + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-        prev = cur;
-      }
-    }
-    return row[b.length]!;
-  };
   let best: string | undefined;
   let bestD = Infinity;
   for (const o of options) {
@@ -270,6 +449,14 @@ export function nearest(word: string, options: readonly string[]): string | unde
 export interface ParseResult {
   document: LibkaDocument;
   problems: Problem[];
+  /** Advice, not problems: what the source holds that no output shows. The build goes on. */
+  hints: Hint[];
+}
+
+/** A piece of advice on a line of the source; unlike a problem, it never stops a build. */
+export interface Hint {
+  line: number;
+  message: string;
 }
 
 // Directive nodes added by remark-directive (typed locally to keep the public types small).
@@ -305,12 +492,14 @@ export function parse(markdown: string): ParseResult {
     .parse(markdown) as Root;
   literalTextDirectives(tree, markdown);
   literalImageAlt(tree, markdown);
+  const hidden = unshown(tree);
   dropInlineComments(tree);
   const definitions = footnoteDefinitions(tree, problems);
   const ids = new Set<string>();
 
   // ---- front matter ----
   const meta: DocumentMeta = { title: '', lang: 'en' };
+  let marp = false;
   const fm = tree.children.find((n) => n.type === 'yaml');
   if (fm && 'value' in fm) {
     try {
@@ -321,13 +510,38 @@ export function parse(markdown: string): ParseResult {
       for (const [key, field] of Object.entries(STATUS_KEYS)) {
         if (data[key] !== undefined && data[key] !== null) meta[field] = String(data[key]);
       }
+      if (data.author !== undefined && data.author !== null) {
+        const author = people(data.author, line(fm), problems);
+        if (author.length) meta.author = author;
+      }
       if (data.references !== undefined && data.references !== null) meta.references = references(data.references, line(fm), problems);
       if (data.outputs !== undefined) {
         const list = outputList(data.outputs, line(fm), problems);
         if (list) meta.outputs = list;
       }
-      const known = ['title', 'subtitle', 'version', 'date', 'lang', 'references', 'outputs', ...Object.keys(STATUS_KEYS)];
-      const unknown = Object.keys(data).filter((k) => !known.includes(k));
+      if (data.ai !== undefined && data.ai !== null) {
+        const ai = aiProvenance(data.ai, line(fm), problems);
+        if (ai) meta.ai = ai;
+      }
+      if (data['date-format'] !== undefined && data['date-format'] !== null) {
+        const value = String(data['date-format']).trim().toLowerCase();
+        if ((DATE_FORMATS as readonly string[]).includes(value)) meta.dateFormat = value as DateFormat;
+        else {
+          const near = nearest(value, DATE_FORMATS);
+          problems.push({ code: 'date-format-unknown', line: line(fm), message: `unknown date-format "${data['date-format']}"${near ? ` (did you mean ${near}?)` : ''}: long (28 October 2026), short (28/10/2026) or iso (2026-10-28); without it dates are long`,
+            ...(near ? { fixes: [{ kind: 'set-front-matter' as const, key: 'date-format', value: near }] } : {}) });
+        }
+      }
+      const known = ['title', 'subtitle', 'version', 'date', 'date-format', 'lang', 'author', 'references', 'outputs', 'ai', ...Object.keys(STATUS_KEYS)];
+      let unknown = Object.keys(data).filter((k) => !known.includes(k));
+      // a Marp deck: its keys do nothing here, and the author learns where LibKa's slides come from
+      if (data.marp === true || data.marp === 'true') {
+        marp = true;
+        const keys = unknown.filter((k) => MARP_KEYS.includes(k));
+        unknown = unknown.filter((k) => !MARP_KEYS.includes(k));
+        problems.push({ code: 'marp-file', line: line(fm), message: `this looks like a Marp deck (marp: true): LibKa makes slides from ## and ### headings, not from --- rules, and comments are not speaker notes (write :::notes); Marp's keys do nothing here: ${keys.join(', ')}`,
+          fixes: [{ kind: 'remove-front-matter', keys }] });
+      }
       if (unknown.length) {
         const named = unknown.map((k) => { const near = nearest(k, known); return near ? `${k} (did you mean ${near}?)` : k; });
         problems.push({ code: 'front-matter-unknown-key', line: line(fm), message: `unknown front matter keys: ${named.join(', ')} (known: ${known.join(', ')})` });
@@ -347,7 +561,12 @@ export function parse(markdown: string): ParseResult {
   }
   if (!meta.title) problems.push({ code: 'missing-title', line: 1, message: 'the document needs a title (front matter "title" or a "# Heading")', fixes: [{ kind: 'field', target: 'document:title' }] });
 
-  const blocks = convert(body, problems, ids);
+  // the top-level blocks remember the line they start on (sourceLine), for an editor that links an output to its source
+  const blocks: Block[] = [];
+  for (const node of body) {
+    const b = convertOne(node, problems, ids);
+    if (b) { LINES.set(b, line(node)); blocks.push(b); }
+  }
   headingOrder(body, problems);
   const notes = definitions.map((d) => {
     const out = convert(d.children as Content[], problems, ids);
@@ -360,18 +579,32 @@ export function parse(markdown: string): ParseResult {
   citations([blocks, footnotes], meta, problems, fm ? line(fm) : 1);
   checkFrame(blocks, meta, problems, fm ? line(fm) : 1);
   checkAnchors(blocks, ids, problems);
-  return { document: { meta, blocks, ...(footnotes.length ? { footnotes } : {}) }, problems };
+  const hints: Hint[] = [
+    ...hidden.rules.map((at) => ({ line: at, message: 'a horizontal rule (---) shows in no output: sections and slides start at ## and ### headings; delete it, or start a section here' })),
+    // a comment is a note for editors, but in a Marp deck it was a speaker note or a directive
+    ...(marp ? hidden.comments.map((at) => ({ line: at, message: 'a comment shows in no output, and is not a speaker note: write the notes in :::notes under the heading of their slide' })) : []),
+  ].sort((a, b) => a.line - b.line);
+  return { document: { meta, blocks, ...(footnotes.length ? { footnotes } : {}) }, problems, hints };
 }
 
 /**
  * Headings go down one level at a time (the title, then ##, ###, ####): a skipped level breaks the outline readers
- * navigate by, and fails PDF/UA's heading order (ISO 14289-1 7.4.2) in the PDF. Part dividers and releases are
- * ## headings themselves.
+ * navigate by, and fails PDF/UA's heading order (ISO 14289-1 7.4.2) in the PDF. Part dividers, releases,
+ * decisions and the revision history are ## headings themselves; the revision history's comes from its brackets,
+ * so a heading of the author's own right above it would say the same twice.
  */
 function headingOrder(body: readonly RootContent[], problems: Problem[]): void {
   let previous = 1;
+  body.forEach((node, i) => {
+    const before = body[i - 1];
+    if (node.type === 'containerDirective' && node.name === 'revisions' && before?.type === 'heading' && before.depth >= 2) {
+      const text = plainText(before.children).trim();
+      problems.push({ code: 'revisions-heading', line: line(before),
+        message: `remove the heading "${'#'.repeat(before.depth)} ${text}" above :::revisions: the block makes its own heading; write the title in its brackets (:::revisions[${text}])` });
+    }
+  });
   for (const node of body) {
-    if (node.type === 'containerDirective' && (node.name === 'section' || node.name === 'release')) { previous = 2; continue; }
+    if (node.type === 'containerDirective' && ['section', 'release', 'decision', 'revisions'].includes(node.name)) { previous = 2; continue; }
     if (node.type !== 'heading' || node.depth < 2) continue;
     const depth = Math.min(node.depth, 4);
     if (depth > previous + 1) {
@@ -528,6 +761,64 @@ function outputList(value: unknown, at: number, problems: Problem[]): OutputName
   return OUTPUTS.filter((o) => names.includes(o));
 }
 
+/** The front matter "ai": the use alone (ai: ai-generated), or the use with who reviewed it and optional detail. */
+function aiProvenance(value: unknown, at: number, problems: Problem[]): AiProvenance | undefined {
+  const example = 'ai: ai-generated, or\nai:\n  use: ai-generated\n  reviewed-by: Ann Novak';
+  const bad = (message: string) => { problems.push({ code: 'ai-invalid', line: at, message }); return undefined; };
+  const use = (v: unknown) => (AI_USES as readonly string[]).includes(String(v)) ? String(v) as AiUse : undefined;
+  if (typeof value === 'string') return use(value) ? { use: use(value)! } : bad(`ai must be ai-assisted or ai-generated (found "${value}"):\n${example}`);
+  if (typeof value !== 'object' || Array.isArray(value)) return bad(`ai must be ai-assisted or ai-generated, or a list of fields:\n${example}`);
+  const v = value as Record<string, unknown>;
+  const extra = Object.keys(v).filter((k) => !AI_FIELDS.includes(k));
+  if (extra.length) problems.push({ code: 'ai-invalid', line: at, message: `ai has unknown fields: ${extra.join(', ')} (known: ${AI_FIELDS.join(', ')})` });
+  if (!use(v.use)) return bad(`ai needs its use, ai-assisted or ai-generated${v.use === undefined ? '' : ` (found "${String(v.use)}")`}:\n${example}`);
+  // YAML may read an unquoted date as a date
+  const text = (k: string) => { const x = v[k]; return x instanceof Date ? x.toISOString().slice(0, 10) : x === undefined || x === null ? undefined : String(x).trim() || undefined; };
+  const out: AiProvenance = { use: use(v.use)! };
+  for (const [key, field] of [['reviewed-by', 'reviewedBy'], ['approved-by', 'approvedBy'], ['tool', 'tool'], ['date', 'date']] as const) {
+    const t = text(key);
+    if (t) out[field] = t;
+  }
+  if (out.date && !isIsoDate(out.date)) problems.push({ code: 'ai-invalid', line: at, message: `the ai date must be written YYYY-MM-DD (found "${out.date}")` });
+  if (v.checked !== undefined && v.checked !== null) {
+    const list = (Array.isArray(v.checked) ? v.checked : [v.checked]).map((x) => String(x).trim()).filter(Boolean);
+    if (list.length) out.checked = list;
+  }
+  if (v.label !== undefined && v.label !== null) {
+    if (typeof v.label === 'boolean') out.label = v.label;
+    else problems.push({ code: 'ai-invalid', line: at, message: `the ai label is true (show it under the title) or false (found "${String(v.label)}")` });
+  }
+  return out;
+}
+
+/** The front matter "author": a name, a person with a name and a role, or a list of either. */
+function people(value: unknown, at: number, problems: Problem[]): Person[] {
+  const example = 'author:\n  - name: Ann Novak\n    role: Security lead\n  - name: Petr Svoboda';
+  const out: Person[] = [];
+  const list = Array.isArray(value) ? value : [value];
+  list.forEach((raw, i) => {
+    const where = list.length > 1 ? `author ${i + 1}` : 'author';
+    if (typeof raw === 'string' || typeof raw === 'number') {
+      if (String(raw).trim()) out.push({ name: String(raw).trim() });
+      else problems.push({ code: 'author-invalid', line: at, message: `${where} is empty: write a name, for example:\n${example}` });
+      return;
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      problems.push({ code: 'author-invalid', line: at, message: `${where} must be a name, or a name with a role:\n${example}` });
+      return;
+    }
+    const p = raw as Record<string, unknown>;
+    const text = (k: string) => (p[k] === undefined || p[k] === null ? undefined : String(p[k]).trim() || undefined);
+    const extra = Object.keys(p).filter((k) => !PERSON_FIELDS.includes(k));
+    if (extra.length) problems.push({ code: 'author-invalid', line: at, message: `${where} has unknown fields: ${extra.join(', ')} (known: ${PERSON_FIELDS.join(', ')})` });
+    const name = text('name');
+    const role = text('role');
+    if (!name) { problems.push({ code: 'author-invalid', line: at, message: `${where} needs a name:\n${example}` }); return; }
+    out.push({ name, ...(role ? { role } : {}) });
+  });
+  return out;
+}
+
 function references(value: unknown, at: number, problems: Problem[]): Reference[] {
   const example = 'references:\n  - id: wcag22\n    title: Web Content Accessibility Guidelines 2.2\n    author: W3C\n    year: 2023';
   if (!Array.isArray(value)) {
@@ -570,21 +861,27 @@ function references(value: unknown, at: number, problems: Problem[]): Reference[
 /** Block lines for checks that run after parsing (the model itself carries no positions). */
 const blockLines = new WeakMap<object, number>();
 
-/** Frame blocks: :::doc-status and :::section stand at the top level, and the status fields agree. */
+/** Frame blocks: :::doc-status, :::byline, :::revisions and :::section stand at the top level, and the status fields agree. */
 function checkFrame(blocks: Block[], meta: DocumentMeta, problems: Problem[], fmLine: number): void {
   const nested = (value: unknown, top: boolean): void => {
     if (Array.isArray(value)) { value.forEach((v) => nested(v, top)); return; }
     if (!value || typeof value !== 'object') return;
     const b = value as { type?: string };
-    if (!top && ['doc-status', 'section', 'toc', 'references', 'release'].includes(b.type ?? '')) {
+    if (!top && ['doc-status', 'byline', 'section', 'toc', 'references', 'release', 'decision', 'revisions'].includes(b.type ?? '')) {
       problems.push({ code: 'block-not-top-level', line: blockLines.get(b) ?? 0, message: `:::${b.type} cannot be inside another block: put it at the top level of the document` });
     }
     for (const v of Object.values(value)) if (v && typeof v === 'object') nested(v, false);
   };
   for (const b of blocks) for (const v of Object.values(b)) if (v && typeof v === 'object') nested(v, false);
-  for (const type of ['doc-status', 'toc', 'references'] as const) {
+  for (const type of ['doc-status', 'byline', 'toc', 'references', 'revisions'] as const) {
     const all = blocks.filter((b) => b.type === type);
     if (all.length > 1) problems.push({ code: 'block-twice', line: blockLines.get(all[1]!) ?? 0, message: `only one :::${type} per document` });
+  }
+  const byline = blocks.find((b): b is Extract<Block, { type: 'byline' }> => b.type === 'byline');
+  if (byline && meta.author) byline.author = meta.author;
+  else if (byline) {
+    problems.push({ code: 'byline-empty', line: blockLines.get(byline) ?? 0, message: ':::byline has nobody to show: add author to the front matter (author: Ann Novak, or a list with name and role)',
+      fixes: [{ kind: 'field', target: 'document:author' }] });
   }
   const refs = blocks.find((b) => b.type === 'references');
   if (refs && !meta.references?.length) {
@@ -653,15 +950,27 @@ function dropInlineComments(node: { type?: string; children?: unknown[] }): void
   for (const c of node.children) dropInlineComments(c as { children?: unknown[] });
 }
 
+/** The lines of the horizontal rules (---, *** or ___) and the comments in the source: no output shows them. */
+type Unshown = { type?: string; value?: unknown; children?: unknown[]; position?: { start: { line: number } } | undefined };
+function unshown(node: Unshown, found: { rules: number[]; comments: number[] } = { rules: [], comments: [] }) {
+  if (node.type === 'thematicBreak') found.rules.push(line(node));
+  if (node.type === 'html' && isComment(String(node.value))) found.comments.push(line(node));
+  for (const c of node.children ?? []) unshown(c as Unshown, found);
+  return found;
+}
+
+/** The inline directives LibKa knows; each is read only with a label (":kbd[Ctrl+K]"). */
+export const INLINE_DIRECTIVES = ['kbd', 'badge'];
+
 /**
  * remark-directive reads ":name" inside text as a directive, so "16:9" or "10:30" would lose ":9" and
- * ":30". LibKa has no inline directives: put the original source text back.
+ * ":30". Every other ":name" than the inline directives LibKa knows: put the original source text back.
  */
-function literalTextDirectives(node: { children?: unknown[] }, markdown: string): void {
+export function literalTextDirectives(node: { children?: unknown[] }, markdown: string): void {
   if (!node.children) return;
   node.children = node.children.map((child) => {
     const c = child as { type: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: unknown[] };
-    const known = c.type === 'textDirective' && ['kbd', 'badge'].includes((c as { name?: string }).name ?? '') && c.children?.length;
+    const known = c.type === 'textDirective' && INLINE_DIRECTIVES.includes((c as { name?: string }).name ?? '') && c.children?.length;
     if (c.type === 'textDirective' && !known && c.position?.start.offset !== undefined && c.position.end.offset !== undefined) {
       return { type: 'text', value: markdown.slice(c.position.start.offset, c.position.end.offset), position: c.position };
     }
@@ -706,6 +1015,13 @@ function unclosedInline(children: readonly unknown[]): string | undefined {
   }
   return undefined;
 }
+
+const LINES = new WeakMap<Block, number>();
+/**
+ * The source line a block of the document's top level starts on, as `parse` read it (undefined for a nested block
+ * or one made elsewhere). LibKa Studio marks its own render with it; the build does not use it.
+ */
+export function sourceLine(b: Block): number | undefined { return LINES.get(b); }
 
 function convert(nodes: readonly (Content | RootContent)[], problems: Problem[], ids: Set<string>): Block[] {
   const out: Block[] = [];
@@ -777,6 +1093,8 @@ function convertOne(node: Content | RootContent, problems: Problem[], ids: Set<s
     case 'textDirective' as never: {
       const b = directive(node as unknown as DirectiveNode, problems, ids);
       if (b) blockLines.set(b, line(node));
+      const ai = (node as unknown as DirectiveNode).attributes?.ai;
+      if (b && !AI_UNMARKABLE.includes(b.type) && (AI_BLOCK_USES as readonly string[]).includes(ai ?? '')) b.ai = ai as AiBlockUse;
       return b;
     }
     case 'definition':
@@ -859,10 +1177,19 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
   }
   if (node.type !== 'containerDirective' || !def || !DIRECTIVES.includes(node.name)) {
     const like = node.type === 'containerDirective' ? nearest(node.name, DIRECTIVES) : undefined;
-    problems.push({ code: 'block-unknown', line: line(node), message: `unknown block "${node.name}" (known: :::${DIRECTIVES.join(', :::')})`, ...(like ? { fixes: [{ kind: 'rename-block', to: like }] } : {}) });
+    // the nearest names, not all forty: a likely misspelling by its fix, otherwise the three closest blocks
+    const message = like ? `unknown block "${node.name}": did you mean :::${like}?`
+      : `unknown block "${node.name}"; the closest LibKa blocks are :::${closest(node.name, DIRECTIVES).join(', :::')}`;
+    problems.push({ code: 'block-unknown', line: line(node), message, ...(like ? { fixes: [{ kind: 'rename-block', to: like }] } : {}) });
     return null;
   }
-  const extra = Object.keys(attrs).filter((a) => !(a in (def.attributes ?? {})));
+  // ai=generated or ai=assisted marks any block AI took part in, except those LibKa fills in itself
+  const markable = !AI_UNMARKABLE.includes(node.name);
+  if (markable && typeof attrs.ai === 'string' && !(AI_BLOCK_USES as readonly string[]).includes(attrs.ai)) {
+    const to = nearest(attrs.ai, AI_BLOCK_USES);
+    problems.push({ code: 'invalid-value', line: line(node), message: `ai must be one of ${AI_BLOCK_USES.join(', ')} (:::${node.name})`, fixes: [...(to ? [{ kind: 'set-attribute' as const, name: 'ai', value: to }] : []), { kind: 'field', target: 'attribute:ai' }] });
+  }
+  const extra = Object.keys(attrs).filter((a) => !(a in (def.attributes ?? {})) && !(a === 'ai' && markable));
   if (extra.length) problems.push({ code: 'unknown-attribute', line: line(node), message: `:::${node.name} has unknown attributes: ${extra.join(', ')}`, fixes: extra.map((x): Fix => { const to = nearest(x, Object.keys(def.attributes ?? {}).filter((k) => !(k in attrs))); return to ? { kind: 'rename-attribute', from: x, to } : { kind: 'remove-attribute', name: x }; }) });
   for (const [name, spec] of Object.entries(def.attributes ?? {})) {
     const value = attrs[name];
@@ -974,6 +1301,90 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
         rows: rows.map((r) => r.children.map((c, i) => (i === 0 ? { text: c.children } : comparisonCell(c.children)))),
       };
     }
+    case 'decision': {
+      const title = label.trim();
+      if (!title) problems.push({ code: 'decision-title', line: line(node), message: 'a decision needs a title that states it: ::::decision[Store documents in PostgreSQL]{status=accepted date=2026-10-01 by="Architecture board"}', fixes: [{ kind: 'field', target: 'label' }] });
+      const status = (DECISION_STATUSES as readonly string[]).includes(attrs.status ?? '') ? attrs.status as DecisionStatus : 'proposed';
+      const date = attrs.date?.trim();
+      const by = attrs.by?.trim();
+      if (date && !isIsoDate(date)) problems.push({ code: 'decision-date-format', line: line(node), message: `a decision date must be written YYYY-MM-DD (found "${date}")`, fixes: [{ kind: 'field', target: 'attribute:date' }] });
+      // a decision that was taken says when and by whom; a proposal may say neither yet
+      const missing = status === 'proposed' ? [] : [...(date ? [] : ['date']), ...(by ? [] : ['by'])];
+      if (missing.length) problems.push({ code: 'decision-decided', line: line(node), message: `a decision with status ${status} needs ${missing.map((m) => (m === 'date' ? 'its date (date=YYYY-MM-DD)' : 'who decided (by="...")')).join(' and ')}`, fixes: missing.map((m) => ({ kind: 'field' as const, target: `attribute:${m}` })) });
+      const found: { kind: DecisionPart; body: Block[] }[] = [];
+      const intro: Block[] = [];
+      for (const c of children) {
+        const d = c as unknown as DirectiveNode;
+        // the decision itself, in a sentence or two, may come before the parts
+        if (!found.length && c.type === 'paragraph') {
+          const b = convertOne(c, problems, ids);
+          if (b) intro.push(b);
+          continue;
+        }
+        if (c.type === 'heading') {
+          // the colons are right; a heading never goes inside (a long decision continues on the next slide by itself)
+          problems.push({ code: 'decision-content', line: line(c), message: '::::decision holds no headings: its parts have their own; the slides continue a long decision by themselves, so put the heading after the decision\'s closing ::::' });
+        } else if (d.type !== 'containerDirective' || !DECISION_PARTS.includes(d.name as DecisionPart)) {
+          problems.push({ code: 'decision-content', line: line(c), message: `::::decision holds only ${DECISION_PARTS.map((k) => `:::${k}`).join(', ')}, after an optional sentence that states the decision (use one more colon on the outer block: ::::decision)` });
+          continue;
+        }
+        if (Object.keys(d.attributes ?? {}).length || d.children.some((x) => x.data?.directiveLabel)) {
+          problems.push({ code: 'decision-part-attributes', line: line(d), message: `:::${d.name} takes no label or attributes: the part's name is written for you` });
+        }
+        if (found.some((p) => p.kind === d.name)) problems.push({ code: 'decision-part-twice', line: line(d), message: `:::${d.name} appears twice in the decision: put it all in one part` });
+        const out = body(d.children.filter((x) => !x.data?.directiveLabel) as Content[], `:::${d.name}`);
+        if (!out.length) problems.push({ code: 'decision-part-empty', line: line(d), message: `:::${d.name} is empty: write ${d.name === 'context' ? 'why a decision was needed' : d.name === 'options' ? 'the options that were considered' : 'what follows from the decision'}` });
+        found.push({ kind: d.name as DecisionPart, body: out });
+      }
+      if (!found.some((p) => p.kind === 'context')) problems.push({ code: 'decision-context', line: line(node), message: 'a decision needs its :::context: why the decision was needed' });
+      found.sort((a, b) => DECISION_PARTS.indexOf(a.kind) - DECISION_PARTS.indexOf(b.kind));
+      return { type: 'decision', title, id: slug(title, ids), status, ...(date ? { date } : {}), ...(by ? { by } : {}), ...(intro.length ? { intro } : {}), parts: found };
+    }
+    case 'revisions': {
+      const table = children.find((c) => c.type === 'table') as Table | undefined;
+      if (!table || children.length !== 1) {
+        problems.push({ code: 'revisions-table', line: line(node), message: ':::revisions must contain exactly one Markdown table: | Version | Date | Change | Approved by |' });
+        return null;
+      }
+      const [head, ...rows] = table.children;
+      const headCells = (head?.children ?? []).map((c) => c.children);
+      const columns = headCells.map((c) => revisionColumn(plainText(c)));
+      const known = 'Version, Date, Change, Author, Approved by (Verze, Datum, Změna, Autor, Schválil or Schválení)';
+      headCells.forEach((c, i) => {
+        const name = plainText(c).trim();
+        if (!columns[i]) problems.push({ code: 'revisions-column', line: line(head!), message: `:::revisions has no column "${name}": its columns are ${known}` });
+        else if (columns.indexOf(columns[i]) < i) problems.push({ code: 'revisions-column', line: line(head!), message: `:::revisions has the ${columns[i]} column twice ("${name}")` });
+      });
+      const missing = (['version', 'date', 'change'] as const).filter((c) => !columns.includes(c));
+      if (missing.length) problems.push({ code: 'revisions-column', line: line(head ?? node), message: `:::revisions needs the columns version, date and change (missing: ${missing.join(', ')})` });
+      if (!rows.length) problems.push({ code: 'revisions-rows', line: line(node), message: ':::revisions needs at least one row: the version, its date and what changed' });
+      const at = (c: RevisionColumn) => columns.indexOf(c);
+      const text = (r: (typeof rows)[number], i: number) => (i < 0 ? '' : plainText(r.children[i]?.children ?? []).trim());
+      const seen = new Set<string>();
+      let dir = 0;   // 1 oldest first, -1 newest first, 0 not known yet
+      let lastDate = '';
+      let lastVersion = '';
+      for (const r of rows) {
+        const version = text(r, at('version'));
+        const date = text(r, at('date'));
+        const empty = (['version', 'date', 'change'] as const).filter((c) => at(c) >= 0 && !text(r, at(c)));
+        if (empty.length) problems.push({ code: 'revisions-cell', line: line(r), message: `every revision needs its ${empty.join(', ')}` });
+        if (date && !isIsoDate(date)) problems.push({ code: 'revisions-date', line: line(r), message: `a revision date must be written YYYY-MM-DD (found "${date}")` });
+        if (version && seen.has(version.toLowerCase())) problems.push({ code: 'revisions-duplicate', line: line(r), message: `version ${version} appears twice in :::revisions` });
+        if (version) seen.add(version.toLowerCase());
+        // one order for the whole table, newest first or oldest first: the dates never go back, the versions always move on
+        const byDate = lastDate && isIsoDate(date) ? Math.sign(date.localeCompare(lastDate)) : 0;
+        const byVersion = lastVersion && version ? Math.sign(compareVersions(version, lastVersion) ?? 0) : 0;
+        if (!dir) dir = byDate || byVersion;
+        if ((byDate && byDate !== dir) || (byVersion && byVersion !== dir)) {
+          problems.push({ code: 'revisions-order', line: line(r), message: `version ${version} (${date}) is out of order: list the revisions newest first or oldest first, by date and version` });
+        }
+        if (isIsoDate(date)) lastDate = date;
+        if (version) lastVersion = version;
+      }
+      return { type: 'revisions', ...(label.trim() ? { title: label.trim() } : {}), columns: columns.map((c) => c ?? 'change'),
+        head: headCells, rows: rows.map((r) => r.children.map((c) => c.children)) };
+    }
     case 'release': {
       const version = label.trim();
       if (!version) problems.push({ code: 'release-version', line: line(node), message: 'a release needs its version: ::::release[v1.4.0]{date=2026-10-01}' });
@@ -1030,7 +1441,7 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
       if (items.length < 3 || items.length > 5) problems.push({ code: 'summary-count', line: line(node), message: `:::summary has 3 to 5 points (found ${items.length})` });
       const source = (attrs.source ?? 'human') as 'human' | 'ai';
       const reviewedBy = attrs['reviewed-by']?.trim();
-      if (source === 'ai' && !reviewedBy) problems.push({ code: 'summary-reviewer', line: line(node), message: 'an AI-written summary needs the person who checked it: :::summary{source=ai reviewed-by="Name"}', fixes: [{ kind: 'field', target: 'attribute:reviewed-by' }] });
+      // an AI summary without its reviewer is a reminder (aiReminders), not a problem: the author decides
       if (source !== 'ai' && reviewedBy) problems.push({ code: 'summary-reviewed-by', line: line(node), message: 'reviewed-by is shown only for AI summaries: add source=ai or remove it',
         fixes: [{ kind: 'set-attribute', name: 'source', value: 'ai' }, { kind: 'remove-attribute', name: 'reviewed-by' }] });
       return { type: 'summary', ...(label.trim() ? { title: label.trim() } : {}), items, source, ...(reviewedBy ? { reviewedBy } : {}) };
@@ -1041,6 +1452,9 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
       for (const [key, field] of Object.entries(STATUS_KEYS)) if (attrs[key]?.trim()) out[field] = attrs[key]!.trim();
       return out;
     }
+    case 'byline':
+      if (children.length) problems.push({ code: 'byline-content', line: line(node), message: ':::byline has no content: write the authors in the front matter (author), then close it with :::' });
+      return { type: 'byline' };
     case 'section': {
       if (!label.trim()) problems.push({ code: 'section-title', line: line(node), message: 'a section divider needs a title: :::section[Part 2: Results]', fixes: [{ kind: 'field', target: 'label' }] });
       const out = body(children, ':::section');
@@ -1067,6 +1481,26 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
       if (children.length > 1 || (children[0] && children[0].type !== 'paragraph')) problems.push({ code: 'cta-content', line: line(node), message: ':::cta holds at most one short sentence before the action' });
       const p = children[0]?.type === 'paragraph' ? children[0] : undefined;
       return { type: 'cta', label: text, href, variant: (attrs.variant ?? 'primary') as 'primary' | 'secondary', ...(p ? { text: p.children } : {}) };
+    }
+    case 'download': {
+      const href = (attrs.href ?? '').trim();
+      const text = label.trim();
+      if (!text) problems.push({ code: 'download-label', line: line(node), message: 'a download needs a name that says what the file is: :::download[Annual report 2025]{href=report.pdf}', fixes: [{ kind: 'field', target: 'label' }] });
+      if (href && /^(javascript|data|vbscript):/i.test(href)) problems.push({ code: 'download-href', line: line(node), message: `href "${href}" is not allowed: use the file's path or its web address` });
+      const format = attrs.type?.trim() || fileFormat(href);
+      const size = attrs.size?.trim();
+      // a file on another site cannot be measured: its format and size are the author's to write
+      if (/^https?:/i.test(href) && (!attrs.type?.trim() || !size)) {
+        problems.push({ code: 'download-remote', line: line(node), message: `a file on another site needs its type and size, which the build cannot measure: :::download[${text || 'Name'}]{href="${href}" type=PDF size="2.1 MB"}` });
+      }
+      const pages = attrs.pages?.trim();
+      if (pages && !/^[1-9]\d*$/.test(pages)) problems.push({ code: 'download-pages', line: line(node), message: `pages must be a whole number of pages (found "${pages}")` });
+      if (children.length > 1 || (children[0] && children[0].type !== 'paragraph')) problems.push({ code: 'download-content', line: line(node), message: ':::download holds at most one short sentence about the file' });
+      const p = children[0]?.type === 'paragraph' ? children[0] : undefined;
+      return {
+        type: 'download', label: text, href, ...(format ? { format } : {}), ...(size ? { size } : {}),
+        ...(pages && /^[1-9]\d*$/.test(pages) ? { pages: Number(pages) } : {}), ...(p ? { text: p.children } : {}),
+      };
     }
     case 'callout': {
       const variant = (attrs.variant ?? 'info') as CalloutVariant;
@@ -1133,6 +1567,67 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
         problems.push({ code: 'compare-pair', line: line(node), message: '::::compare needs at least one :::do and one :::dont, so the better way is always shown' });
       }
       return { type: 'compare', items };
+    }
+    case 'pros-cons': {
+      const title = label.trim();
+      if (!title) problems.push({ code: 'pros-cons-title', line: line(node), message: 'pros and cons need the option they weigh as the label: ::::pros-cons[Work from home]', fixes: [{ kind: 'field', target: 'label' }] });
+      const sides: { pros?: Block[][]; cons?: Block[][] } = {};
+      const seen = new Set<string>();
+      for (const c of children) {
+        const d = c as unknown as DirectiveNode;
+        if (d.type !== 'containerDirective' || (d.name !== 'pros' && d.name !== 'cons')) {
+          problems.push({ code: 'pros-cons-content', line: line(c), message: '::::pros-cons holds only :::pros and :::cons (use one more colon on the outer block: ::::pros-cons)' });
+          continue;
+        }
+        if (Object.keys(d.attributes ?? {}).length || d.children.some((x) => x.data?.directiveLabel)) {
+          problems.push({ code: 'pros-cons-part-attributes', line: line(d), message: `:::${d.name} takes no label or attributes: the word "${d.name === 'pros' ? 'Pros' : 'Cons'}" is written for you` });
+        }
+        if (seen.has(d.name)) problems.push({ code: 'pros-cons-twice', line: line(d), message: `:::${d.name} appears twice: put all the points in one list` });
+        seen.add(d.name);
+        const inner = d.children.filter((x) => !x.data?.directiveLabel) as Content[];
+        const list = inner[0];
+        if (inner.length !== 1 || list?.type !== 'list' || list.ordered) {
+          problems.push({ code: 'pros-cons-list', line: line(d), message: `:::${d.name} holds one bulleted list, a point per item` });
+          continue;
+        }
+        sides[d.name] ??= list.children.map((i) => convert(i.children, problems, ids));
+      }
+      const missing = (['pros', 'cons'] as const).filter((k) => !seen.has(k));
+      if (missing.length) problems.push({ code: 'pros-cons-pair', line: line(node), message: `::::pros-cons needs ${missing.map((k) => `:::${k}`).join(' and ')}: weigh both sides, and say in the text when one side has nothing` });
+      return { type: 'pros-cons', title, pros: sides.pros ?? [], cons: sides.cons ?? [] };
+    }
+    case 'flow': {
+      const title = label.trim();
+      if (!title) problems.push({ code: 'flow-title', line: line(node), message: 'a process needs its name as the label: :::flow[How a request runs]', fixes: [{ kind: 'field', target: 'label' }] });
+      const list = onlyList('1. a stage per item');
+      if (!list) return null;
+      const stages = list.children.map((i) => convert(i.children, problems, ids));
+      if (stages.length < 2 || stages.length > 6) problems.push({ code: 'flow-count', line: line(node), message: `:::flow shows 2 to 6 stages (found ${stages.length}); for more stages or branches use a \`\`\`mermaid diagram` });
+      return { type: 'flow', title, shape: attrs.shape === 'cycle' ? 'cycle' : 'linear', stages };
+    }
+    case 'matrix': {
+      const title = label.trim();
+      if (!title) problems.push({ code: 'matrix-title', line: line(node), message: 'a matrix needs its title as the label: ::::matrix[SWOT: the new product]{type=swot}', fixes: [{ kind: 'field', target: 'label' }] });
+      const kind = attrs.type === 'swot' ? 'swot' : 'grid';
+      const x = attrs.x?.trim(), y = attrs.y?.trim();
+      if (kind === 'swot' && (x || y)) problems.push({ code: 'matrix-axes', line: line(node), message: 'a SWOT has no axes: remove x= and y=, or use type=grid', fixes: [...(x !== undefined ? [{ kind: 'remove-attribute' as const, name: 'x' }] : []), ...(y !== undefined ? [{ kind: 'remove-attribute' as const, name: 'y' }] : [])] });
+      const quadrants: { label?: string; body: Block[] }[] = [];
+      for (const c of children) {
+        const d = c as unknown as DirectiveNode;
+        if (d.type !== 'containerDirective' || d.name !== 'q') {
+          problems.push({ code: 'matrix-content', line: line(c), message: '::::matrix holds only four :::q quadrants (use one more colon on the outer block: ::::matrix)' });
+          continue;
+        }
+        if (Object.keys(d.attributes ?? {}).length) problems.push({ code: 'matrix-q-attributes', line: line(d), message: ':::q takes no attributes, only its name: :::q[Quick wins]' });
+        const ln = d.children.find((x) => x.data?.directiveLabel);
+        const name = ln && 'children' in ln ? plainText(ln.children as Content[]).trim() : '';
+        if (!name && kind === 'grid') problems.push({ code: 'matrix-q-label', line: line(d), message: 'each quadrant of a grid needs its name: :::q[Quick wins] (only a SWOT fills in its names)', fixes: [{ kind: 'field', target: 'label' }] });
+        const qbody = body(d.children.filter((x) => !x.data?.directiveLabel) as Content[], ':::q');
+        if (!qbody.length) problems.push({ code: 'matrix-q-empty', line: line(d), message: 'a quadrant needs its points: a short list or a sentence (say so when nothing belongs there)' });
+        quadrants.push({ ...(name ? { label: name } : {}), body: qbody });
+      }
+      if (quadrants.length !== 4) problems.push({ code: 'matrix-quadrants', line: line(node), message: `::::matrix needs exactly four :::q quadrants, found ${quadrants.length}` });
+      return { type: 'matrix', title, kind, ...(kind === 'grid' && x ? { x } : {}), ...(kind === 'grid' && y ? { y } : {}), quadrants };
     }
     case 'cards': {
       const cards = parts(['card']).map((p) => {

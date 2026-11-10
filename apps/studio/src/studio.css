@@ -15,7 +15,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 #app { display: grid; grid-template-rows: auto 1fr auto; height: 100dvh; min-height: 0; }
-.st-workspace { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+.st-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
 button, input, textarea, summary { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--lk-focus-ring); outline-offset: 2px; }
 [hidden] { display: none !important; }
@@ -35,16 +35,29 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-brand { display: flex; align-items: center; gap: 10px; flex: none; }
 .st-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--lk-aqua-500); box-shadow: 0 0 18px color-mix(in srgb, var(--lk-aqua-500) 55%, transparent); }
 .st-brand-name { font-family: var(--lk-font-brand); font-weight: 650; font-size: 1.125rem; letter-spacing: -.01em; }
-.st-doc { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; padding-left: 16px; border-left: 1px solid var(--lk-border-default); }
+.st-doc { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; padding-left: 16px; border-left: 1px solid var(--lk-border-default); }
 /* when the bar is short of room (tablets), the file name gives way first, then the saving state; the title last */
 .st-doc-title { flex: 0 1 auto; min-width: 6em; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-doc-file { flex: 0 1000 auto; min-width: 0; color: var(--lk-text-secondary); font: 400 .75rem/1.4 var(--lk-font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-doc-save { flex: 0 100 auto; min-width: 0; color: var(--lk-text-secondary); font-size: .8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-doc-save[data-state="failed"] { flex-shrink: 0; color: var(--lk-text-error); font-weight: 600; }   /* a failure never gives way */
+/* the document's area is a container: where it is tight, "Saved in this browser" gives way to "✓ Saved" before the
+   title is cut (the whole sentence stays for screen readers and in the tooltip) */
+.st-doc { container: st-doc / inline-size; }
+.st-save-short { display: none; }
+@container st-doc (max-width: 400px) {
+  /* the file name goes first (Document ▾ → Rename… shows it), never as a stray letter or two */
+  .st-doc-file { display: none; }
+  .st-doc-save--fits { flex-shrink: 0; }
+  .st-doc-save--fits .st-save-short { display: inline; }
+  .st-doc-save--fits .st-save-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* tighter still (a Czech bar at 1280 px and below): the check mark alone */
+@container st-doc (max-width: 200px) { .st-save-word { display: none; } }
 .st-library-toggle[aria-pressed="true"] { background: var(--lk-bg-elevated); border-color: var(--lk-text-primary); }
 .st-top-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 
-.st-btn, .st-icon-btn, .st-seg button, .st-blocks button, .st-menu-list button, .st-mobile-tabs button {
+.st-btn, .st-icon-btn, .st-seg button, .st-menu-list button, .st-mobile-tabs button {
   display: inline-flex; align-items: center; gap: 6px;
   min-height: 34px; padding: 0 12px;
   border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-sm);
@@ -52,7 +65,7 @@ button, input, textarea, summary { font: inherit; color: inherit; }
   cursor: pointer; white-space: nowrap;
   transition: background var(--lk-duration-fast) var(--lk-ease-standard), border-color var(--lk-duration-fast) var(--lk-ease-standard);
 }
-.st-btn:hover, .st-icon-btn:hover, .st-seg button:hover, .st-blocks button:hover, .st-menu-list button:hover { background: var(--lk-bg-elevated); }
+.st-btn:hover, .st-icon-btn:hover, .st-seg button:hover, .st-menu-list button:hover { background: var(--lk-bg-elevated); }
 .st-btn--primary { background: var(--lk-action-primary); color: var(--lk-bg-surface); border-color: var(--lk-action-primary); font-weight: 600; }
 .st-btn--primary:hover { background: var(--lk-action-primary); opacity: .9; }
 .st-btn--danger { background: var(--lk-action-destructive); color: var(--lk-action-on-destructive); border-color: var(--lk-action-destructive); font-weight: 600; }
@@ -75,6 +88,13 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-status[data-state="ready"] .st-status-icon { background: var(--lk-status-success); }
 .st-status[data-state="fix"] { color: var(--lk-text-error); border-color: var(--lk-status-error); }
 .st-status[data-state="fix"] .st-status-icon { background: var(--lk-status-error); }
+/* a long readiness gives way below 1440 px ("Připraveno k publikaci" → „Připraveno“), so the document's title keeps its
+   room; the whole text stays the button's name */
+.st-status-short { display: none; }
+@media (max-width: 1439px) {
+  .st-status-short { display: inline; }
+  .st-status-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .st-status[data-state="checking"] .st-status-icon { animation: st-pulse 1s var(--lk-ease-soft) infinite alternate; }
 @keyframes st-pulse { to { opacity: .25; } }
 
@@ -89,6 +109,21 @@ button, input, textarea, summary { font: inherit; color: inherit; }
   box-shadow: var(--lk-shadow-3);
 }
 .st-menu-list button { border: 0; justify-content: flex-start; width: 100%; }
+/* a command's keys at the end of its row (Save now … Ctrl+S) */
+.st-menu-keys { margin-left: auto; padding-left: 16px; font-size: .75rem; color: var(--lk-text-secondary); }
+/* View ▾: toggles show their state with a tick; the language as two pressed buttons */
+.st-menu-list .st-toggle::after { content: ""; margin-left: auto; width: 6px; height: 11px; border-right: 2px solid transparent; border-bottom: 2px solid transparent; transform: translateY(-2px) rotate(45deg); }
+.st-menu-list .st-toggle[aria-pressed="true"]::after { border-color: var(--lk-text-accent); }
+.st-menu-list .st-toggle[aria-pressed="true"] { font-weight: 600; }
+.st-view-list { min-width: 240px; }
+.st-menu-label { margin: 6px 12px 4px; font-size: .75rem; font-weight: 600; color: var(--lk-text-secondary); }
+.st-menu-list .st-view-lang { margin: 0 8px 4px; display: flex; }
+.st-menu-list .st-view-lang button { flex: 1; justify-content: center; width: auto; border-radius: 0; }
+.st-menu-list .st-view-lang button + button { border-left: 1px solid var(--lk-border-strong); }
+.st-menu-list .st-view-lang button[aria-pressed="true"] { background: var(--lk-action-primary); color: var(--lk-bg-surface); }
+/* (the widths kept compact: the menu stays narrow enough to leave the editor's toolbar under it reachable) */
+.st-menu-list .st-view-width button { padding: 0 8px; }
+.st-about-facts { margin: 0; padding-left: 1.2em; font-family: var(--lk-font-mono); font-size: .8125rem; }
 .st-menu-list hr { border: 0; border-top: 1px solid var(--lk-border-default); margin: 6px 4px; width: auto; }
 .st-outputs { display: grid; gap: 2px; margin: 0; padding: 4px 10px 6px; border: 0; min-width: 0; }
 .st-outputs legend { padding: 0 0 4px; font-size: .75rem; font-weight: 600; color: var(--lk-text-secondary); }
@@ -96,15 +131,47 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-outputs input { width: 18px; height: 18px; margin: 0; accent-color: var(--lk-action-accent-strong); }
 .st-outputs-note { margin: 4px 0 0; max-width: 220px; font-size: .75rem; color: var(--lk-text-secondary); }
 
-/* ---- workspace ---- */
-.st-mobile-tabs { display: none; }
-.st-work {
-  display: grid;
-  grid-template-columns: minmax(340px, 1fr) minmax(420px, 1.3fr) minmax(300px, 360px);
-  min-height: 0;
+/* ---- the mode switch (Psaní, Bloky, Fokus) and Document ▾ ---- */
+.st-layout { display: inline-flex; flex: none; gap: 2px; padding: 3px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-full); background: var(--lk-bg-canvas); }
+.st-layout button {
+  min-height: 30px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--lk-radius-full);
+  background: none; color: var(--lk-text-secondary); font-weight: 500; white-space: nowrap; cursor: pointer;
 }
-.st-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--lk-border-default); }
-.st-pane:last-child { border-right: 0; }
+.st-layout button:hover { color: var(--lk-text-primary); background: var(--lk-bg-elevated); }
+/* the chosen mode: raised, bolder and outlined (not by colour alone) */
+.st-layout button[aria-pressed="true"] { background: var(--lk-bg-surface); color: var(--lk-text-primary); border-color: var(--lk-border-strong); font-weight: 650; box-shadow: var(--lk-shadow-1); }
+.st-doc-menu { flex: 0 1 auto; min-width: 6em; margin-left: -8px; }
+.st-doc-summary { display: flex; align-items: center; gap: 2px; min-height: 34px; max-width: 100%; padding: 0 8px; border-radius: var(--lk-radius-sm); cursor: pointer; }
+.st-doc-summary:hover { background: var(--lk-bg-elevated); }
+.st-doc-summary .st-doc-title { min-width: 0; }
+.st-doc-menu > .st-doc-summary { width: max-content; }
+.st-menu-list.st-doc-list { left: 0; right: auto; min-width: 220px; }
+
+/* ---- workspace: the rail, the left pane, the editor (main), the splitter and the companion ---- */
+.st-mobile-tabs { display: none; }
+.st-work { display: flex; min-height: 0; min-width: 0; }
+.st-main { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 0; }
+.st-main:focus { outline: none; }
+.st-editor-pane { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.st-rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 48px; padding: 8px 0; background: var(--lk-bg-surface); border-right: 1px solid var(--lk-border-default); }
+.st-rail--right { border-right: 0; border-left: 1px solid var(--lk-border-default); }
+.st-rail-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid transparent; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-secondary); cursor: pointer; }
+.st-rail-btn:hover { background: var(--lk-bg-elevated); color: var(--lk-text-primary); }
+.st-rail-btn[aria-pressed="true"] { background: var(--lk-bg-elevated); color: var(--lk-text-primary); border-color: var(--lk-border-strong); box-shadow: inset 3px 0 0 var(--lk-action-accent-strong); }
+.st-side { display: flex; flex-direction: column; flex: none; min-width: 0; min-height: 0; background: var(--lk-bg-surface); }
+.st-side--left { width: 260px; border-right: 1px solid var(--lk-border-default); }
+.st-side--companion { width: 400px; border-left: 1px solid var(--lk-border-default); }   /* the width is set by the layout (a generated rule) */
+.st-side-head { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--lk-border-default); }
+/* (the tabs wrap when the pane is narrow, never cut off) */
+.st-side-head .st-tabs { flex: 1; min-width: 0; min-height: 52px; padding: 8px 0 0; border-bottom: 0; }
+.st-side-head .st-tabs button { padding: 8px 6px 10px; }
+.st-side-close { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-secondary); cursor: pointer; }
+.st-side-close:hover { background: var(--lk-bg-elevated); color: var(--lk-text-primary); border-color: var(--lk-border-default); }
+/* the divider: a 12 px handle over the companion's edge (the editor's scroll bar stays free), a line when hovered or focused */
+.st-splitter { position: relative; z-index: 2; flex: none; width: 12px; margin-right: -12px; cursor: col-resize; touch-action: none; }
+.st-splitter::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: transparent; }
+.st-splitter:hover::before, .st-splitter:focus-visible::before { background: var(--lk-action-accent-strong); }
+.st-splitter:focus-visible { outline-offset: -3px; }
 .st-pane-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   min-height: 52px; padding: 8px 12px 8px 16px;
@@ -112,18 +179,6 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 }
 .st-pane-title { margin: 0; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
 
-.st-blocks { display: flex; flex-wrap: wrap; gap: 4px; }
-.st-blocks button { min-height: 30px; padding: 0 8px; font-size: .8125rem; border-color: var(--lk-border-default); }
-.st-more { position: relative; }
-.st-more-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 8px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); font-size: .8125rem; cursor: pointer; list-style: none; }
-.st-more-toggle::-webkit-details-marker { display: none; }
-.st-more-toggle span[aria-hidden] { color: var(--lk-text-accent); font-family: var(--lk-font-mono); font-weight: 600; }
-.st-more-list { left: 0; right: auto; width: min(420px, 80vw); max-height: 60vh; overflow: auto; gap: 2px; }
-.st-more-group { margin: 8px 8px 2px; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
-.st-menu-list .st-more-item { display: grid; gap: 2px; justify-items: start; text-align: left; white-space: normal; padding: 6px 10px; min-height: 44px; }
-.st-more-title { font-weight: 600; }
-.st-more-summary { font-size: .75rem; color: var(--lk-text-secondary); }
-.st-blocks button span[aria-hidden] { color: var(--lk-text-accent); font-family: var(--lk-font-mono); font-weight: 600; }
 
 /* editor: CodeMirror fills the pane and scrolls itself */
 .st-editor { position: relative; flex: 1; min-height: 0; background: var(--lk-bg-surface); }
@@ -160,8 +215,15 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-editor .cm-panel.cm-search [name="close"] { color: var(--lk-text-primary); }
 .st-editor .cm-searchMatch { background: color-mix(in srgb, var(--lk-aqua-500) 25%, transparent); outline: 1px solid var(--lk-aqua-500); }
 
-/* preview stage */
-.st-preview-pane { background: var(--lk-bg-elevated); }
+/* the Preview tab: the outputs' buttons, then the stage with its own scroll */
+.st-tabpanel[data-panel="preview"] { display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--lk-bg-elevated); }
+.st-preview { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.st-preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--lk-bg-surface); border-bottom: 1px solid var(--lk-border-default); }
+#preview-present { margin-left: auto; }
+/* Present: the deck fills the Studio's window (full screen when the browser allows), above everything else */
+.st-present { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--lk-bg-canvas, var(--lk-bg-elevated)); }
+.st-present::backdrop { background: var(--lk-bg-elevated); }
+.st-present iframe { display: block; width: 100%; height: 100%; border: 0; }
 .st-hc-note { margin: 0; padding: 8px 16px; font-size: .8125rem; background: var(--lk-bg-surface); border-bottom: 1px solid var(--lk-border-default); color: var(--lk-text-secondary); }
 .st-stage {
   position: relative; flex: 1; min-height: 0; overflow: auto;
@@ -182,8 +244,7 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 /* diagrams, charts and UI specimens are drawn here for the Word file, at the width the build draws them */
 #docx-frame { width: 1000px; height: 800px; }
 
-/* checks panel */
-.st-panel { background: var(--lk-bg-surface); }
+/* the panes' tabs, and the Checks tab's two lists */
 .st-tabs { display: flex; flex-wrap: wrap; gap: 0 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--lk-border-default); min-height: 52px; align-items: end; }
 .st-tabs button {
   display: inline-flex; align-items: center; gap: 6px;
@@ -195,6 +256,30 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-count[data-tone="error"] { color: var(--lk-text-error); box-shadow: inset 0 0 0 1.5px var(--lk-status-error); }
 .st-count[data-tone="ok"] { color: var(--lk-text-success); box-shadow: inset 0 0 0 1.5px var(--lk-status-success); }
 .st-tabpanel { flex: 1; overflow: auto; padding: 12px; }
+/* Checks: the filters and the count, then the items by place, then the checks' numbers under Details */
+.st-checks-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
+.st-checks-sum { margin: 0; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.st-checks-running { font-weight: 400; color: var(--lk-text-secondary); font-size: .8125rem; }
+.st-checks-here { margin: -4px 4px 10px; font-size: .8125rem; color: var(--lk-text-secondary); }
+.st-checks-group + .st-checks-group { margin-top: 14px; }
+.st-checks-place { margin: 0 4px 6px; font-size: .8125rem; font-weight: 650; color: var(--lk-text-primary); }
+.st-item-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.st-item-kind { font-family: var(--lk-font-ui); font-weight: 650; color: var(--lk-text-error); }
+.st-item-tags { font-family: var(--lk-font-ui); color: var(--lk-text-secondary); }
+/* advice: an outlined edge, not the error colour (it never counts, never stops anything) */
+.st-item-row[data-kind="advice"] .st-item { border-left-color: var(--lk-border-strong); border-left-style: dashed; }
+.st-item-row[data-kind="advice"] .st-item-where, .st-item-row[data-kind="advice"] .st-item-kind { color: var(--lk-text-secondary); }
+.st-showpreview { justify-self: start; }
+.st-checks-details { margin-top: 20px; }
+.st-out { border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md); margin-bottom: 8px; }
+.st-out > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-height: 40px; padding: 6px 12px; cursor: pointer; }
+.st-out > summary::marker { color: var(--lk-text-secondary); }
+.st-out-name { font-weight: 650; }
+.st-out-sum { font-size: .8125rem; color: var(--lk-text-error); }
+.st-out-sum[data-ok="true"] { color: var(--lk-text-success); }
+.st-out .st-check { margin: 0 8px 8px; }
+.st-insp-checks { margin: 0 0 8px; font-weight: 600; }
+.st-outline-all { margin: 0 4px 10px; }
 .st-empty { margin: 8px 4px; color: var(--lk-text-secondary); }
 .st-empty--ok::before { content: "✓ "; color: var(--lk-text-success); font-weight: 700; }
 
@@ -321,44 +406,64 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 }
 
 /* ---- narrower screens ---- */
-@media (max-width: 1279px) {
-  /* room for the document's title: the icon buttons show their icons (their names stay their accessible names) */
-  .st-icon-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .st-work { grid-template-columns: 1fr 1.2fr; grid-template-rows: 1fr minmax(180px, 34%); }
-  .st-panel { grid-column: 1 / -1; border-top: 1px solid var(--lk-border-default); border-right: 0; }
-  .st-preview-pane { border-right: 0; }
-}
 .st-help-glyph { display: none; }
-@media (max-width: 899px) {
+@media (max-width: 1279px) {
+  /* room for the document's title: the icon buttons show their icons (their names stay their accessible names), the
+     library and Help theirs too */
+  .st-icon-btn span, .st-library-toggle span, .st-help-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .st-help-glyph { display: inline; font-weight: 700; }
-  /* row 1: brand, the library, Help and File; row 2: status and view controls */
-  .st-top { display: grid; grid-template-columns: repeat(4, max-content) 1fr; gap: 8px; }
-  .st-top-actions { display: contents; }
-  .st-brand { grid-column: 1 / -1; grid-row: 1; }
-  .st-library-toggle { grid-column: 1 / -1; grid-row: 1; justify-self: end; margin-right: 150px; }
-  .st-library-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .st-menu { grid-column: 1 / -1; grid-row: 1; justify-self: end; }   /* shares row 1 with the brand */
-  #help-menu { margin-right: 92px; }   /* Help, as "?", left of File */
-  .st-help-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .st-doc { display: none; }
-  .st-icon-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .st-mobile-tabs { display: flex; gap: 4px; padding: 6px 8px; background: var(--lk-bg-surface); border-bottom: 1px solid var(--lk-border-default); }
-  .st-mobile-tabs button { flex: 1; justify-content: center; }
-  .st-mobile-tabs button[aria-pressed="true"] { background: var(--lk-action-primary); color: var(--lk-bg-surface); border-color: var(--lk-action-primary); }
+  .st-top { gap: 12px; }
+  .st-layout button { padding: 0 11px; }
+  .st-side--left { width: 236px; }
+  /* View ▾ stays narrow (no Split here); a list that would leave a control a sliver moves aside (Menu.tsx, 2.5.8) */
+  .st-view-list { width: 214px; min-width: 0; }
+  .st-view-list button { white-space: normal; text-align: left; }
+  .st-menu-list .st-view-lang button { min-width: 0; padding: 0 6px; text-align: center; }
+}
+@media (max-width: 899px) {
+  /* one app-bar row: the Studio's dot, the readiness chip, Documents and ⋯ (the rest of the bar, one section under
+     another, with the status bar's line and word count at the top) */
+  .st-top--phone { gap: 8px; min-height: 56px; padding: 6px 8px 6px 14px; }
+  .st-top--phone .st-brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .st-top--phone .st-status { margin-left: auto; min-height: 44px; min-width: 0; }
+  .st-top--phone .st-library-toggle, .st-more-summary { min-width: 44px; min-height: 44px; justify-content: center; padding: 0 10px; }
+  .st-more-summary::after { display: none; }
+  .st-more-glyph::before { content: "⋯"; font-size: 1.375rem; font-weight: 700; line-height: 1; }
+  .st-more-list { position: fixed; top: 60px; left: 8px; right: 8px; max-height: calc(100dvh - 68px); overflow: auto; overscroll-behavior: contain; }
+  .st-more-list button { min-height: 44px; }
+  .st-more-status { margin: 6px 12px 4px; font: 400 .75rem/1.4 var(--lk-font-mono); color: var(--lk-text-secondary); }
+  .st-more-modes { display: grid; }
+  .st-more-list .st-outputs { margin: 0 8px 4px; }
+  /* the regions in a bar at the bottom, within thumb reach: a row of the layout (never over the text, WCAG 2.4.11),
+     48 px targets with an icon and a name, clear of the home-gesture area; hidden while the on-screen keyboard is open */
+  .st-phone-bar { display: flex; gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: var(--lk-bg-surface); border-top: 1px solid var(--lk-border-default); }
+  .st-phone-bar button {
+    flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; min-height: 52px; padding: 4px 2px;
+    border: 0; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-secondary); font-size: .75rem; font-weight: 600;
+  }
+  .st-phone-bar button:hover { background: var(--lk-bg-elevated); }
+  /* the region shown: raised, its name in the text colour, a bar above it (not by colour alone) */
+  .st-phone-bar button[aria-pressed="true"] { background: var(--lk-bg-elevated); color: var(--lk-text-primary); box-shadow: inset 0 3px 0 var(--lk-action-accent-strong); }
+  .st-phone-label { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+  .st-phone-bar .st-count { font-size: .6875rem; }
+  /* one region at a time, the whole screen: the editor, the companion or the left pane */
   .st-work { display: block; position: relative; min-height: 0; }
-  .st-work > .st-pane { position: absolute; inset: 0; border: 0; visibility: hidden; }
-  .st-work[data-pane="write"] > .st-editor-pane,
-  .st-work[data-pane="preview"] > .st-preview-pane,
-  .st-work[data-pane="checks"] > .st-panel { visibility: visible; }
-  .st-statusbar #sb-tokens, .st-statusbar #sb-axe, .st-statusbar #sb-blocks, .st-statusbar #sb-build { display: none; }
+  .st-work > .st-main, .st-work > .st-side { position: absolute; inset: 0; width: auto; border: 0; visibility: hidden; }
+  .st-rail, .st-splitter { display: none; }
+  .st-work[data-pane="write"] > .st-main,
+  .st-work[data-focus="true"] > .st-main,
+  .st-work[data-pane="companion"]:not([data-focus="true"]) > .st-side--companion,
+  .st-work[data-pane="left"]:not([data-focus="true"]) > .st-side--left { visibility: visible; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
-/* the narrowest phones (WCAG 1.4.10 asks for 320 px): the name gives way to its dot, the check status takes a row of
-   its own and the view settings the next */
+/* the narrowest phones (WCAG 1.4.10 asks for 320 px): the name gives way to its dot */
 @media (max-width: 400px) {
   .st-brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .st-top { grid-template-columns: repeat(3, max-content) 1fr; }
-  .st-status { grid-column: 1 / -1; justify-self: start; }
+}
+@media (forced-colors: active) {
+  .st-layout button[aria-pressed="true"], .st-rail-btn[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  .st-splitter::before { background: CanvasText; width: 1px; }
+  .st-phone-bar button[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
 }

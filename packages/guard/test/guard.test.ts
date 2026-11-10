@@ -153,6 +153,14 @@ describe('signed manifest', () => {
     expect(verifyHtml(signed).trusted).toBe(false);
   });
 
+  it('signs the declared authors and revision history with the rest', () => {
+    const revisions = [{ version: '1.1', date: '2026-09-15', approvedBy: 'Ann Novak' }, { version: '1.0', date: '2026-03-01' }];
+    const m = buildManifest({ sourceName: 'guide.md', source: '# T', tokensVersion: '1.6.0', html, report, axe: AXE_VERSION, key, author: [{ name: 'Ann Novak' }], revisions });
+    expect(m).toMatchObject({ author: [{ name: 'Ann Novak' }], revisions });
+    expect(verifyHtml(embedManifest(html, m), [key.fingerprint])).toMatchObject({ ok: true, trusted: true });
+    expect(manifest.revisions).toBeUndefined();
+  });
+
   it('detects a changed page', () => {
     const v = verifyHtml(signed.replace('Hello', 'Hello!'));
     expect(v.ok).toBe(false);

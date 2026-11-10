@@ -52,25 +52,25 @@ describe.skipIf(!chrome)('LibKa Studio onboarding', () => {
     await page.waitForFunction(() => document.activeElement?.id === 'st-tour-title');
     expect(await page.getAttribute('#st-tour', 'role')).toBe('dialog');
     const seen: [string, string | null][] = [];
-    for (let i = 0; i < 9; i++) {
-      await page.waitForFunction((n) => document.querySelector('.st-tour-count')?.textContent === `Step ${n} of 9`, i + 1);
+    for (let i = 0; i < 10; i++) {
+      await page.waitForFunction((n) => document.querySelector('.st-tour-count')?.textContent === `Step ${n} of 10`, i + 1);
       await page.waitForFunction(() => document.activeElement?.id === 'st-tour-title');
       seen.push([await page.textContent('#st-tour-title') ?? '', await page.evaluate(() => {
         const el = document.querySelector('.st-tour-target');
         return el ? (el.id || el.classList[0]!) : null;
       })]);
-      if (i < 8) {
+      if (i < 9) {
         // Tab goes through the step's buttons in reading order; the primary one moves on
         await page.locator('#st-tour .st-btn--primary').focus();
         await page.keyboard.press('Enter');
       }
     }
     expect(seen).toEqual([
-      ['Welcome to LibKa Studio', null], ['Three ways to edit', 'st-seg'], ['Write here', 'editor'], ['Blocks', 'st-blocks'],
-      ['Preview', 'st-pane'], ['Problems, checks and properties', 'st-tabs'], ['Ready to publish', 'status-chip'], ['Export', 'file-menu'], ['Find anything', null],
+      ['Welcome to LibKa Studio', null], ['Modes', 'st-layout'], ['Ways to edit', 'st-seg'], ['Write here', 'editor'], ['Blocks', 'insert-block'],
+      ['Preview', 'stage'], ['Preview, checks and properties', 'st-side-head'], ['Ready to publish', 'status-chip'], ['Export', 'export-menu'], ['Find anything', null],
     ]);
     await page.locator('#st-tour button', { hasText: 'Back' }).click();
-    await page.waitForFunction(() => document.querySelector('.st-tour-count')?.textContent === 'Step 8 of 9');
+    await page.waitForFunction(() => document.querySelector('.st-tour-count')?.textContent === 'Step 9 of 10');
     await page.waitForFunction(() => document.activeElement?.id === 'st-tour-title');
     await page.keyboard.press('Escape');
     expect(await page.locator('#st-tour').count()).toBe(0);
@@ -91,18 +91,18 @@ describe.skipIf(!chrome)('LibKa Studio onboarding', () => {
   it('the tutorial: every step ticks itself as it is done, until the document is ready to publish and exported', async () => {
     const page = await firstVisit();
     await page.waitForSelector('#st-tour');
-    for (let i = 0; i < 8; i++) await page.locator('#st-tour .st-btn--primary').click();
+    for (let i = 0; i < 9; i++) await page.locator('#st-tour .st-btn--primary').click();
     await page.locator('#st-tour .st-btn--primary', { hasText: 'Open the tutorial' }).click();
     await page.waitForSelector('.st-tutorial');
     expect(await page.textContent('#tutorial-progress')).toBe('0 of 9 steps done');
     expect(await page.evaluate(() => (window as unknown as { libkaStudio: { project: { name: string } } }).libkaStudio.project.name)).toBe('first-document.md');
-    // the quick fix
-    await page.click('#tab-problems');
-    await page.locator('#tp-problems .st-fix[data-fix="rename-block"]').click();
+    // the quick fix (Checks › Problems)
+    await page.click('#tab-checks');
+    await page.locator('#checks-list .st-fix[data-fix="rename-block"]').click();
     await page.waitForFunction(() => !(window as unknown as { libkaStudio: { problems: { code: string }[] } }).libkaStudio.problems.some((p) => p.code === 'block-unknown'));
-    // the picture's alt text and caption, in the Inspector
-    await page.click('#tab-problems');
-    await page.locator('#tp-problems .st-fix', { hasText: 'Write the alt text' }).click();
+    // the picture's alt text and caption, in Properties
+    await page.click('#tab-checks');
+    await page.locator('#checks-list .st-fix', { hasText: 'Write the alt text' }).click();
     await page.waitForFunction(() => document.activeElement?.id === 'img-alt');
     await page.keyboard.type('A lighthouse on the coast on a sunny day');
     await page.keyboard.press('Tab');
@@ -110,7 +110,7 @@ describe.skipIf(!chrome)('LibKa Studio onboarding', () => {
     await page.keyboard.press('Tab');
     // the title
     await page.locator('.ed-front-matter').click();
-    await page.click('#tab-inspector');
+    await page.click('#tab-properties');
     await page.fill('#docprop-title', 'My guide');
     await page.keyboard.press('Tab');
     // a section and a block
@@ -125,7 +125,8 @@ describe.skipIf(!chrome)('LibKa Studio onboarding', () => {
     await page.keyboard.type('steps');
     await page.keyboard.press('Enter');
     // Split and back, and the palette
-    await page.click('.st-mode [data-mode="split"]');
+    await page.click('#view-menu summary');
+    await page.click('#split-toggle');
     await page.waitForSelector('.st-split');
     await page.click('.st-mode [data-mode="visual"]');
     await page.keyboard.press('F1');
@@ -140,7 +141,7 @@ describe.skipIf(!chrome)('LibKa Studio onboarding', () => {
     });
     expect(await steps(page)).toEqual({ title: true, fix: true, picture: true, section: true, block: true, mode: true, palette: true, ready: true, export: false });
     // exported
-    await page.click('#file-menu summary');
+    await page.click('#export-menu summary');
     const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-command="export.html"]')]);
     expect(download.suggestedFilename()).toBe('first-document.html');
     await page.click('#tab-tutorial');

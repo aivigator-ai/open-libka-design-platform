@@ -58,7 +58,7 @@ describe('slides', () => {
 
   it('makes a title slide, a slide per ## and per ###', () => {
     expect(list.map((s) => [s.kind, s.tag, typeof s.heading === 'string' ? s.heading : plainText(s.heading)])).toEqual([
-      ['title', 'v3 · 2026-10-03', 'Quarterly review'],
+      ['title', 'v3 · 3\u00a0October 2026', 'Quarterly review'],
       ['section', '01', 'Results'],
       ['content', 'Results', 'By region'],
       ['section', '02', 'Next steps'],
@@ -133,7 +133,16 @@ describe('document frame slides', () => {
   it('puts status, owner and review dates on the title slide', () => {
     const { body } = deck('---\ntitle: Policy\nstatus: Approved\nowner: Security team\nreviewed: 2026-09-01\n---\n\n## A\n\nx\n');
     const title = body.slice(0, body.indexOf('id="slide-2"'));
-    expect(title).toMatch(/<p class="lk-slide-status">Status: <span class="lk-badge lk-badge--success">Approved<\/span> · Owner: Security team · Reviewed: <time datetime="2026-09-01">2026-09-01<\/time><\/p>/);
+    expect(title).toMatch(/<p class="lk-slide-status">Status: <span class="lk-badge lk-badge--success">Approved<\/span> · Owner: Security team · Reviewed: <time datetime="2026-09-01">1\u00a0September 2026<\/time><\/p>/);
+  });
+
+  it('puts the authors on the title slide, unless a :::byline shows them on its slide', () => {
+    const fm = '---\ntitle: Policy\nauthor: {name: Ann Novak, role: Security lead}\nstatus: Approved\n---\n\n';
+    const { body } = deck(`${fm}## A\n\nx\n`);
+    expect(body.slice(0, body.indexOf('id="slide-2"'))).toMatch(/<p class="lk-slide-status">Author: Ann Novak \(Security lead\) · Status: /);
+    const placed = deck(`${fm}## A\n\n:::byline\n:::\n`).body;
+    expect(placed.slice(0, placed.indexOf('id="slide-2"'))).toMatch(/<p class="lk-slide-status">Status: /);
+    expect(placed).toMatch(/<p class="lk-block lk-byline"><span class="lk-byline-label">Author:<\/span> Ann Novak \(Security lead\)<\/p>/);
   });
 });
 
@@ -160,10 +169,35 @@ describe('time and comparison slides', () => {
     const d = parse(md).document;
     const list = slides(d);
     expect(list.map((s) => [s.kind, s.tag, typeof s.heading === 'string' ? s.heading : plainText(s.heading)])).toEqual([
-      ['title', '', 'Changelog'], ['section', '2026-11-01', 'v1.1.0'], ['content', 'v1.1.0', 'Migration'], ['section', '2026-10-01', 'v1.0.0']]);
+      ['title', '', 'Changelog'], ['section', '1\u00a0November 2026', 'v1.1.0'], ['content', 'v1.1.0', 'Migration'], ['section', '1\u00a0October 2026', 'v1.0.0']]);
     const body = renderDeck(d, { styles }).split('<body>')[1]!;
     expect(body).toMatch(/<h2 class="lk-slide-heading" id="v1-1-0">v1\.1\.0<\/h2>\n    <div class="lk-slide-body">\n<section class="lk-block lk-release" aria-labelledby="v1-1-0">\n<div class="lk-release-group lk-release-group--added">/);
     expect(renderManual(d, { styles: { ...styles, manual: read('packages/render/src/manual.css') } })).toMatch(/<li><a href="#v1-1-0">v1\.1\.0<\/a><\/li>\n    <li><a href="#v1-0-0">v1\.0\.0<\/a><\/li>/);
+  });
+
+  it('gives every decision a slide headed by its title and numbered like the contents, and lists decisions in the contents', () => {
+    const md = '---\ntitle: Decision log\n---\n\n::::decision[Use A]{status=accepted date=2026-10-01 by="Board"}\n:::context\nWhy.\n:::\n::::\n\n::::decision[Use B]{status=proposed}\n:::context\nWhy not.\n:::\n::::\n\n## Next\n\nx\n';
+    const d = parse(md).document;
+    expect(slides(d).map((s) => [s.kind, s.tag, typeof s.heading === 'string' ? s.heading : plainText(s.heading)])).toEqual([
+      ['title', '', 'Decision log'], ['section', '01', 'Use A'], ['section', '02', 'Use B'], ['section', '03', 'Next']]);
+    const body = renderDeck(d, { styles }).split('<body>')[1]!;
+    expect(body).toMatch(/<h2 class="lk-slide-heading" id="use-a">Use A<\/h2>\n    <div class="lk-slide-body">\n<section class="lk-block lk-decision" aria-labelledby="use-a">\n<p class="lk-decision-meta">/);
+    expect(renderManual(d, { styles: { ...styles, manual: read('packages/render/src/manual.css') } })).toMatch(/<li><a href="#use-a">Use A<\/a><\/li>\n    <li><a href="#use-b">Use B<\/a><\/li>/);
+  });
+
+  it('writes the AI label on the title slide only when the document turns it on', () => {
+    const deck = (ai: string) => renderDeck(parse(`---\ntitle: T\nauthor: Ann Novak\n${ai}\n---\n\n## A\n\nx\n`).document, { styles }).split('<body>')[1]!;
+    expect(deck('ai:\n  use: ai-assisted\n  reviewed-by: Ann Novak\n  label: true')).toMatch(/<p class="lk-slide-status">Author: Ann Novak<span class="lk-slide-ai">Created with AI tools\. Reviewed and approved by Ann Novak\.<\/span><\/p>/);
+    expect(deck('ai: ai-assisted')).not.toMatch(/lk-slide-ai/);
+  });
+
+  it('gives the revision history a slide of its own and lists it in the contents', () => {
+    const md = '---\ntitle: Policy\n---\n\n## Scope\n\nWho it covers.\n\n:::revisions[Versions]\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | First version |\n:::\n';
+    const d = parse(md).document;
+    expect(slides(d).map((s) => [s.kind, typeof s.heading === 'string' ? s.heading : plainText(s.heading)])).toEqual([
+      ['title', 'Policy'], ['section', 'Scope'], ['content', 'Versions']]);
+    expect(renderDeck(d, { styles }).split('<body>')[1]).toMatch(/<h2 class="lk-slide-heading" id="lk-revisions">Versions<\/h2>/);
+    expect(renderManual(d, { styles: { ...styles, manual: read('packages/render/src/manual.css') } })).toMatch(/<li><a href="#scope">Scope<\/a><\/li>\n    <li><a href="#lk-revisions">Versions<\/a><\/li>/);
   });
 
   it('calls the presenter panel "Speaker notes", so it differs from the footnotes slide', () => {

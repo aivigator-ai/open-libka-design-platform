@@ -1,5 +1,5 @@
 /**
- * The Structure tab: every block of the document as a tree (the WAI-ARIA tree pattern), synced with the editor's
+ * The Outline tab (the headings) and its "Show every block" view: every block of the document as a tree (the WAI-ARIA tree pattern), synced with the editor's
  * selection, with problem counts and each block's menu (Shift+F10). In source mode it lists the headings.
  */
 import { useRef, useState } from 'preact/hooks';
@@ -7,6 +7,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { NodeSelection } from 'prosemirror-state';
 import { blockInfo, objectRange, posBefore, schema } from '@libka/editor';
 import * as s from '../state/store.ts';
+import { layout, setOutlineAll } from '../state/layout.ts';
 import { t } from '../state/text.ts';
 import { OutlinePanel } from './Panels.tsx';
 import { openBlockMenu, visual } from './Visual.tsx';
@@ -41,6 +42,20 @@ function problemCounter(): (index: number) => number {
   const lineOf = (o: number) => { let n = 0; while (n + 1 < starts.length && starts[n + 1]! <= o) n++; return n + 1; };
   const spans = ranges.map((r) => [lineOf(r.from), lineOf(Math.max(r.from, r.to - 1))] as const);
   return (i) => { const sp = spans[i]; return sp ? s.problems.value.filter((p) => p.line >= sp[0] && p.line <= sp[1]).length : 0; };
+}
+
+/** The Outline tab: the headings, or (switched on) every block as a tree. */
+export function OutlineTab() {
+  const all = layout.value.outlineAll;
+  return (
+    <div class="st-outline-tab">
+      <div class="st-pref st-outline-all">
+        <input id="outline-all" type="checkbox" role="switch" checked={all} onChange={(e) => setOutlineAll(e.currentTarget.checked)} />
+        <label for="outline-all">{t('outline.all')}</label>
+      </div>
+      {all ? <StructurePanel /> : <OutlinePanel />}
+    </div>
+  );
 }
 
 export function StructurePanel() {

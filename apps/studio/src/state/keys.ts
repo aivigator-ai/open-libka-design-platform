@@ -69,6 +69,11 @@ export function keyText(keys: string): string {
     : p.length === 1 ? p.toUpperCase() : p.replace(/^Arrow/, ''))).join(mac ? '' : '+');
 }
 
+/** The keys as `aria-keyshortcuts` names them: Control+Shift+S (Meta+Shift+S on a Mac). */
+export function ariaKeys(keys: string): string {
+  return keys.split('-').map((p) => (p === 'Mod' ? (mac ? 'Meta' : 'Control') : p.length === 1 ? p.toUpperCase() : p)).join('+');
+}
+
 /** Who else uses these keys: other commands by id, or "editor" for the editors' own keys. */
 export function conflicts(keys: string, commands: readonly Pick<Command, 'id' | 'keys'>[], except?: string): string[] {
   const want = normalKeys(keys);

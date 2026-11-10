@@ -208,7 +208,8 @@ export function deckRuntime(L: DeckLabels): void {
 
   window.addEventListener('message', (e) => {
     if (!e.data || typeof e.data !== 'object') return;
-    if (presenter ? e.source !== window.opener : e.source !== peer) return;
+    // only the other window of the pair: the presenter view's opener, or the window `link` named
+    if (!peer || e.source !== peer) return;
     if (typeof e.data.libkaDeck === 'number') go(e.data.libkaDeck, true);
     if (e.data.libkaDeckReady && peer) peer.postMessage({ libkaDeck: current }, '*');
   });
@@ -243,6 +244,11 @@ export function deckRuntime(L: DeckLabels): void {
     go: (n: number) => go(n),
     /** Every slide visible at full size, one after another: used by Guard and handy for review. */
     showAll: () => setMode('all'),
+    /**
+     * Pairs this deck with another window of the same deck (a page that holds the deck in a frame, such as LibKa
+     * Studio, opens the presenter view itself): from now on the two keep the slide in step.
+     */
+    link: (w: Window) => { peer = w; },
     get current() { return current; },
     total,
   };

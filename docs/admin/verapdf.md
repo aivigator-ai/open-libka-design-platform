@@ -102,4 +102,4 @@ Chrome writes tagged PDFs but misses six things PDF/UA-1 requires. `@libka/pdf` 
 
 :::
 
-PDF/UA-2 (ISO 14289-2) is reported but does not gate the build: it needs PDF 2.0 features that Chrome does not write (namespaces, structure destinations).
+PDF/UA-2 (ISO 14289-2) is reported but does not gate the build; `libka build` prints the number of rules not met under the PDF/UA-1 line. As of 2026-10-31 a page and a deck fail the same six: four need PDF 2.0 or a PDF/UA-2 claim that Chrome's PDF 1.4 output cannot make (the PDF 2.0 namespace on `Document`, structure destinations for links within the document, `pdfuaid:part` 2 and `pdfuaid:rev` 2024), and two could be repaired in `remediate.ts` (the `ListNumbering` attribute on a list with labels, and content directly in `Document`).

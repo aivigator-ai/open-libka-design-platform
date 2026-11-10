@@ -1,7 +1,7 @@
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, EXAMPLES_CS, block, documentSchema } from '@libka/blocks';
-import { parse, plainText, type Block } from '../src/index.ts';
+import { aiBadge, aiLabelShown, aiMarks, aiReminders, compareVersions, fileFormat, parse, plainText, revisionColumn, revisionEntries, type Block } from '../src/index.ts';
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validate = ajv.compile(documentSchema());
@@ -45,6 +45,29 @@ describe('core block rules', () => {
     ['one tab', '::::tabs\n:::tab[Only]\nx\n:::\n::::', /at least two :::tab/],
     ['a heading inside a tab', '::::tabs\n:::tab[A]\n## No\n:::\n:::tab[B]\nx\n:::\n::::', /headings are not allowed inside :::tab/],
     ['a don\'t without a do', '::::compare\n:::dont[Bad]\nx\n:::\n::::', /at least one :::do and one :::dont/],
+    ['pros and cons without the option', '::::pros-cons\n:::pros\n- a\n:::\n:::cons\n- b\n:::\n::::', /pros and cons need the option they weigh as the label/],
+    ['pros without cons', '::::pros-cons[A]\n:::pros\n- a\n:::\n::::', /::::pros-cons needs :::cons: weigh both sides/],
+    ['pros and cons empty', '::::pros-cons[A]\n::::', /needs :::pros and :::cons/],
+    ['pros as a sentence', '::::pros-cons[A]\n:::pros\nIt is cheap.\n:::\n:::cons\n- b\n:::\n::::', /:::pros holds one bulleted list/],
+    ['cons as a numbered list', '::::pros-cons[A]\n:::pros\n- a\n:::\n:::cons\n1. b\n:::\n::::', /:::cons holds one bulleted list/],
+    ['pros twice', '::::pros-cons[A]\n:::pros\n- a\n:::\n:::pros\n- c\n:::\n:::cons\n- b\n:::\n::::', /:::pros appears twice/],
+    ['a labelled side', '::::pros-cons[A]\n:::pros[For]\n- a\n:::\n:::cons\n- b\n:::\n::::', /:::pros takes no label or attributes/],
+    ['a sentence beside the sides', '::::pros-cons[A]\n:::pros\n- a\n:::\n:::cons\n- b\n:::\nMore.\n::::', /::::pros-cons holds only :::pros and :::cons/],
+    ['a process without a name', ':::flow\n1. Plan\n2. Do\n:::', /a process needs its name as the label/],
+    ['a process of one stage', ':::flow[P]\n1. Plan\n:::', /2 to 6 stages \(found 1\)/],
+    ['a process of seven stages', ':::flow[P]\n1. a\n2. b\n3. c\n4. d\n5. e\n6. f\n7. g\n:::', /2 to 6 stages \(found 7\); for more stages or branches use a ```mermaid diagram/],
+    ['a process as sentences', ':::flow[P]\nFirst we plan, then we do.\n:::', /:::flow must contain exactly one list/],
+    ['an unknown process shape', ':::flow[P]{shape=funnel}\n1. a\n2. b\n:::', /shape must be one of linear, cycle/],
+    ['a matrix without a title','::::matrix{type=swot}\n:::q\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n::::', /a matrix needs its title as the label/],
+    ['a matrix without a type', '::::matrix[M]\n:::q[A]\n- a\n:::\n:::q[B]\n- b\n:::\n:::q[C]\n- c\n:::\n:::q[D]\n- d\n:::\n::::', /:::matrix needs a type/],
+    ['a matrix with three quadrants', '::::matrix[M]{type=swot}\n:::q\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n::::', /exactly four :::q quadrants, found 3/],
+    ['a matrix with five quadrants', '::::matrix[M]{type=swot}\n:::q\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n:::q\n- e\n:::\n::::', /exactly four :::q quadrants, found 5/],
+    ['a grid quadrant without a name', '::::matrix[M]{type=grid}\n:::q\n- a\n:::\n:::q[B]\n- b\n:::\n:::q[C]\n- c\n:::\n:::q[D]\n- d\n:::\n::::', /each quadrant of a grid needs its name/],
+    ['an empty quadrant', '::::matrix[M]{type=swot}\n:::q\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n::::', /a quadrant needs its points/],
+    ['a SWOT with axes', '::::matrix[M]{type=swot y="Impact"}\n:::q\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n::::', /a SWOT has no axes/],
+    ['a quadrant with attributes', '::::matrix[M]{type=swot}\n:::q{tone=good}\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n::::', /:::q takes no attributes/],
+    ['a heading in a quadrant', '::::matrix[M]{type=swot}\n:::q\n## No\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\n::::', /headings are not allowed inside :::q/],
+    ['a sentence beside the quadrants', '::::matrix[M]{type=swot}\n:::q\n- a\n:::\n:::q\n- b\n:::\n:::q\n- c\n:::\n:::q\n- d\n:::\nMore.\n::::', /::::matrix holds only four :::q quadrants/],
     ['a long statement', `:::statement\n${'word '.repeat(31)}\n:::`, /31 words; keep it to 30/],
     ['five figures', ':::metrics\n- **1** a\n- **2** b\n- **3** c\n- **4** d\n- **5** e\n:::', /2 to 4 figures/],
     ['a video file without captions', ':::video[Demo]{src="demo.mp4"}\nTranscript.\n:::', /need captions/],
@@ -93,12 +116,61 @@ describe('UI specimens and badges', () => {
   });
 });
 
+describe('AI provenance', () => {
+  const fm = (ai: string, body = 'Text.') => parse(`---\ntitle: T\n${ai}\n---\n\n${body}\n`);
+  it('reads the front matter ai, short or with its fields', () => {
+    expect(fm('ai: ai-generated').document.meta.ai).toEqual({ use: 'ai-generated' });
+    const long = fm('ai:\n  use: ai-assisted\n  reviewed-by: Ann Novak\n  approved-by: Library Board\n  tool: Claude\n  date: 2026-10-20\n  checked: [facts, figures]\n  label: true');
+    expect(long.problems).toEqual([]);
+    expect(long.document.meta.ai).toEqual({ use: 'ai-assisted', reviewedBy: 'Ann Novak', approvedBy: 'Library Board', tool: 'Claude', date: '2026-10-20', checked: ['facts', 'figures'], label: true });
+  });
+  it.each([
+    ['an unknown use', 'ai: written-by-ai', /ai must be ai-assisted or ai-generated \(found "written-by-ai"\)/],
+    ['fields without the use', 'ai:\n  reviewed-by: Ann', /ai needs its use, ai-assisted or ai-generated/],
+    ['an unknown field', 'ai:\n  use: ai-generated\n  reviewer: Ann', /ai has unknown fields: reviewer/],
+    ['a date in words', 'ai:\n  use: ai-generated\n  date: 20 October 2026', /the ai date must be written YYYY-MM-DD/],
+    ['a label that is not true or false', 'ai:\n  use: ai-generated\n  label: maybe', /the ai label is true .* or false/],
+  ])('reports %s', (_, ai, pattern) => {
+    const { problems } = fm(ai);
+    expect(problems.map((p) => p.code)).toContain('ai-invalid');
+    expect(problems.map((p) => p.message).join('\n')).toMatch(pattern);
+  });
+  it('marks blocks, counts an AI summary as generated, and names the section and reviewer', () => {
+    const md = '## Hours\n\n:::callout[Holiday]{variant=tip ai=generated}\nClosed.\n:::\n\n::::tabs\n:::tab[A]\n- x\n:::\n:::tab[B]\n- y\n:::\n::::\n\n:::summary{source=ai reviewed-by="Ann"}\n- A\n- B\n- C\n:::';
+    const { document, problems } = fm('ai:\n  use: ai-assisted\n  reviewed-by: Petr', md);
+    expect(problems).toEqual([]);
+    expect(document.blocks[1]).toMatchObject({ type: 'callout', ai: 'generated' });
+    expect(validate(document), JSON.stringify(validate.errors)).toBe(true);
+    expect(aiMarks(document)).toEqual([
+      { block: 'callout', use: 'generated', section: 'Hours', reviewedBy: 'Petr' },
+      { block: 'summary', use: 'generated', section: 'Hours', reviewedBy: 'Ann' }]);
+  });
+  it('reminds, never reports, when AI-generated content names nobody who reviewed it and shows no label', () => {
+    const unreviewed = fm('ai: ai-generated');
+    expect(unreviewed.problems).toEqual([]);
+    expect(aiReminders(unreviewed.document)).toEqual([expect.stringMatching(/^the document is marked ai-generated and names nobody who reviewed it: .*Article 50\(4\)/)]);
+    const block = fm('ai: ai-assisted', '## Hours\n\n:::summary{source=ai}\n- A\n- B\n- C\n:::');
+    expect(block.problems).toEqual([]);
+    expect(aiReminders(block.document)).toEqual([expect.stringMatching(/^the AI summary in "Hours" is marked as AI-generated/)]);
+    // a reviewer, a label, AI that only assisted, or no AI at all: nothing to remind
+    for (const ai of ['ai:\n  use: ai-generated\n  reviewed-by: Ann', 'ai:\n  use: ai-generated\n  label: true', 'ai: ai-assisted', '']) expect(aiReminders(fm(ai).document)).toEqual([]);
+  });
+  it('shows the label and the badge only when the document turns the label on', () => {
+    const b = fm('ai: ai-generated', ':::callout[T]{variant=tip ai=generated}\nText.\n:::').document.blocks[0]!;
+    expect(aiLabelShown({ ai: { use: 'ai-generated' } })).toBe(false);
+    expect(aiBadge(b, { ai: { use: 'ai-generated' } })).toBe(false);
+    expect(aiBadge(b, { ai: { use: 'ai-generated', label: true } })).toBe(true);
+    expect(aiBadge(b, { ai: { use: 'ai-generated', label: true, reviewedBy: 'Ann' } })).toBe(false);
+  });
+});
+
 describe('the document frame', () => {
   const messages = (md: string) => parse(`# T\n\n${md}\n`).problems.map((p) => p.message).join('\n');
   it.each([
     ['a summary with two points', ':::summary\n- One\n- Two\n:::', /3 to 5 points \(found 2\)/],
     ['a summary with six points', `:::summary\n${'- Point\n'.repeat(6)}:::`, /3 to 5 points \(found 6\)/],
-    ['an AI summary nobody reviewed', ':::summary{source=ai}\n- A\n- B\n- C\n:::', /needs the person who checked it/],
+    ['a block marked with an unknown AI use', ':::callout[T]{variant=tip ai=generatd}\nText.\n:::', /ai must be one of generated, assisted \(:::callout\)/],
+    ['contents marked as AI content', ':::toc{ai=generated}\n:::', /:::toc has unknown attributes: ai/],
     ['a reviewer without source=ai', ':::summary{reviewed-by="Docs lead"}\n- A\n- B\n- C\n:::', /reviewed-by is shown only for AI summaries/],
     ['a summary point with a nested list', ':::summary\n- A\n  - nested\n- B\n- C\n:::', /one short paragraph/],
     ['a doc-status with nothing to show', ':::doc-status\n:::', /has nothing to show/],
@@ -106,6 +178,41 @@ describe('the document frame', () => {
     ['a review date that is not a date', ':::doc-status{reviewed=2026-13-01}\n:::', /reviewed must be a date written YYYY-MM-DD/],
     ['a next review before the last one', ':::doc-status{reviewed=2026-09-01 next-review=2026-08-01}\n:::', /must come after reviewed/],
     ['two doc-status blocks', ':::doc-status{owner="A"}\n:::\n\n:::doc-status{owner="A"}\n:::', /only one :::doc-status/],
+    ['a download without a name', ':::download{href=report.pdf}\n:::', /a download needs a name that says what the file is/],
+    ['a download without href', ':::download[Report]\n:::', /:::download needs a href/],
+    ['a download on another site without size', ':::download[Report]{href="https://example.org/r.pdf" type=PDF}\n:::', /a file on another site needs its type and size/],
+    ['a download with a script address', ':::download[Report]{href="javascript:alert(1)"}\n:::', /href "javascript:alert\(1\)" is not allowed/],
+    ['a download with pages that are no number', ':::download[Report]{href=r.pdf pages=many}\n:::', /pages must be a whole number of pages \(found "many"\)/],
+    ['a download holding a list', ':::download[Report]{href=r.pdf}\n- a\n:::', /:::download holds at most one short sentence/],
+    ['a decision without a title', '::::decision{status=proposed}\n:::context\nWhy.\n:::\n::::', /a decision needs a title that states it/],
+    ['a decision without a status', '::::decision[Use A]\n:::context\nWhy.\n:::\n::::', /:::decision needs a status/],
+    ['a decision with an unknown status', '::::decision[Use A]{status=approved}\n:::context\nWhy.\n:::\n::::', /status must be one of proposed, accepted, rejected, superseded/],
+    ['an accepted decision without date and decider', '::::decision[Use A]{status=accepted}\n:::context\nWhy.\n:::\n::::', /status accepted needs its date \(date=YYYY-MM-DD\) and who decided \(by="\.\.\."\)/],
+    ['a decision date written in words', '::::decision[Use A]{status=proposed date="1 March 2026"}\n:::context\nWhy.\n:::\n::::', /a decision date must be written YYYY-MM-DD/],
+    ['a decision without context', '::::decision[Use A]{status=proposed}\n:::options\n- A\n:::\n::::', /a decision needs its :::context/],
+    ['a decision part twice', '::::decision[Use A]{status=proposed}\n:::context\nA\n:::\n:::context\nB\n:::\n::::', /:::context appears twice in the decision/],
+    ['an empty decision part', '::::decision[Use A]{status=proposed}\n:::context\nA\n:::\n:::consequences\n:::\n::::', /:::consequences is empty: write what follows from the decision/],
+    ['a heading inside a decision', '::::decision[Use A]{status=proposed}\n:::context\nA\n:::\n\n### More\n\n::::', /::::decision holds no headings: .* put the heading after the decision's closing ::::/],
+    ['a decision part with a label','::::decision[Use A]{status=proposed}\n:::context[Background]\nA\n:::\n::::', /:::context takes no label or attributes/],
+    ['a list after the decision parts', '::::decision[Use A]{status=proposed}\n:::context\nA\n:::\n- B\n::::', /::::decision holds only :::context, :::options, :::consequences/],
+    ['a decision inside tabs', ':::::tabs\n::::tab[A]\n:::decision[Use A]{status=proposed}\nx\n:::\n::::\n::::tab[B]\nx\n::::\n:::::', /:::decision cannot be inside another block/],
+    ['a revision history without a table', ':::revisions\n- 1.0 First\n:::', /:::revisions must contain exactly one Markdown table/],
+    ['a heading of its own above the revision history', '## Revision history\n\n:::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | First |\n:::', /remove the heading "## Revision history" above :::revisions: the block makes its own heading; write the title in its brackets \(:::revisions\[Revision history\]\)/],
+    ['a revision history with an unknown column', ':::revisions\n| Version | Date | Change | Notes |\n|---|---|---|---|\n| 1.0 | 2026-03-01 | First | x |\n:::', /:::revisions has no column "Notes"/],
+    ['a revision history without dates', ':::revisions\n| Version | Change |\n|---|---|\n| 1.0 | First |\n:::', /needs the columns version, date and change \(missing: date\)/],
+    ['a revision history with a column twice', ':::revisions\n| Version | Date | Change | Popis |\n|---|---|---|---|\n| 1.0 | 2026-03-01 | First | x |\n:::', /has the change column twice \("Popis"\)/],
+    ['a revision history without rows', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n:::', /needs at least one row/],
+    ['a revision without its change', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 |  |\n:::', /every revision needs its change/],
+    ['a revision date written in words', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 1 March 2026 | First |\n:::', /a revision date must be written YYYY-MM-DD \(found "1 March 2026"\)/],
+    ['a version twice', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-09-01 | B |\n| 1.0 | 2026-03-01 | A |\n:::', /version 1\.0 appears twice/],
+    ['revisions out of order', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.2 | 2026-09-01 | C |\n| 1.0 | 2026-03-01 | A |\n| 1.1 | 2026-06-01 | B |\n:::', /version 1\.1 \(2026-06-01\) is out of order/],
+    ['a newer version with an older date', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | A |\n| 1.1 | 2026-02-01 | B |\n:::', /version 1\.1 \(2026-02-01\) is out of order/],
+    ['two revision histories', ':::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | A |\n:::\n\n:::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | A |\n:::', /only one :::revisions/],
+    ['a revision history inside a callout', '::::callout[T]{variant=info}\n:::revisions\n| Version | Date | Change |\n|---|---|---|\n| 1.0 | 2026-03-01 | A |\n:::\n::::', /:::revisions cannot be inside another block/],
+    ['a byline without authors', ':::byline\n:::', /:::byline has nobody to show: add author to the front matter/],
+    ['a byline with content', ':::byline\nText\n:::', /:::byline has no content/],
+    ['two bylines', ':::byline\n:::\n\n:::byline\n:::', /only one :::byline/],
+    ['a byline inside a callout', ':::callout[T]{variant=info}\n:::byline\n:::\n:::', /:::byline cannot be inside another block/],
     ['a doc-status inside tabs', '::::tabs\n:::tab[A]\n:::doc-status{owner="A"}\n:::\n:::\n:::tab[B]\nx\n:::\n::::', /cannot be inside another block/],
     ['a section without title', ':::section\n:::', /needs a title/],
     ['a section holding a list', ':::section[Part 2]\n- a\n:::', /at most a short sentence/],
@@ -131,6 +238,99 @@ describe('the document frame', () => {
     ]);
     expect((document.blocks[0] as { title?: string }).title).toBeUndefined();
     expect((document.blocks[2] as { title?: string }).title).toBeUndefined();
+  });
+
+  it('reads a download with its format from the file name or the type attribute', () => {
+    const one = (md: string) => parse(`# T\n\n${md}\n`).document.blocks[0];
+    expect(one(':::download[Report]{href=files/report.pdf}\nAll the tables.\n:::')).toMatchObject({ type: 'download', label: 'Report', href: 'files/report.pdf', format: 'PDF', text: [{ type: 'text', value: 'All the tables.' }] });
+    expect(one(':::download[Plan]{href=plan.xlsx size="20 KB" pages=3}\n:::')).toEqual({ type: 'download', label: 'Plan', href: 'plan.xlsx', format: 'Excel', size: '20 KB', pages: 3 });
+    expect(one(':::download[Data]{href="data?id=1" type=CSV}\n:::')).toMatchObject({ format: 'CSV' });
+    expect(fileFormat('a/b/notes.docx')).toBe('Word');
+    expect(fileFormat('archive.tar.gz?x=1#y')).toBe('GZ');
+    expect(fileFormat('README')).toBeUndefined();
+  });
+
+  it('reads pros and cons, pros first, and one per option inside a decision\'s options', () => {
+    const one = parse('# T\n\n::::pros-cons[Option A]\n:::cons\n- Slow\n:::\n:::pros\n- Cheap\n- **Simple** to run\n:::\n::::\n');
+    expect(one.problems).toEqual([]);
+    const b = one.document.blocks[0] as Extract<Block, { type: 'pros-cons' }>;
+    expect(b).toMatchObject({ type: 'pros-cons', title: 'Option A', cons: [[{ type: 'paragraph' }]] });
+    expect(b.pros.map((i) => plainText((i[0] as Extract<Block, { type: 'paragraph' }>).text))).toEqual(['Cheap', 'Simple to run']);
+    const md = '# T\n\n:::::decision[Use A]{status=proposed}\n::::context\nWhy.\n::::\n:::::options\n::::pros-cons[A]\n:::pros\n- Cheap\n:::\n:::cons\n- Slow\n:::\n::::\n::::pros-cons[B]\n:::pros\n- Fast\n:::\n:::cons\n- Costly\n:::\n::::\n:::::\n:::::\n';
+    const { document, problems } = parse(md);
+    expect(problems).toEqual([]);
+    const options = (document.blocks[0] as Extract<Block, { type: 'decision' }>).parts[1]!;
+    expect(options.body.map((x) => x.type === 'pros-cons' && x.title)).toEqual(['A', 'B']);
+  });
+
+  it('reads a process: its stages in order from a numbered or a bulleted list, linear unless it is a cycle', () => {
+    const one = parse('# T\n\n:::flow[Life of a request]\n1. Arrives\n2. **Sorted** by urgency\n3. Closed\n:::\n');
+    expect(one.problems).toEqual([]);
+    const b = one.document.blocks[0] as Extract<Block, { type: 'flow' }>;
+    expect(b).toMatchObject({ type: 'flow', title: 'Life of a request', shape: 'linear' });
+    expect(b.stages.map((s) => plainText((s[0] as Extract<Block, { type: 'paragraph' }>).text))).toEqual(['Arrives', 'Sorted by urgency', 'Closed']);
+    const cycle = parse('# T\n\n:::flow[PDCA]{shape=cycle}\n- Plan\n- Do\n- Check\n- Act\n:::\n');
+    expect(cycle.problems).toEqual([]);
+    expect(cycle.document.blocks[0]).toMatchObject({ shape: 'cycle', stages: { length: 4 } });
+  });
+
+  it('reads a matrix: a SWOT\'s names left to the renderer, a grid\'s names and axes as written', () => {
+    const swot = parse('# T\n\n::::matrix[SWOT: the new app]{type=swot}\n:::q\n- Fast\n:::\n:::q[Weak spots]\n- Small team\n:::\n:::q\n- New market\n:::\n:::q\nRivals copy us.\n:::\n::::\n');
+    expect(swot.problems).toEqual([]);
+    const s = swot.document.blocks[0] as Extract<Block, { type: 'matrix' }>;
+    expect(s).toMatchObject({ type: 'matrix', title: 'SWOT: the new app', kind: 'swot' });
+    expect(s.quadrants.map((q) => q.label)).toEqual([undefined, 'Weak spots', undefined, undefined]);
+    expect(s.quadrants[3]!.body[0]!.type).toBe('paragraph');
+    const grid = parse('# T\n\n::::matrix[Plan]{type=grid x="Effort" y="Impact"}\n:::q[A]\n- a\n:::\n:::q[B]\n- b\n:::\n:::q[C]\n- c\n:::\n:::q[D]\n- d\n:::\n::::\n');
+    expect(grid.problems).toEqual([]);
+    expect(grid.document.blocks[0]).toMatchObject({ kind: 'grid', x: 'Effort', y: 'Impact', quadrants: [{ label: 'A' }, { label: 'B' }, { label: 'C' }, { label: 'D' }] });
+  });
+
+  it('reads a decision with its status, the decision itself and its parts in their order, a comparison among the options', () => {
+    const md = '# T\n\n### Before\n\n:::::decision[Use A]{status=superseded date=2026-03-01 by="Board"}\nWe use A.\n::::consequences\n- More work.\n::::\n::::options\n:::comparison[Options]\n| Feature | A | B |\n|---|---|---|\n| Cheap | yes | no |\n:::\n::::\n::::context\nWhy.\n::::\n:::::\n\n### After\n';
+    const { document, problems } = parse(md);
+    expect(problems.map((p) => p.code)).toEqual(['heading-skipped']);   // the first ### follows the title; the second follows the decision's ##
+    const d = document.blocks[1] as Extract<Block, { type: 'decision' }>;
+    expect(d).toMatchObject({ type: 'decision', title: 'Use A', id: 'use-a', status: 'superseded', date: '2026-03-01', by: 'Board', intro: [{ type: 'paragraph' }] });
+    expect(d.parts.map((p) => p.kind)).toEqual(['context', 'options', 'consequences']);
+    expect(d.parts[1]!.body[0]).toMatchObject({ type: 'comparison', caption: 'Options' });
+    // a proposal needs neither date nor decider
+    expect(parse('# T\n\n::::decision[Use B]{status=proposed}\n:::context\nWhy.\n:::\n::::\n').problems).toEqual([]);
+  });
+
+  it('reads a revision history by its column headings in English or Czech, newest or oldest first', () => {
+    const one = (md: string) => parse(`# T\n\n${md}\n`);
+    const cs = one(':::revisions\n| Verze | Datum | Popis změny | Zpracoval | Schválil: |\n|---|---|---|---|---|\n| 1.0 | 2026-03-01 | První verze | Petr | Jana |\n| 1.1 | 2026-06-01 | Úpravy | Petr |  |\n:::');
+    expect(cs.problems).toEqual([]);
+    const b = cs.document.blocks[0] as Extract<Block, { type: 'revisions' }>;
+    expect(b).toMatchObject({ type: 'revisions', columns: ['version', 'date', 'change', 'author', 'approved'] });
+    expect(b.title).toBeUndefined();
+    expect(revisionEntries(b)).toEqual([{ version: '1.0', date: '2026-03-01', approvedBy: 'Jana' }, { version: '1.1', date: '2026-06-01' }]);
+    // the same date for two versions, and versions that are not numbers, are in order
+    expect(one(':::revisions[History]\n| Revision | Date | Changes |\n|---|---|---|\n| B | 2026-03-02 | b |\n| A2 | 2026-03-01 | a |\n| A1 | 2026-03-01 | a |\n:::').problems).toEqual([]);
+    expect(revisionColumn('Approved by')).toBe('approved');
+    expect(revisionColumn(' Schválil(a) ')).toBe('approved');
+    expect(revisionColumn('Notes')).toBeUndefined();
+    expect(compareVersions('v1.2', '1.10')).toBeLessThan(0);
+    expect(compareVersions('2.0', '2')).toBe(0);
+    expect(compareVersions('draft', '1.0')).toBeUndefined();
+  });
+
+  it('reads the authors from the front matter as a name, a person or a list, and gives them to :::byline', () => {
+    const meta = (fm: string) => parse(`---\ntitle: T\n${fm}\n---\n\nText.\n`);
+    expect(meta('author: Ann Novak').document.meta.author).toEqual([{ name: 'Ann Novak' }]);
+    expect(meta('author: {name: Ann Novak, role: Security lead}').document.meta.author).toEqual([{ name: 'Ann Novak', role: 'Security lead' }]);
+    const list = meta('author:\n  - name: Ann Novak\n    role: Security lead\n  - Petr Svoboda');
+    expect(list.problems).toEqual([]);
+    expect(list.document.meta.author).toEqual([{ name: 'Ann Novak', role: 'Security lead' }, { name: 'Petr Svoboda' }]);
+    expect(meta('author:\n  - role: Lead').problems.map((p) => p.code)).toEqual(['author-invalid']);
+    expect(meta('author:\n  - name: A\n    team: Docs').problems[0]!.message).toBe('author has unknown fields: team (known: name, role)');
+    expect(meta('author:\n  - [A]').problems[0]!.message).toMatch(/^author must be a name, or a name with a role/);
+    expect(meta('author: A').document.meta.author).toEqual([{ name: 'A' }]);
+    const placed = parse('---\ntitle: T\nauthor: Ann Novak\n---\n\n:::byline\n:::\n');
+    expect(placed.problems).toEqual([]);
+    expect(placed.document.blocks).toEqual([{ type: 'byline', author: [{ name: 'Ann Novak' }] }]);
+    expect(parse('# T\n\n:::byline\n:::\n').problems[0]!.fixes).toEqual([{ kind: 'field', target: 'document:author' }]);
   });
 
   it('reads status front matter, and merges :::doc-status into the meta', () => {

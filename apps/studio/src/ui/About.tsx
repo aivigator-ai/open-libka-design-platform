@@ -1,5 +1,6 @@
-/** About LibKa Studio (Help → About): the version, the licence, the third-party notices, the source, what happens to your documents, and in a hosted copy who provides it. */
+/** About LibKa Studio (Help → About): the version, the licence, the third-party notices, the source, what happens to your documents, the versions inside for developers, and in a hosted copy who provides it. */
 import { about } from 'studio:about';
+import { axeVersion, buildId, tokensVersion } from 'studio:assets';
 import { lang } from '../state/store.ts';
 import { t } from '../state/text.ts';
 
@@ -19,6 +20,12 @@ export function AboutStudio() {
       <p class="st-field-help">{t('about.noticesText')}</p>
       <h3 class="st-insp-heading">{t('about.privacyTitle')}</h3>
       <p>{t('about.privacy')}</p>
+      <h3 class="st-insp-heading">{t('about.devTitle')}</h3>
+      <ul class="st-about-facts">
+        <li id="about-tokens">{t('status.tokens', { v: tokensVersion })}</li>
+        <li id="about-axe">{`axe-core ${axeVersion}`}</li>
+        <li id="about-build">{t('status.build', { v: buildId })}</li>
+      </ul>
       {h ? <>
         <h3 class="st-insp-heading">{t('about.hostedTitle')}</h3>
         <p>{t('about.hosted', { by: h.by })}</p>

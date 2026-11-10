@@ -17,8 +17,8 @@ export const EXPLAIN: Table = {
     cs: { why: 'Text se musí odlišovat od pozadí, aby ho přečetli i lidé se slabším zrakem: 4,5:1 u běžného textu, 3:1 u velkého (ve vysokém kontrastu 7:1 a 4,5:1).', fix: 'Barvy LibKa vyhovují samy, takže chyba obvykle pochází z obrázku s textem nebo z HTML vloženého do dokumentu. Odstraňte vlastní barvy, nebo použijte blok, který význam nese (zvýraznění, štítek).' },
   },
   'figure-caption': {
-    en: { why: 'A caption tells every reader what a picture shows and lets it be referred to.', fix: 'Write the caption as the image\'s title in quotes: ![Alt text](picture.png "Caption"). In Visual mode select the picture and fill in Caption in the Inspector.' },
-    cs: { why: 'Popisek všem čtenářům řekne, co obrázek ukazuje, a dá se na něj odkázat.', fix: 'Napište popisek jako titulek obrázku v uvozovkách: ![Alternativní text](obrazek.png "Popisek"). Ve vizuálním režimu vyberte obrázek a vyplňte Popisek v Inspektoru.' },
+    en: { why: 'A caption tells every reader what a picture shows and lets it be referred to.', fix: 'Write the caption as the image\'s title in quotes: ![Alt text](picture.png "Caption"). In Visual mode select the picture and fill in Caption in Properties.' },
+    cs: { why: 'Popisek všem čtenářům řekne, co obrázek ukazuje, a dá se na něj odkázat.', fix: 'Napište popisek jako titulek obrázku v uvozovkách: ![Alternativní text](obrazek.png "Popisek"). Ve vizuálním režimu vyberte obrázek a vyplňte Popisek ve Vlastnostech.' },
   },
   'table-caption': {
     en: { why: 'Screen readers announce a table by its caption; without one, readers must guess what the numbers are.', fix: 'Put the table in :::table{caption="What the data shows"}. The problem list offers this as a fix.' },
@@ -54,8 +54,8 @@ export const EXPLAIN: Table = {
     cs: { why: 'Soubor Word musí být platný balíček, který Word i LibreOffice otevřou.', fix: 'Tohle je chyba LibKa, ne vašeho textu: nahlaste ji i s dokumentem.' },
   },
   'docx-title': {
-    en: { why: 'The file\'s title is what assistive technology and file lists show.', fix: 'Set the document\'s title (title: in the front matter, or Document properties in the Inspector).' },
-    cs: { why: 'Název souboru ukazují asistivní technologie i seznamy souborů.', fix: 'Nastavte název dokumentu (title: v úvodních údajích, nebo Vlastnosti dokumentu v Inspektoru).' },
+    en: { why: 'The file\'s title is what assistive technology and file lists show.', fix: 'Set the document\'s title (title: in the front matter, or Document ▾ › Document properties).' },
+    cs: { why: 'Název souboru ukazují asistivní technologie i seznamy souborů.', fix: 'Nastavte název dokumentu (title: v úvodních údajích, nebo Dokument ▾ › Vlastnosti dokumentu).' },
   },
   'docx-language': {
     en: { why: 'The language tells screen readers how to pronounce the text and spell checkers which dictionary to use.', fix: 'Set lang: en or lang: cs in the front matter.' },

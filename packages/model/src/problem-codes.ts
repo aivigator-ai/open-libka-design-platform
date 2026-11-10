@@ -22,6 +22,7 @@ export function describeFix(fix: Fix): string {
     case 'heading-level': return `makes it a level ${fix.level} heading`;
     case 'list-type': return fix.ordered ? 'makes it a numbered list' : 'makes it a bulleted list';
     case 'set-front-matter': return `sets \`${fix.key}: ${Array.isArray(fix.value) ? `[${fix.value.join(', ')}]` : fix.value}\``;
+    case 'remove-front-matter': return `removes ${fix.keys.map((k) => `\`${k}\``).join(', ')} from the front matter`;
   }
 }
 

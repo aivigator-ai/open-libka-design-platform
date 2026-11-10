@@ -13,6 +13,24 @@ export function scheduleGuard(): void {
   guardTimer = setTimeout(runGuard, 300);   // it follows the slide fitting, which has already waited for a pause
 }
 
+/**
+ * Drops a Guard run that is waiting or under way: the text changed, so it would check the slides before they are
+ * fitted (an overflow the fitting resolves) and show those findings until the next run. The fitting that follows the
+ * change schedules the next run.
+ */
+export function cancelGuard(): void {
+  clearTimeout(guardTimer);
+  guardRun++;
+}
+
+/** The source line of the block an element is in (the Studio's render marks every top-level block with it). */
+function lineOf(doc: Document, selector: string): { line?: number } {
+  let el: Element | null = null;
+  try { el = doc.querySelector(selector); } catch { /* not a CSS selector */ }
+  const n = Number(el?.closest('[data-lk-line]')?.getAttribute('data-lk-line'));
+  return n ? { line: n } : {};
+}
+
 interface AxeResult { passes: unknown[]; violations: { id: string; help: string; nodes: { target: string[] }[] }[] }
 
 export async function runGuard(): Promise<void> {
@@ -32,7 +50,7 @@ export async function runGuard(): Promise<void> {
       const runAxe = async (): Promise<ScanResult> => {
         const r = await axe.run(win.document, { runOnly: { type: 'tag', values: [...AXE_TAGS] }, rules: { ...AXE_RULES_OFF }, resultTypes: ['violations', 'passes'], preload: false });
         return { checked: r.passes.length + r.violations.length, skipped: 0,
-          violations: r.violations.flatMap((v) => v.nodes.map((n) => ({ rule: v.id, message: v.help, target: n.target.join(' ') }))) };
+          violations: r.violations.flatMap((v) => v.nodes.map((n) => ({ rule: v.id, message: v.help, target: n.target.join(' '), ...lineOf(win.document, n.target.join(' ')) }))) };
       };
       const contrast = (args: ContrastArgs) => agent(win).scanContrast(args);
       let a = await runAxe();

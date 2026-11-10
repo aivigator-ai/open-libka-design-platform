@@ -188,6 +188,63 @@ describe('messages a writer can act on', () => {
 
   it('lists the known front matter keys and suggests the nearest one', () => {
     const [m] = parse('---\ntitle: X\nsubtitel: y\n---\n\nHi').problems.map((p) => p.message);
-    expect(m).toMatch(/^unknown front matter keys: subtitel \(did you mean subtitle\?\) \(known: title, subtitle, version, date, lang, references, outputs, /);
+    expect(m).toMatch(/^unknown front matter keys: subtitel \(did you mean subtitle\?\) \(known: title, subtitle, version, date, date-format, lang, author, references, outputs, /);
+  });
+
+  it('reads date-format, long by default, and corrects a misspelt one', () => {
+    const fm = (extra: string) => parse(`---\ntitle: T\n${extra}\n---\n\nText.\n`);
+    expect(fm('lang: cs').document.meta.dateFormat).toBeUndefined();
+    expect(fm('date-format: Short').document.meta.dateFormat).toBe('short');
+    const wrong = fm('date-format: lnog');
+    expect(wrong.document.meta.dateFormat).toBeUndefined();
+    expect(wrong.problems).toEqual([expect.objectContaining({ code: 'date-format-unknown', line: 1, fixes: [{ kind: 'set-front-matter', key: 'date-format', value: 'long' }] })]);
+    expect(wrong.problems[0]!.message).toBe('unknown date-format "lnog" (did you mean long?): long (28 October 2026), short (28/10/2026) or iso (2026-10-28); without it dates are long');
+  });
+
+  it('names a Marp deck as one, with a fix that removes its keys, and leaves other unknown keys to their own problem', () => {
+    const r = parse('---\nmarp: true\ntitle: Deck\ntheme: gaia\npaginate: true\ncolour: red\n---\n\n## A\n\nText.\n');
+    expect(r.problems.map((p) => p.code)).toEqual(['marp-file', 'front-matter-unknown-key']);
+    expect(r.problems[0]).toMatchObject({ line: 1, fixes: [{ kind: 'remove-front-matter', keys: ['marp', 'theme', 'paginate'] }] });
+    expect(r.problems[0]!.message).toMatch(/^this looks like a Marp deck \(marp: true\): LibKa makes slides from ## and ### headings, .*: marp, theme, paginate$/);
+    expect(r.problems[1]!.message).toMatch(/^unknown front matter keys: colour /);
+    // without marp: true, theme is just an unknown key
+    expect(parse('---\ntitle: T\ntheme: gaia\n---\n\nText.\n').problems.map((p) => p.code)).toEqual(['front-matter-unknown-key']);
+  });
+});
+
+describe('hints: what no output shows', () => {
+  const body = '## A\n\nText.\n\n---\n\n## B\n\n<!-- a note for editors -->\n\n:::callout[T]{variant=info}\nIn.\n\n***\n:::\n';
+  it('points at every horizontal rule, never a problem', () => {
+    const r = parse(`---\ntitle: T\n---\n\n${body}`);
+    expect(r.problems).toEqual([]);
+    expect(r.hints).toEqual([
+      { line: 9, message: 'a horizontal rule (---) shows in no output: sections and slides start at ## and ### headings; delete it, or start a section here' },
+      { line: 18, message: expect.stringMatching(/^a horizontal rule/) },
+    ]);
+    // a comment is a note for editors; "---" under a line of text is a heading, not a rule
+    expect(parse('---\ntitle: T\n---\n\nA heading\n---\n\nText.\n').hints).toEqual([]);
+  });
+
+  it('points at comments too in a Marp deck, where they were speaker notes', () => {
+    const r = parse(`---\ntitle: T\nmarp: true\n---\n\n${body}`);
+    expect(r.hints.map((h) => h.line)).toEqual([10, 14, 19]);
+    expect(r.hints[1]!.message).toBe('a comment shows in no output, and is not a speaker note: write the notes in :::notes under the heading of their slide');
+  });
+});
+
+describe('where the blocks are, and the nearest names', () => {
+  it('remembers the line each top-level block starts on (sourceLine), not a nested one', async () => {
+    const { sourceLine } = await import('../src/index.ts');
+    const r = parse('---\ntitle: T\nlang: en\n---\n\n## One\n\nText.\n\n:::callout[N]{variant=info}\nInside.\n:::\n');
+    expect(r.document.blocks.map((b) => sourceLine(b))).toEqual([6, 8, 10]);
+    const callout = r.document.blocks[2] as Extract<(typeof r.document.blocks)[number], { type: 'callout' }>;
+    expect(sourceLine(callout.body[0]!)).toBeUndefined();
+  });
+  it('names the likely block, or the three closest, never all of them', async () => {
+    const { closest } = await import('../src/index.ts');
+    const message = (src: string) => parse(`---\ntitle: T\nlang: en\n---\n\n${src}`).problems[0]!.message;
+    expect(message(':::calout[T]\nx\n:::')).toBe('unknown block "calout": did you mean :::callout?');
+    expect(message(':::zzzz\nx\n:::')).toMatch(/^unknown block "zzzz"; the closest LibKa blocks are :::[a-z-]+, :::[a-z-]+, :::[a-z-]+$/);
+    expect(closest('stpes', ['steps', 'tabs', 'stats', 'quote'], 2)).toEqual(['steps', 'stats']);
   });
 });

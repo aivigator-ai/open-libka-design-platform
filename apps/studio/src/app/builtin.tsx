@@ -1,24 +1,33 @@
 /**
  * The Studio's built-in features, registered as extensions through the same interface as any other extension:
- * the library, files and folders, exports, history and the side panel's checks.
+ * the library, files and folders, exports, the panes' tabs, the modes and regions, and the versions.
  */
 import { registry, type Extension } from '../state/commands.ts';
 import { keysOf, matchesKeys } from '../state/keys.ts';
 import { PALETTE_SOURCES } from './palette.ts';
 import { tutorial, watchTutorial } from './tutorial.tsx';
-import { linkPrompt } from '../ui/Visual.tsx';
+import { announce, linkPrompt, selectedLine } from '../ui/Visual.tsx';
+import { present, slideOfLine } from './present.tsx';
 import * as s from '../state/store.ts';
 import { t } from '../state/text.ts';
-import { GuardPanel, ProblemsPanel } from '../ui/Panels.tsx';
-import { InspectorPanel } from '../ui/Inspector.tsx';
-import { StructurePanel } from '../ui/Structure.tsx';
+import { ChecksPanel } from '../ui/Panels.tsx';
+import { InspectorPanel, showDocument } from '../ui/Inspector.tsx';
+import { OutlineTab } from '../ui/Structure.tsx';
+import { Catalog } from '../ui/Visual.tsx';
+import { PreviewPanel } from '../ui/Workspace.tsx';
 import { editorPrefs, setPref } from '../state/prefs.ts';
+import { chooseWidth, layout, LEFT_TABS, openComp, openLeft, openVersions, panes as panes_, resetLayout, setStudioMode, showPanel, versionsOpen } from '../state/layout.ts';
+import { cycleRegion } from './regions.ts';
 import { HistoryPanel } from '../ui/History.tsx';
+import { withoutLines } from '@libka/render';
 import { dataUrl } from '../core/pipeline.ts';
 import { makeDocx } from '../core/docx.ts';
 import {
-  baseName, bridge, canUseFolders, download, exportProjectZip, flushSave, importFile, newProject, openExample, openFolder, save, saveNamedVersion, saveToFolder,
+  baseName, bridge, canUseFolders, download, duplicateOpen, exportProjectZip, flushSave, importFile, newProject, openExample, openFolder, renameOpen, save, saveNamedVersion,
+  saveToFolder,
 } from './project.ts';
+
+const inEditor = () => s.view.value === 'editor' && Boolean(s.project.value);
 
 /** Asks for a file with the browser's own picker. */
 function pickFile(accept: string): Promise<File | null> {
@@ -30,9 +39,12 @@ function pickFile(accept: string): Promise<File | null> {
   });
 }
 
-/** A page that leaves the Studio carries its files inside it (data URLs instead of the Studio's object URLs). */
-function exportable(html: string): string {
-  let out = html;
+/**
+ * A page that leaves the Studio carries its files inside it (data URLs instead of the Studio's object URLs), and none
+ * of the source-line marks the Studio's own render adds: it is the page `libka build` would write.
+ */
+export function exportable(html: string): string {
+  let out = withoutLines(html);
   for (const [path, f] of s.files.value) if (out.includes(f.url)) out = out.replaceAll(f.url, dataUrl(path)!);
   return out;
 }
@@ -50,13 +62,13 @@ const library: Extension = {
     { id: 'project.zip', title: 'file.exportZip', run: () => exportProjectZip() },
     { id: 'save', title: 'file.saveNow', keys: 'Mod-s', run: () => save() },
   ],
+  // (New, the example, Import and Open folder are the Documents view's buttons and palette commands; the open
+  // document's own actions are in Document ▾, its files in Export ▾)
   menu: [
-    { menu: 'file', command: 'project.new', order: 10 },
-    { menu: 'file', command: 'project.example', order: 20 },
-    { menu: 'file', command: 'project.import', order: 30 },
-    { menu: 'file', command: 'folder.open', order: 40 },
-    { menu: 'file', command: 'folder.save', order: 50 },
-    { menu: 'file', command: 'project.zip', order: 60 },
+    { menu: 'export', command: 'folder.save', order: 110 },
+    { menu: 'export', command: 'project.zip', order: 120 },
+    { menu: 'document', command: 'save', order: 110 },
+    { menu: 'document', command: 'version.save', order: 120 },
     { menu: 'library', command: 'project.new', order: 10 },
     { menu: 'library', command: 'project.example', order: 20 },
     { menu: 'library', command: 'project.import', order: 30 },
@@ -85,23 +97,67 @@ const exports: Extension = {
       },
     },
     { id: 'export.print', title: 'file.print', run: () => { (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.print(); } },
+    // the outputs are chosen in one place, Properties › Document › Outputs
+    { id: 'outputs.choose', title: 'outputs.choose', available: inEditor, run: () => {
+      showDocument();
+      showPanel('properties', 'tp-properties');
+      requestAnimationFrame(() => requestAnimationFrame(() => (document.querySelector<HTMLInputElement>('#doc-outputs-list input') ?? document.getElementById('tp-properties'))?.focus()));
+    } },
   ],
   menu: [
-    { menu: 'export', command: 'export.md', order: 10 },
-    { menu: 'export', command: 'export.html', order: 20 },
-    { menu: 'export', command: 'export.deck', order: 30 },
-    { menu: 'export', command: 'export.docx', order: 40 },
-    { menu: 'export', command: 'export.print', order: 50 },
+    { menu: 'export', command: 'export.html', order: 10 },
+    { menu: 'export', command: 'export.deck', order: 20 },
+    { menu: 'export', command: 'export.docx', order: 30 },
+    { menu: 'export', command: 'export.print', order: 40 },
+    { menu: 'export', command: 'export.md', order: 50 },
+    { menu: 'export', command: 'outputs.choose', order: 210 },
   ],
 };
 
-const checks: Extension = {
-  id: 'core.checks',
+/** The panes' tabs: the companion's Preview, Checks and Properties; the left pane's Catalog and Outline. */
+const panes: Extension = {
+  id: 'core.panes',
   panels: [
-    { id: 'problems', title: 'panel.problems', order: 10, count: () => s.problems.value.length, render: () => <ProblemsPanel /> },
-    { id: 'guard', title: 'panel.guard', order: 20, count: () => (s.checks.value ? s.checks.value.reduce((n, c) => n + c.violations.length, 0) : null), render: () => <GuardPanel /> },
-    { id: 'inspector', title: 'panel.inspector', order: 25, render: () => <InspectorPanel /> },
-    { id: 'structure', title: 'panel.structure', order: 30, render: () => <StructurePanel /> },
+    { id: 'preview', title: 'panel.preview', order: 10, keepMounted: true, render: () => <PreviewPanel /> },
+    {
+      id: 'checks', title: 'panel.checks', order: 20, render: () => <ChecksPanel />,
+      // the items to fix (as the readiness chip): known once Guard has run, or at once when the source has problems
+      count: () => (s.checks.value || s.issues.value ? s.issues.value : null),
+    },
+    { id: 'properties', title: 'panel.properties', order: 30, render: () => <InspectorPanel /> },
+    { id: 'catalog', title: 'panel.catalog', order: 10, region: 'left', render: () => <Catalog /> },
+    { id: 'outline', title: 'panel.outline', order: 20, region: 'left', render: () => <OutlineTab /> },
+  ],
+};
+
+/** The modes and the regions: Psaní, Bloky and Fokus on Alt+1 to Alt+3, F6 through the regions, the panes shown or not. */
+const layoutExt: Extension = {
+  id: 'core.layout',
+  commands: [
+    { id: 'layout.write', title: 'layout.write', keys: 'Alt-1', available: inEditor, run: () => setStudioMode('write') },
+    { id: 'layout.blocks', title: 'layout.blocks', keys: 'Alt-2', available: inEditor, run: () => setStudioMode('blocks') },
+    { id: 'layout.focus', title: 'layout.focus', keys: 'Alt-3', available: inEditor, run: () => setStudioMode('focus') },
+    { id: 'region.next', title: 'region.next', keys: 'F6', run: () => cycleRegion(1) },
+    { id: 'region.prev', title: 'region.prev', keys: 'Shift-F6', run: () => cycleRegion(-1) },
+    { id: 'panes.left', title: 'panes.left', available: inEditor, run: () => { if (panes_.value.left) openLeft(null); else showPanel(LEFT_TABS[0]!, `tab-${LEFT_TABS[0]}`); } },
+    { id: 'panes.companion', title: 'panes.companion', available: inEditor, run: () => { if (panes_.value.comp) openComp(null); else showPanel('preview', 'tab-preview'); } },
+    // View ▾ draws these beside its other choices; the palette lists them (no default keys)
+    ...(['narrow', 'medium', 'wide'] as const).map((w) => ({ id: `panes.${w}`, title: `panes.${w}` as const, available: () => inEditor() && !s.phone.value, run: () => chooseWidth(w) })),
+    { id: 'layout.reset', title: 'layout.reset', available: inEditor, run: () => {
+      resetLayout();
+      const mode = t(`layout.${layout.value.mode}`);
+      announce(t('layout.reset'), t('layout.resetDone', { mode }));
+    } },
+    { id: 'versions.open', title: 'docMenu.versions', available: inEditor, run: () => { if (editorPrefs.value.focus) setPref('focus', false); openVersions(); s.pane.value = 'companion'; requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('tab-versions')?.focus())); } },
+    { id: 'document.properties', title: 'docMenu.properties', available: inEditor, run: () => { showDocument(); showPanel('properties', 'tp-properties'); } },
+    { id: 'document.rename', title: 'docMenu.rename', available: inEditor, run: () => renameOpen() },
+    { id: 'document.duplicate', title: 'docMenu.duplicate', available: inEditor, run: () => duplicateOpen() },
+  ],
+  menu: [
+    { menu: 'document', command: 'document.rename', order: 10 },
+    { menu: 'document', command: 'document.duplicate', order: 20 },
+    { menu: 'document', command: 'versions.open', order: 130 },
+    { menu: 'document', command: 'document.properties', order: 210 },
   ],
 };
 
@@ -112,9 +168,23 @@ const editing: Extension = {
     { id: 'keys.open', title: 'keys.title', keys: 'Shift-Alt-h', run: () => { s.dialog.value = { kind: 'shortcuts' }; } },
     { id: 'focus.toggle', title: 'prefs.focus', keys: 'Mod-Shift-f', run: () => setPref('focus', !editorPrefs.value.focus) },
   ],
+  // (the keyboard shortcuts are under Help; the view's toggles are drawn by View ▾ itself)
   menu: [
-    { menu: 'file', command: 'prefs.open', order: 70 },
-    { menu: 'file', command: 'keys.open', order: 80 },
+    { menu: 'view', command: 'prefs.open', order: 110 },
+  ],
+};
+
+// Present: the deck full screen, from the first slide or the one the cursor is in (F5 and Shift+F5, as in PowerPoint)
+const presentation: Extension = {
+  id: 'core.present',
+  commands: [
+    { id: 'present.start', title: 'present.start', keys: 'F5', available: inEditor, run: () => present({ from: 0 }) },
+    { id: 'present.here', title: 'present.here', keys: 'Shift-F5', available: inEditor,
+      run: () => present({ from: slideOfLine(s.deckHtml.value, selectedLine()) }) },
+  ],
+  menu: [
+    { menu: 'view', command: 'present.start', order: 10 },
+    { menu: 'view', command: 'present.here', order: 20 },
   ],
 };
 
@@ -127,11 +197,12 @@ const palette: Extension = {
 const history: Extension = {
   id: 'core.history',
   commands: [{ id: 'version.save', title: 'history.saveButton', keys: 'Mod-Shift-s', run: () => saveNamedVersion() }],
-  panels: [{ id: 'history', title: 'panel.history', order: 40, render: () => <HistoryPanel /> }],
+  // Versions open from Document ▾ as a companion tab of their own, until closed
+  panels: [{ id: 'versions', title: 'panel.versions', order: 40, visible: () => versionsOpen.value, render: () => <HistoryPanel /> }],
 };
 
 export function registerBuiltins(): void {
-  for (const ext of [library, exports, checks, editing, history, palette, tutorial]) registry.register(ext);
+  for (const ext of [library, exports, panes, layoutExt, editing, presentation, history, palette, tutorial]) registry.register(ext);
   watchTutorial();
 }
 
