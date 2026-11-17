@@ -23,7 +23,8 @@ export const VALUE_LABELS_EN: Readonly<Record<string, ValueLabels>> = {
   summary: { attributes: { source: { human: 'A person', ai: 'AI' } } },
   cta: { attributes: { variant: { primary: 'Primary', secondary: 'Secondary' } } },
   decision: { attributes: { status: { proposed: 'Proposed', accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded' } } },
-  chart: { attributes: { type: { bar: 'Bar', line: 'Line', donut: 'Donut' } } },
+  chart: { attributes: { type: { bar: 'Bar', hbar: 'Horizontal bar', line: 'Line', donut: 'Donut' } } },
+  kpi: { attributes: { good: { up: 'Up', down: 'Down' } } },
   ui: {
     attributes: { theme: { light: 'Light', dark: 'Dark', both: 'Both' }, layout: { row: 'In a row', stack: 'Stacked' } },
     children: {

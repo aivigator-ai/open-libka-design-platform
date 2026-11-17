@@ -9,6 +9,9 @@ describe('Czech typography', () => {
   it('keeps one-letter words, units and digit groups on the line with the next word', () => {
     expect(czechText('Bydlím v Praze a pracuji s lidmi i v noci.')).toBe(`Bydlím v${N}Praze a${N}pracuji s${N}lidmi i${N}v${N}noci.`);
     expect(czechText('Stojí 1 240 000 Kč, roste o 25 % a trvá 3 h.')).toBe(`Stojí 1${N}240${N}000${N}Kč, roste o${N}25${N}% a${N}trvá 3${N}h.`);
+    // a date and percentage points stay on one line
+    expect(czechText('Počet obyvatel k 31. 12. 2025 a od 1. 4. platí nové hodiny.')).toBe(`Počet obyvatel k${N}31.${N}12.${N}2025 a${N}od 1.${N}4. platí nové hodiny.`);
+    expect(czechText('nárůst o 6 p. b. oproti roku 2024')).toBe(`nárůst o${N}6${N}p.${N}b. oproti roku 2024`);
     expect(czechText('(k dispozici) „s úsměvem“')).toBe(`(k${N}dispozici) „s${N}úsměvem“`);
     expect(czechText('Verze 2024 a 12 lidí')).toBe(`Verze 2024 a${N}12 lidí`);   // a year is not a digit group
   });

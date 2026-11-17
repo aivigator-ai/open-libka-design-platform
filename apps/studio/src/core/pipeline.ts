@@ -5,6 +5,8 @@
  */
 import { batch } from '@preact/signals';
 import { parse, type Block, type LibkaDocument, type Problem } from '@libka/model';
+import type { chooseDesign as Choose } from './design.ts';
+import { needsDesign } from '../storage/design-files.ts';
 import { cleanDiagramSvg, MERMAID_CONFIG, renderManual } from '@libka/render';
 import { renderDeck, slides } from '@libka/render/deck';
 import { emptyFitting, FIT_ROUNDS, fitStep } from '@libka/render/fit';
@@ -38,10 +40,12 @@ const deckStyles = () => { const { tokens, bridge, components, deck } = styles; 
  * The page and the deck as the author sees them. The preview and Guard's frame get each block marked with its source
  * line (`sourceLines`), so a check's finding is linked to its block; exports strip the marks (`withoutLines`).
  */
+/** The document's design (theme, brand, logo), as the last render chose it; nothing for LibKa's default. */
+const designOptions = () => { const d = s.design.value; return { ...(d?.design ? { design: d.design } : {}), ...(d?.logo ? { logo: d.logo } : {}) }; };
 export const manualHtml = (doc: LibkaDocument, url = previewUrl, sourceLines = false): string =>
-  withFiles(renderManual(doc, { styles, fontsHref, source: s.project.value?.name ?? 'document.md', sourceLines }), url);
+  withFiles(renderManual(doc, { styles, fontsHref, source: s.project.value?.name ?? 'document.md', sourceLines, ...designOptions() }), url);
 export const deckHtmlOf = (doc: LibkaDocument, url = previewUrl, layout?: ReturnType<typeof emptyFitting>): string =>
-  withFiles(renderDeck(doc, { styles: deckStyles(), fontsHref, sourceLines: true, ...(layout ? { layout } : {}) }), url);
+  withFiles(renderDeck(doc, { styles: deckStyles(), fontsHref, sourceLines: true, ...designOptions(), ...(layout ? { layout } : {}) }), url);
 
 /* ---------- diagrams: drawn here with the build's settings, cached by their source ---------- */
 type DiagramBlock = Extract<Block, { type: 'diagram' }>;
@@ -74,6 +78,9 @@ async function drawDiagrams(list: DiagramBlock[]): Promise<void> {
   render();
 }
 
+let chooser: typeof Choose | undefined;
+let chooserLoad: Promise<void> | undefined;
+
 /** Parses and renders the current source now. */
 export function render(): void {
   const text = s.source.value;
@@ -90,10 +97,16 @@ export function render(): void {
   if (missing.length) void drawDiagrams(missing);
   // a Guard run waiting or under way would check these slides before they are fitted
   cancelGuard();
+  // the design, chosen as the build chooses it, from the document's own files; its code is loaded with the first
+  // document that has a theme or a brand (until then, and for every other document, LibKa's default)
+  const needed = needsDesign(result.document, (path) => s.files.value.has(path));
+  if (needed && !chooser) void (chooserLoad ??= import('./design.ts').then((m) => { chooser = m.chooseDesign; scheduleRender(); }));
+  const design = needed && chooser ? chooser(result.document, text, (path) => s.files.value.get(path), s.lang.value) : null;
   batch(() => {
+    s.design.value = design;
     s.doc.value = result.document;
-    s.problems.value = problems;
-    s.hints.value = result.hints;
+    s.problems.value = [...problems, ...(design?.problems ?? [])];
+    s.hints.value = [...result.hints, ...(design?.hints ?? [])];
     s.html.value = manualHtml(result.document, previewUrl, true);
     s.deckHtml.value = deckHtmlOf(result.document);
     s.checks.value = null;

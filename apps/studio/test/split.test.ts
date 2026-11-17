@@ -283,6 +283,9 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     // a document of the library
     await page.click('#library-toggle');
     await page.click('[data-command="project.new"]');
+    // New document offers the templates; Blank is chosen, so Enter makes a blank one
+    await page.waitForSelector('.st-dialog--new[open]');
+    await page.keyboard.press('Enter');
     await page.waitForFunction(() => (window as unknown as { libkaStudio: { project: { name: string } } }).libkaStudio.project?.name === 'untitled.md');
     await page.keyboard.press('F1');
     await page.keyboard.type('writing a libka');
@@ -336,6 +339,13 @@ describe.skipIf(!chrome)('LibKa Studio: Split, quick fixes, the palette, Czech',
     await row.locator('button', { hasText: 'Change' }).click();
     await page.keyboard.press('Control+b');
     expect(await row.locator('[role="status"]').textContent()).toBe('Ctrl+B is already used by: the editors. Choose other keys.');
+    await row.locator('button', { hasText: 'Change' }).click();
+    await page.keyboard.press('Control+Shift+p');
+    expect(await row.locator('kbd').textContent()).toBe('Ctrl+Shift+P');
+    // Default goes back, and the focus stays in the row (on Change), not on the page behind the dialog
+    await row.locator('button', { hasText: 'Default' }).click();
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => [document.activeElement?.textContent, document.activeElement?.closest('tr')?.getAttribute('data-command')])).toEqual(['Change', 'palette.open']);
     await row.locator('button', { hasText: 'Change' }).click();
     await page.keyboard.press('Control+Shift+p');
     expect(await row.locator('kbd').textContent()).toBe('Ctrl+Shift+P');

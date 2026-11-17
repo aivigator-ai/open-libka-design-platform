@@ -239,7 +239,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     await page.click('.cm-content');
     await page.keyboard.press('Control+End');
     await page.keyboard.press('Enter');
-    await page.keyboard.insertText('Press :kbd[Ctrl+S] to save. Export :badge[Beta]{variant=info}\n');
+    await page.keyboard.insertText('Press :kbd[Ctrl+S] to save. Checks :badge[Passed]{variant=success}\n');
     await page.click('[data-mode="visual"]');
     await page.waitForSelector('.ed-inline.ed-badge');
     await page.click('.ed-inline.ed-badge');
@@ -248,7 +248,7 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     await page.selectOption('#inline-variant', 'warning');
     await page.fill('#inline-label', 'Preview');
     await page.press('#inline-label', 'Enter');
-    expect((await settled(page)).source).toContain('Press :kbd[Ctrl+S] to save. Export :badge[Preview]{variant=warning}');
+    expect((await settled(page)).source).toContain('Press :kbd[Ctrl+S] to save. Checks :badge[Preview]{variant=warning}');
     await page.context().close();
   }, 90000);
 
@@ -420,18 +420,30 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
 
   it('preferences switch each ability on and off, and are remembered', async () => {
     const page = await open();
+    await page.setViewportSize({ width: 1366, height: 700 });   // a laptop: Preferences is taller than the window
     await page.click('#view-menu summary');
     await page.click('[data-command="prefs.open"]');
-    // it opens at its top: the heading has the focus, Tab goes on to the first preference (Close is at the end)
+    // it opens at its top: the heading has the focus, Tab goes on to the close button beside it, then the first preference
     await page.waitForSelector('.st-dialog--prefs[open]');
-    expect(await page.evaluate(() => [document.activeElement?.id, document.querySelector('.st-dialog--prefs .st-dialog-body')!.scrollTop])).toEqual(['dialog-title', 0]);
+    expect(await page.evaluate(() => [document.activeElement?.id, document.querySelector('.st-dialog--prefs .st-dialog-content')!.scrollTop])).toEqual(['dialog-title', 0]);
+    // its close button beside the heading and its Close at the bottom are in view without scrolling; only the
+    // content between them scrolls
+    expect(await page.evaluate(() => {
+      const inView = (sel: string) => { const r = document.querySelector(sel)!.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && r.width > 0; };
+      const content = document.querySelector('.st-dialog--prefs .st-dialog-content')!;
+      return { x: inView('.st-dialog--prefs .st-dialog-x'), close: inView('.st-dialog--prefs .st-dialog-actions .st-btn'), scrolls: content.scrollHeight > content.clientHeight };
+    })).toEqual({ x: true, close: true, scrolls: true });
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement?.className)).toBe('st-dialog-x');
     await page.keyboard.press('Tab');
     expect(await page.evaluate(() => document.activeElement?.id)).toBe('pref-shortcuts');
     await page.click('#pref-labels');
     await page.click('input[name="pref-handles"] >> nth=1');
     await page.click('#pref-shortcuts');
     await page.click('input[name="pref-announce"] >> nth=1');
-    await page.keyboard.press('Escape');
+    // closed with the mouse: the close button beside the heading
+    await page.click('.st-dialog--prefs .st-dialog-x');
+    await page.waitForSelector('.st-dialog--prefs', { state: 'detached' });
     expect(await page.getAttribute('.st-visual', 'data-handles')).toBe('always');
     expect(await page.$eval('.st-format-bold .st-format-text', (el) => (el as HTMLElement).offsetWidth)).toBeLessThanOrEqual(1);   // icons only (the word stays for screen readers)
     // Markdown shortcuts off: "## " stays text
@@ -480,6 +492,8 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     const sourceFirst = await open({ defaultMode: 'source' });
     await sourceFirst.click('#library-toggle');
     await sourceFirst.click('.st-library-actions [data-command="project.new"]');
+    await sourceFirst.waitForSelector('.st-dialog--new[open]');
+    await sourceFirst.keyboard.press('Enter');   // Blank is chosen
     await sourceFirst.waitForSelector('.cm-content');
     expect((await hook(sourceFirst)).mode).toBe('source');
     await sourceFirst.context().close();
@@ -598,7 +612,25 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
     const [row, tabs] = await Promise.all([page.locator('#bar-phone-bar').boundingBox(), page.locator('.st-phone-bar').boundingBox()]);
     expect(row!.y + row!.height).toBeLessThanOrEqual(tabs!.y + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    // Properties is an icon on the phone, named for screen readers and in its title; it opens the block's Properties
+    expect(await page.getAttribute('#bar-phone-props', 'aria-label')).toBe('Vlastnosti');
+    expect(await page.getAttribute('#bar-phone-props', 'title')).toBe('Vlastnosti');
+    expect((await page.textContent('#bar-phone-props'))!.trim()).toBe('');
+    expect(await page.locator('#bar-phone-props svg[aria-hidden="true"]').count()).toBe(1);
     expect(findings(await guardPage(page)).map((v) => `${v.rule} ${v.target} ${v.message}`)).toEqual([]);
+    // a figure's bar, the widest (its name, "Napsat alt. text", Move up and down, ⋯, Properties), fits one row
+    await page.click('.ed-root img.ed-image[alt=""]');
+    await page.waitForSelector('#bar-phone-alt');
+    const figureRow = await page.locator('#bar-phone-bar').boundingBox();
+    // (one row: every item crosses the same line; the items differ in height and are centred)
+    const [lowestTop, highestBottom] = await page.locator('#bar-phone-bar > :not(.st-blockbar-sep)').evaluateAll((els) => {
+      const r = els.map((e) => e.getBoundingClientRect()).filter((b) => b.width > 1);
+      return [Math.max(...r.map((b) => b.top)), Math.min(...r.map((b) => b.bottom))];
+    });    expect(lowestTop).toBeLessThan(highestBottom);
+    expect(figureRow!.width).toBeLessThanOrEqual(390);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.click('#bar-phone-props');
+    await page.waitForSelector('#companion #img-alt');
     await page.context().close();
   }, 120000);
 
@@ -665,13 +697,16 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
           await page.click(`#${id} summary`);
           // the list is placed on the details element's toggle event, which follows the click
           await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-          // under View ▾ at 1024 px, the editor's Source button kept 10 px before (axe's target-size)
-          const left = await page.evaluate((i) => {
-            const items = [...document.querySelectorAll(`#${i} .st-menu-list button`)].map((b) => b.getBoundingClientRect()).filter((r) => r.width);
-            return Math.min(...items.map((r) => r.left));
-          }, id);
-          const source = await page.locator('.st-mode [data-mode="source"]').boundingBox();
-          if (id === 'view-menu' && source && left > source.x && left < source.x + source.width) expect(left - source.x, `${width} ${lang}`).toBeGreaterThanOrEqual(24);
+          // under View ▾ at 1024 px, the editor's Source button kept 10 px before (axe's target-size); an open menu
+          // measures again while open (Menu.tsx), so a control that moves under it is waited for, within 2 s
+          if (id === 'view-menu') {
+            await expect.poll(() => page.evaluate((i) => {
+              const items = [...document.querySelectorAll(`#${i} .st-menu-list button`)].map((b) => b.getBoundingClientRect()).filter((r) => r.width);
+              const left = Math.min(...items.map((r) => r.left));
+              const s = document.querySelector('.st-mode [data-mode="source"]')?.getBoundingClientRect();
+              return s && left > s.left && left < s.right ? left - s.left : Infinity;
+            }, id), { timeout: 2000, message: `${width} ${lang}: the Source button left a sliver under View ▾` }).toBeGreaterThanOrEqual(24);
+          }
           expect(findings(await guardPage(page)).map((v) => `${width} ${lang} ${id}: ${v.rule} ${v.target} ${v.message}`)).toEqual([]);
           await page.keyboard.press('Escape');
           // closed, the menu keeps no rule that moves its list (the next opening measures again)
@@ -682,6 +717,27 @@ describe.skipIf(!chrome)('LibKa Studio, visual mode', () => {
       await page.context().close();
     }
   }, 240000);
+
+  it('moves an open menu again when a control under it moves after it opened (2.5.8)', async () => {
+    const page = await open(undefined, 1024);
+    await page.click('#view-menu summary');
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    // the Source button moved so that View ▾'s items cover all of it but 10 px, as if the toolbar had wrapped
+    const gap = () => page.evaluate(() => {
+      const items = [...document.querySelectorAll('#view-menu .st-menu-list button')].map((b) => b.getBoundingClientRect()).filter((r) => r.width);
+      const left = Math.min(...items.map((r) => r.left));
+      const s = document.querySelector('.st-mode [data-mode="source"]')!.getBoundingClientRect();
+      return { left, source: s.left, gap: left > s.left && left < s.right ? left - s.left : Infinity };
+    });
+    const before = await gap();
+    await page.evaluate((dx) => {
+      const style = document.head.appendChild(document.createElement('style'));
+      style.textContent = `.st-editor-pane .st-mode { transform: translateX(${dx}px); }`;
+    }, before.left - 10 - before.source);
+    expect(before.gap).toBeGreaterThanOrEqual(24);
+    await expect.poll(async () => (await gap()).gap, { timeout: 2000, message: 'the list stayed where it opened' }).toBeGreaterThanOrEqual(24);
+    await page.context().close();
+  }, 90000);
 
   it('presents the deck: View ▾ and F5 full screen from the first slide, Shift+F5 from the cursor\'s slide, Esc and End back to the text, the Preview\'s P with the presenter view in step', async () => {
     const page = await open();

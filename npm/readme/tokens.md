@@ -1,6 +1,6 @@
 # @libka/tokens
 
-The LibKa design tokens: W3C Design Tokens (DTCG 2025.10) with light, dark and high-contrast themes, generated into CSS custom properties, SCSS, and Tailwind themes. Every text, button and badge colour pair passes WCAG contrast gates when the tokens are built.
+The LibKa design tokens: W3C Design Tokens (DTCG 2025.10) with light, dark and high-contrast modes, generated into CSS custom properties, SCSS, and Tailwind themes. Every text, button and badge colour pair passes WCAG contrast gates when the tokens are built.
 
 ```bash
 npm install @libka/tokens
@@ -8,7 +8,7 @@ npm install @libka/tokens
 
 | File | Import |
 |---|---|
-| CSS custom properties (`--lk-*`), all themes | `@libka/tokens/css` |
+| CSS custom properties (`--lk-*`), all modes | `@libka/tokens/css` |
 | SCSS variables | `@libka/tokens/scss` |
 | Tailwind CSS v4 theme | `@libka/tokens/tailwind.css` |
 | Tailwind CSS v3 preset (CommonJS) | `@libka/tokens/tailwind.config` |

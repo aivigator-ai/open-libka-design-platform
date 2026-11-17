@@ -1,5 +1,5 @@
 # LibKa Design System Manual
-**Version 2.0.3** | 2026-11-09
+**Version 2.0.4** | 2026-11-15
 
 What changed in each release is in the CHANGELOG. The token files in `tokens/` are the source of truth; this manual explains how to use them.
 
@@ -17,7 +17,7 @@ The LibKa design system is the set of design tokens, rules and component styles 
 
 | Area | What the system defines |
 |---|---|
-| Colour | Primitive and semantic colours for light, dark and two high-contrast themes |
+| Colour | Primitive and semantic colours for the light, dark and two high-contrast modes |
 | Typography | Three font roles (brand serif, interface sans, monospace), a type scale, self-hosted fonts |
 | Layout | Spacing, radius, elevation, grid, density, z-index, opacity and breakpoints |
 | Motion | Durations, easings and presets, with reduced motion respected |
@@ -33,9 +33,9 @@ The LibKa design system is the set of design tokens, rules and component styles 
 
 | Property | How it is held |
 |---|---|
-| Text contrast | Every text colour reaches 4.5:1 on every background it is used on, 7:1 in the high-contrast themes; the token build fails otherwise |
-| Control contrast | Buttons, badges, the boundary of text fields and the focus ring reach 3:1 or more in every theme; the token build fails otherwise |
-| Themes | Every semantic colour has a light, dark, light high-contrast and dark high-contrast value |
+| Text contrast | Every text colour reaches 4.5:1 on every background it is used on, 7:1 in the high-contrast modes; the token build fails otherwise |
+| Control contrast | Buttons, badges, the boundary of text fields and the focus ring reach 3:1 or more in every mode; the token build fails otherwise |
+| Modes | Every semantic colour has a light, dark, light high-contrast and dark high-contrast value. (A document's theme, Classic or Modern, is something else: its type, headings, corners and density; see `packages/design`.) |
 | Tokens only | Block, page and slide styles use only `--lk-*` custom properties; a test rejects raw colour values |
 | Motion | Under reduced motion, transitions and animations finish at once |
 | Neutral | No client or product branding; a brand is applied by changing tokens |
@@ -146,7 +146,7 @@ The palette is built for current and near-future digital systems. Calm, modern, 
 | `color.action.on-accent` | `#FFFFFF` | `#111723` | Label on `action.accent-strong` |
 | `color.action.on-iris` | `#FFFFFF` | `#111723` | Label on `action.iris` |
 | `color.action.on-destructive` | `#FFFFFF` | `#111723` | Label on `action.destructive` |
-| `color.focus.ring` | `#B87A22` | `#F0B35E` | Focus ring (one value per theme, both verified ≥3:1) |
+| `color.focus.ring` | `#B87A22` | `#F0B35E` | Focus ring (one value per mode, both verified ≥3:1) |
 | `color.status.success` | `#2E8B65` | `#67D5AA` | Success |
 | `color.status.warning` | `#A66B1F` | `#F0B35E` | Warning |
 | `color.status.error` | `#D8576B` | `#FF9FAE` | Error |
@@ -199,20 +199,20 @@ The palette is built for current and near-future digital systems. Calm, modern, 
 | Small text on dark | Minimum 4.5:1. Use `cloud.50` or equivalent semantic light value |
 | Large text / UI components | Minimum 3:1 |
 | Bright accents (`aqua.500`, `iris.500`, `apricot.500`) | Surface, icons, highlights only — never for text |
-| Labels on filled buttons | Minimum 4.5:1 (a 14px/700 label is not large text). Use `color.action.on-*` on `action.accent-strong`, `action.iris` or `action.destructive`: white on the darker light-theme fills, ink on the bright dark-theme fills. White on `aqua.650` is 3.84:1 and fails; apricot fills always take dark text |
-| Focus ring | Light uses grounded apricot #B87A22 (3.35:1 on light canvas), dark uses #F0B35E (9.67:1). A single bright apricot cannot pass on near-white — the theme split is required, verified by computation |
+| Labels on filled buttons | Minimum 4.5:1 (a 14px/700 label is not large text). Use `color.action.on-*` on `action.accent-strong`, `action.iris` or `action.destructive`: white on the darker light-mode fills, ink on the bright dark-mode fills. White on `aqua.650` is 3.84:1 and fails; apricot fills always take dark text |
+| Focus ring | Light uses grounded apricot #B87A22 (3.35:1 on light canvas), dark uses #F0B35E (9.67:1). A single bright apricot cannot pass on near-white — the split by mode is required, verified by computation |
 
 :::
 
 
 ### 4.6 High contrast
 
-A high-contrast palette exists for both themes. It is stricter than AA: every text color reaches **7:1 (WCAG AAA)** on every background and on a 12% tint of its own color, button labels reach 7:1 on their fills, and UI colors (borders, icons, focus ring) reach 4.5:1. The build checks all of it and fails otherwise. In the resolver these are the theme contexts `light-high-contrast` and `dark-high-contrast`; in CSS, `data-contrast="high"` or the system preference `prefers-contrast: more` (section 14.1). In high contrast a brand profile keeps its fonts, but its colors are not applied.
+A high-contrast palette exists for both modes. It is stricter than AA: every text color reaches **7:1 (WCAG AAA)** on every background and on a 12% tint of its own color, button labels reach 7:1 on their fills, and UI colors (borders, icons, focus ring) reach 4.5:1. The build checks all of it and fails otherwise. In the resolver these are the mode contexts `light-high-contrast` and `dark-high-contrast`; in CSS, `data-contrast="high"` or the system preference `prefers-contrast: more` (section 14.1). In high contrast a brand profile keeps its fonts, but its colors are not applied.
 
 Generated from the token files by `generate.py`:
 
 <!-- BEGIN GENERATED: hc-table -->
-:::table{caption="The high-contrast value of every semantic color in the light and dark themes"}
+:::table{caption="The high-contrast value of every semantic color in the light and dark modes"}
 
 | Semantic token | Light high contrast | Dark high contrast |
 |---|---:|---:|
@@ -626,7 +626,7 @@ The LibKa symbol is a **single glowing dot**.
 **Rules:**
 - One primary action per decision area.
 - Use verb-based labels.
-- Focus ring must remain visible in all themes.
+- Focus ring must remain visible in all modes.
 - Minimum size: `44px` height, `44px` width on touch targets.
 - Loading state: replace label with spinner, disable interaction, preserve button size.
 - Icon buttons must have `aria-label`.
@@ -752,20 +752,22 @@ This rule exists because a table built from `<div>` grids can look right and sti
 ### 11.1 Chart color sequence
 Use this order when assigning colors to multi-series charts. Never assign colors arbitrarily.
 
-:::table{caption="The order of chart series colors, with their tokens, hex values, names and pattern fills"}
+Each series keeps its hue in every mode and has a lightness of its own per mode, so that the colour itself stands out from every background of that mode (since 2.0.4).
 
-| Order | Token | Hex | Name | Pattern fill |
-|---|---|---:|---|---|
-| 1 | `viz.series.1` | `#0F8FA1` | Deep Aqua | solid |
-| 2 | `viz.series.2` | `#7A7CFF` | Soft Iris | diagonal lines |
-| 3 | `viz.series.3` | `#F0B35E` | Soft Apricot | dots |
-| 4 | `viz.series.4` | `#16633F` | Forest Mint | cross-hatch |
-| 5 | `viz.series.5` | `#D8576B` | Calm Coral | horizontal lines |
-| 6 | `viz.series.6` | `#B8C0CC` | Light Slate | vertical lines |
+:::table{caption="The order of chart series colors, with their tokens, names, pattern fills and hex values per mode"}
+
+| Order | Token | Name | Pattern fill | Light | Dark | Light, high contrast | Dark, high contrast |
+|---|---|---|---|---|---|---|---|
+| 1 | `viz.series.1` | Aqua | solid | `#138DAD` | `#06A9C1` | `#167594` | `#16B1D1` |
+| 2 | `viz.series.2` | Iris | diagonal lines | `#817AFE` | `#767CFD` | `#635ADB` | `#737DF5` |
+| 3 | `viz.series.3` | Apricot | dots | `#C67A1D` | `#F1B15A` | `#A25A0D` | `#EEB55F` |
+| 4 | `viz.series.4` | Forest | cross-hatch | `#206424` | `#208D66` | `#2B5F27` | `#40966D` |
+| 5 | `viz.series.5` | Coral | horizontal lines | `#DA5353` | `#DE546B` | `#C83344` | `#E85268` |
+| 6 | `viz.series.6` | Slate | vertical lines | `#8B8C8C` | `#BCBEBB` | `#6C6D6C` | `#B7C0C8` |
 
 :::
 
-**Colorblind verification.** This palette and ordering were verified by simulating deuteranopia, protanopia and tritanopia and measuring CIE76 ΔE between every pair. Worst-case ΔE = 17.1 (threshold 15). That is why series 4 is the darker forest mint and series 6 the lighter slate: with plain mint and gray, aqua and gray fall to ΔE 3.8 under protanopia.
+**Contrast and colorblind verification, per mode.** The token build (`generate.py`) checks every series against every background of its mode, 3:1 in light and dark and 4.5:1 in high contrast (as UI colours), and simulates protanopia, deuteranopia and tritanopia (Machado 2009) to measure CIE76 ΔE between every pair; the threshold is 15. Worst case: light 20.5, dark 15.1, light high contrast 15.0, dark high contrast 15.5. The values were chosen as the smallest moves from the 2.0.3 palette that meet both. Every line and stroked marker also lies on a 1 px edge in the text colour, and bars and parts have one, so a shape stands out whatever its colour.
 
 **Rule:** Hue is never the only encoding. Pattern fills are mandatory for any chart with 4+ series and for all print output. Series 5 may resemble the error status color — only use it for data when no status meaning is present on the same screen.
 
@@ -869,7 +871,7 @@ Required:
 |---|---|
 | Contrast | WCAG 2.2 AA minimum. AAA for body text where achievable |
 | Keyboard | Full keyboard navigation on all interactive elements |
-| Focus | Visible on all interactive controls in all themes |
+| Focus | Visible on all interactive controls in all modes |
 | Motion | `prefers-reduced-motion` supported: transitions and animations finish at once |
 | Touch | Interactive targets at least 24×24 px (WCAG 2.5.8, checked by axe); 44×44 px where space allows (WCAG 2.5.5) |
 | Language | Clear, factual, low-noise. Reading level: plain language preferred |
@@ -991,12 +993,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
   --lk-shadow-2: 0 4px 16px rgb(17 23 35 / .07), 0 1px 3px rgb(17 23 35 / .05);
   --lk-shadow-3: 0 20px 60px rgb(17 23 35 / .14);
   --lk-shadow-4: 0 32px 80px rgb(17 23 35 / .20);
-  --lk-viz-series-1: #0F8FA1;
-  --lk-viz-series-2: #7A7CFF;
-  --lk-viz-series-3: #F0B35E;
-  --lk-viz-series-4: #16633F;
-  --lk-viz-series-5: #D8576B;
-  --lk-viz-series-6: #B8C0CC;
+  --lk-viz-series-1: #138DAD;
+  --lk-viz-series-2: #817AFE;
+  --lk-viz-series-3: #C67A1D;
+  --lk-viz-series-4: #206424;
+  --lk-viz-series-5: #DA5353;
+  --lk-viz-series-6: #8B8C8C;
   --lk-viz-axis: var(--lk-border-default);
   --lk-viz-label: var(--lk-text-muted);
   --lk-viz-grid: rgb(215 221 231 / .60);
@@ -1098,6 +1100,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
   --lk-shadow-2: 0 4px 16px rgb(0 0 0 / .40), 0 1px 3px rgb(0 0 0 / .30);
   --lk-shadow-3: 0 20px 60px rgb(0 0 0 / .55);
   --lk-shadow-4: 0 32px 80px rgb(0 0 0 / .65);
+  --lk-viz-series-1: #06A9C1;
+  --lk-viz-series-2: #767CFD;
+  --lk-viz-series-3: #F1B15A;
+  --lk-viz-series-4: #208D66;
+  --lk-viz-series-5: #DE546B;
+  --lk-viz-series-6: #BCBEBB;
   --lk-viz-grid: rgb(56 66 85 / .60);
   --lk-button-primary-hover-background: #ECEFF3;
   --lk-button-accent-hover-background: #35D4E6;
@@ -1142,6 +1150,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
   --lk-status-error: #86012C;
   --lk-status-info: #004A54;
   --lk-status-ai: #352DAA;
+  --lk-viz-series-1: #167594;
+  --lk-viz-series-2: #635ADB;
+  --lk-viz-series-3: #A25A0D;
+  --lk-viz-series-4: #2B5F27;
+  --lk-viz-series-5: #C83344;
+  --lk-viz-series-6: #6C6D6C;
 }
 [data-theme="dark"][data-contrast="high"] {
   --lk-bg-canvas: #000000;
@@ -1173,6 +1187,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
   --lk-status-error: #FFAAB6;
   --lk-status-info: #37D3E5;
   --lk-status-ai: #B6BEFF;
+  --lk-viz-series-1: #16B1D1;
+  --lk-viz-series-2: #737DF5;
+  --lk-viz-series-3: #EEB55F;
+  --lk-viz-series-4: #40966D;
+  --lk-viz-series-5: #E85268;
+  --lk-viz-series-6: #B7C0C8;
 }
 @media (prefers-contrast: more) {
   :root:not([data-contrast="standard"]) {
@@ -1205,6 +1225,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
     --lk-status-error: #86012C;
     --lk-status-info: #004A54;
     --lk-status-ai: #352DAA;
+    --lk-viz-series-1: #167594;
+    --lk-viz-series-2: #635ADB;
+    --lk-viz-series-3: #A25A0D;
+    --lk-viz-series-4: #2B5F27;
+    --lk-viz-series-5: #C83344;
+    --lk-viz-series-6: #6C6D6C;
   }
   [data-theme="dark"]:not([data-contrast="standard"]) {
     --lk-bg-canvas: #000000;
@@ -1236,6 +1262,12 @@ This block is generated from the DTCG token files (`tokens/*.tokens.json` via `l
     --lk-status-error: #FFAAB6;
     --lk-status-info: #37D3E5;
     --lk-status-ai: #B6BEFF;
+    --lk-viz-series-1: #16B1D1;
+    --lk-viz-series-2: #737DF5;
+    --lk-viz-series-3: #EEB55F;
+    --lk-viz-series-4: #40966D;
+    --lk-viz-series-5: #E85268;
+    --lk-viz-series-6: #B7C0C8;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1252,7 +1284,7 @@ The block above includes the high-contrast mode, generated from `tokens/theme-li
 ```
 primitive → semantic → component → implementation
 ```
-Never skip layers: a component references semantic tokens. The exceptions are fills with no semantic role of their own: the buttons' hover fills (`button.*.hover`), the translucent tints (the badge backgrounds, the AI card's tint, the active navigation item, table rows on hover and when selected), the modal overlay and the ghost button's transparent fill. They are set as values in the component tokens, and the dark theme sets its own for all of them except the overlay and the transparent fill.
+Never skip layers: a component references semantic tokens. The exceptions are fills with no semantic role of their own: the buttons' hover fills (`button.*.hover`), the translucent tints (the badge backgrounds, the AI card's tint, the active navigation item, table rows on hover and when selected), the modal overlay and the ghost button's transparent fill. They are set as values in the component tokens, and the dark mode sets its own for all of them except the overlay and the transparent fill.
 
 ## 15. Final checks
 
@@ -1266,7 +1298,7 @@ Never skip layers: a component references semantic tokens. The exceptions are fi
 | Component states | All states defined and implemented |
 | Copy | Short, factual, verb-based for actions |
 | Identity | Dot symbol only — no modifications |
-| Theme support | Light, dark, high-contrast, reduced-motion |
+| Mode support | Light, dark, high-contrast, reduced-motion |
 | Icon compliance | Outline style, labeled, no emoji |
 | Motion compliance | Functional only, reduced-motion suppressed |
 | AI output validation | Every AI output passes Section A3 checklist |
@@ -1283,7 +1315,7 @@ AI systems generating LibKa outputs must treat this manual as a hard constraint 
 
 ### A2. Generation profiles
 
-Generated from `governance/a2-profiles.json` by `generate.py`, which stamps the current version and fails the build if a profile names a token, theme or density that does not exist. Edit the JSON, not this section. Each profile ends with a `tokens` map: the exact DTCG token paths behind its prose rules.
+Generated from `governance/a2-profiles.json` by `generate.py`, which stamps the current version and fails the build if a profile names a token, mode or density that does not exist. Edit the JSON, not this section. Each profile ends with a `tokens` map: the exact DTCG token paths behind its prose rules.
 
 <!-- BEGIN GENERATED: a2-profiles -->
 #### A2.1 Dashboard profile
@@ -1291,7 +1323,7 @@ Generated from `governance/a2-profiles.json` by `generate.py`, which stamps the 
 brand_system: LibKa
 version: "2.0"
 screen_type: dashboard
-theme: light | dark
+mode: light | dark
 density: comfortable
 required_components:
   - topbar
@@ -1327,7 +1359,7 @@ tokens:
 brand_system: LibKa
 version: "2.0"
 screen_type: landing
-theme: light | dark
+mode: light | dark
 density: spacious
 required_components:
   - hero (title + lead + primary CTA)
@@ -1359,7 +1391,7 @@ tokens:
 brand_system: LibKa
 version: "2.0"
 screen_type: documentation
-theme: light
+mode: light
 density: comfortable
 structure:
   - title (type.heading.h1)
@@ -1390,7 +1422,7 @@ tokens:
 brand_system: LibKa
 version: "2.0"
 screen_type: form
-theme: light | dark
+mode: light | dark
 density: comfortable
 required_components:
   - progress indicator
@@ -1480,12 +1512,12 @@ The token files are the authoritative source for all primitive, semantic, compon
 | File | Contents |
 |---|---|
 | `tokens/primitive.tokens.json` | Primitive palette; brand metadata in `$extensions` |
-| `tokens/semantic.tokens.json` | Semantic colors, light theme values |
+| `tokens/semantic.tokens.json` | Semantic colors, light mode values |
 | `tokens/component.tokens.json` | Component tokens, mostly aliases of semantic tokens |
 | `tokens/foundation.tokens.json` | Typography, spacing, density, radius, opacity, z-index, breakpoints, shadows, motion, icons, data viz |
-| `tokens/theme-dark.tokens.json` | Only the values that change in the dark theme |
+| `tokens/theme-dark.tokens.json` | Only the values that change in the dark mode |
 | `tokens/theme-light-hc.tokens.json`, `tokens/theme-dark-hc.tokens.json` | High-contrast overrides of every semantic color (section 4.6) |
-| `libka.resolver.json` | Merges the four base sets, then the `theme` modifier: `light` (default), `dark`, `light-high-contrast`, `dark-high-contrast` (stacked on dark) |
+| `libka.resolver.json` | Merges the four base sets, then the `mode` modifier: `light` (default), `dark`, `light-high-contrast`, `dark-high-contrast` (stacked on dark) |
 
 :::
 
@@ -1517,16 +1549,16 @@ When the manual and the token files conflict, the token files are correct for im
 ### D1. Verification suite
 `libka-verification.html` recomputes the token checks in the browser with zero setup:
 - Token reference resolution (every `ref` resolves to a real value)
-- Contrast matrix for light and dark themes (WCAG 2.2 AA)
+- Contrast matrix for the light and dark modes (WCAG 2.2 AA)
 - Colorblind distinguishability (CIE76 ΔE under deuteranopia, protanopia, tritanopia)
 
-Open it and read the numbers. Toggle the theme to confirm both modes. The page computes from token data that `generate.py` writes into it, so it always checks the current tokens, and `generate.py` runs the same contrast gates on every build: a failing value stops the build.
+Open it and read the numbers. Switch the mode to confirm both. The page computes from token data that `generate.py` writes into it, so it always checks the current tokens, and `generate.py` runs the same contrast gates on every build: a failing value stops the build.
 
 ### D2. Build pipeline
 `generate.py` is the reference build. It:
-1. Loads the DTCG token files through `libka.resolver.json` and validates every theme (light, dark and the two high-contrast themes) with `libka_tokens.py` (names, types, value shapes, aliases, cycles); any violation fails the build with a non-zero exit code.
-2. Checks contrast and fails below it: text, buttons and badges at 4.5:1 (7:1 in the high-contrast themes), the boundary of text fields and the focus ring at 3:1.
-3. Generates `libka-tokens.css` (custom properties for every theme), `lk-bridge.css`, `libka-tokens.scss`, `libka.tailwind.config.js`, the Tailwind v4 theme, and the CSS copy in section 14.1.
+1. Loads the DTCG token files through `libka.resolver.json` and validates every mode (light, dark and the two high-contrast modes) with `libka_tokens.py` (names, types, value shapes, aliases, cycles); any violation fails the build with a non-zero exit code.
+2. Checks contrast and fails below it: text, buttons and badges at 4.5:1 (7:1 in the high-contrast modes), the boundary of text fields and the focus ring at 3:1.
+3. Generates `libka-tokens.css` (custom properties for every mode), `lk-bridge.css`, `libka-tokens.scss`, `libka.tailwind.config.js`, the Tailwind v4 theme, and the CSS copy in section 14.1.
 
 `check.py` runs this together with the unit tests, the TypeScript checks and tests, and a check that no generated file is stale. Because the source is standard DTCG, other DTCG tools can read it directly. See `docs/tokens.md` for the full recipe.
 

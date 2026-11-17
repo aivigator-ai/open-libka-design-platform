@@ -1,7 +1,7 @@
 ---
 title: LibKa blocks
 subtitle: Every block with its syntax, an example, and what it does on the web, in PDF, on slides and in Word
-version: "2.0.3"
+version: "2.0.4"
 status: Generated from the block registry
 lang: en
 references:
@@ -15,7 +15,7 @@ references:
 A LibKa document is written in LibKa Markdown: Markdown plus the blocks below. Only LibKa renders the blocks; other Markdown viewers show them as plain `:::` lines. This page is generated from the block registry (`@libka/blocks`), so it always lists what the tools actually accept, and it is built and checked like any manual.
 
 :::metrics
-- **42** blocks in 8 groups
+- **45** blocks in 8 groups
 - **4** outputs from one source: web, PDF, slides, Word
 - **0** blocks that need a script to be read
 :::
@@ -312,9 +312,9 @@ The versions of the document as a Markdown table: version, date and change, opti
 
 ### Table of contents
 
-The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.
+The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it lists the sections once.
 
-**Use it when:** Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place `:::toc` to choose where they go and how deep.
+**Use it when:** Long documents where readers jump to a section. Manuals already get contents by themselves; place `:::toc` to choose where they go and how deep. For the agenda of a talk, use `:::agenda`.
 
 ```markdown
 :::toc[Contents]{depth=3}
@@ -335,7 +335,7 @@ The contents, placed where it stands: ## sections and parts (depth=2, the defaul
 :::item[In each output]
 - **Web:** A navigation list of links to the headings, nested by level; replaces the automatic contents.
 - **PDF:** Printed contents, without page numbers.
-- **Slides:** An agenda of the ## sections and parts; its own slide when it comes before the first ##.
+- **Slides:** A list of the ## sections and parts; its own slide when it comes before the first ##.
 - **Word:** Links to the headings, placed here (no Word field, so Word never asks to update it).
 :::
 :::item[Accessibility]
@@ -344,6 +344,89 @@ The contents, placed where it stands: ## sections and parts (depth=2, the defaul
 :::item[Avoid]
 - Contents in a short document with two or three sections.
 - Depth 3 on slides: the agenda shows sections only.
+:::
+::::
+
+### Agenda
+
+The agenda of a talk, built from the ## sections and parts where it stands. On slides it has a slide of its own and comes back before each ## after it, with the current section marked in words and bold; once keeps only the first. On the web page, in the PDF and in Word it is a short contents list that replaces the automatic one.
+
+**Use it when:** A talk, training or workshop deck with three or more sections, where the audience should see the plan and where in it they are.
+
+```markdown
+:::agenda[Agenda]
+:::
+```
+
+*Not shown here, so this page keeps its contents at the top: the result is a list of the ## sections where the block stands, and on slides an agenda slide before each section.*
+
+:::table{caption="Agenda: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `once` | Show once | Show the agenda once, without repeating it before each section. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** A navigation list of links to the ## sections and parts; replaces the automatic contents.
+- **PDF:** Printed list of the sections, without page numbers.
+- **Slides:** A slide of its own, then again before each ## after it with the current section in bold and the word "Now"; a long agenda continues on the next slide.
+- **Word:** Links to the sections, placed here (no Word field).
+:::
+:::item[Accessibility]
+- A nav landmark named by its title, with a list of real links.
+- The current section is marked by the word "Now", bold type and aria-current, never by color alone; screen readers hear "You are here".
+:::
+:::item[Avoid]
+- An agenda in a short deck with two sections.
+- An agenda right next to a `:::toc`: on slides both list the same sections (a `:::toc{depth=3}` for the web page and an agenda for the slides is fine).
+- An agenda inside another block (reported).
+:::
+::::
+
+### Closing
+
+The last section: a thank-you as its title, an optional sentence, an optional recap list of up to five points, and the contacts as real links written out in full. On slides it is the closing slide.
+
+**Use it when:** The end of a talk, training or proposal: a thank-you, the points to remember and how to get in touch.
+
+```markdown
+:::closing[Thank you]{email=team@example.org url=https://example.org/contact}
+Questions are welcome, now or later.
+
+- Check every image for a text alternative.
+- Run the build before you share a file.
+:::
+```
+
+*Not shown here, since a closing ends its document: the result is the last ## section, with the recap and the contacts as links, and on slides the closing slide.*
+
+:::table{caption="Closing: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `email` | E-mail | An e-mail address for questions, shown in full as a mailto: link (checked). | no |
+| `url` | Web address | A web address for more, shown in full as a link (checked); the link reads the address without https:// and a trailing slash, and https:// is added when it is missing. Say in the sentence what the page is ("the dashboard"). | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** A ## section at the end, listed in the contents (not in an agenda), with the contacts as links.
+- **PDF:** Same, with the addresses printed in full.
+- **Slides:** The closing slide: the title large, the sentence, the recap and the contacts.
+- **Word:** Heading 1, the text and the list, the contacts as links.
+:::
+:::item[Accessibility]
+- A section with a real heading, so it is reachable from the contents and by heading navigation.
+- The contacts are real links whose text is the address itself, readable when printed.
+:::
+:::item[Avoid]
+- Anything after the closing except speaker notes and `:::references` (reported, with a fix that moves it to the end).
+- A long recap: more than five points do not fit one slide (reported).
+- A closing inside another block (reported).
 :::
 ::::
 
@@ -940,7 +1023,7 @@ Terms and their definitions; each term can be linked to (#term).
 
 ### Diagram
 
-A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast themes.
+A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast modes.
 
 **Use it when:** A process, a sequence of messages, states and transitions, a class model or a data model that a picture explains better than a list: flowcharts, sequence, state, class and entity-relationship diagrams.
 
@@ -1250,7 +1333,7 @@ A grid of related topics or links, each with a title and a short text.
 File names, highlighted lines and a copy button.
 :::
 :::card[Charts]{href="#chart" badge="New"}
-Bar, line and donut charts drawn from a table.
+Bar, line and donut charts, and horizontal and stacked bars, drawn from a table.
 :::
 ::::
 ```
@@ -1260,7 +1343,7 @@ Bar, line and donut charts drawn from a table.
 File names, highlighted lines and a copy button.
 :::
 :::card[Charts]{href="#chart" badge="New"}
-Bar, line and donut charts drawn from a table.
+Bar, line and donut charts, and horizontal and stacked bars, drawn from a table.
 :::
 ::::
 
@@ -1744,9 +1827,9 @@ A table of options against features with one column highlighted. Cells written y
 
 ### Chart
 
-A bar, line or donut chart drawn from a Markdown table; the table stays available as the accessible version.
+A bar, horizontal bar, line or donut chart drawn from a Markdown table; stacked bars split each total into its parts. The table stays available as the accessible version.
 
-**Use it when:** Numbers whose pattern matters: comparisons between categories (bar), change over time (line), parts of a whole (donut).
+**Use it when:** Numbers whose pattern matters: comparisons between categories (bar, or hbar for long category names), change over time (line), parts of a whole (donut, or stacked bars for parts of several totals).
 
 ```markdown
 :::chart{type=bar caption="Staff who find the handbook easy to use" unit="%"}
@@ -1770,28 +1853,84 @@ A bar, line or donut chart drawn from a Markdown table; the table stays availabl
 
 | Attribute | Name in the Studio | Meaning | Required |
 |---|---|---|---|
-| `type` | Chart type | Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: `bar`, `line`, `donut`. | yes |
+| `type` | Chart type | Bar for comparison, hbar (horizontal bars) when the category names are long or many, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: `bar`, `hbar`, `line`, `donut`. | yes |
 | `caption` | Caption | What the chart shows. | yes |
 | `unit` | Unit | Unit of the values, such as % or €. | no |
+| `stacked` | Stacked | Bars only: stack the series into one bar per category, its parts with the total at the end. | no |
 
 :::
 
 ::::accordion
 :::item[In each output]
-- **Web:** SVG chart in the series colors with pattern fills, value labels and a legend; "Show data" opens the table.
+- **Web:** SVG chart in the series colors with pattern fills, value labels and a legend; stacked bars show each total and the parts that fit; "Show data" opens the table.
 - **PDF:** Chart and the data table.
 - **Slides:** Chart on the slide.
 - **Word:** Picture drawn in Chrome with the summary as alternative text, then the data as a Word table.
 :::
 :::item[Accessibility]
 - Hue is never the only encoding: patterns for bars and slices, marker shapes for lines.
-- The chart has a title and a text summary; the full data is a real table.
+- The chart has a title and a text summary; the full data is a real table (with the totals for stacked bars).
 - Axes start at zero.
+- A value written on a bar sits on its own background, so its contrast does not depend on the fill.
 :::
 :::item[Avoid]
 - 3D, decorative gradients and animation on load.
 - Donuts with more than 5 parts.
 - More than 6 series.
+- Vertical bars whose category names overlap: use type=hbar.
+:::
+::::
+
+### KPI
+
+One figure with its change in words and an arrow, a small trend line and an optional sentence. Two to four kpi blocks in a row sit side by side and share one slide; one alone stands large.
+
+**Use it when:** A figure that is tracked over time, with how it changed and its recent trend: revenue, response time, satisfaction on a dashboard or a review slide.
+
+```markdown
+:::kpi[Requests answered within a day]{value="94%" change="+6 pp" since="Q2" trend="81,85,88,94"}
+:::
+
+:::kpi[Median waiting time]{value="3.2 h" change="-1.1 h" since="Q2" good=down trend="5.1,4.6,4.3,3.2"}
+The new triage rules took effect in August.
+:::
+```
+
+:::kpi[Requests answered within a day]{value="94%" change="+6 pp" since="Q2" trend="81,85,88,94"}
+:::
+
+:::kpi[Median waiting time]{value="3.2 h" change="-1.1 h" since="Q2" good=down trend="5.1,4.6,4.3,3.2"}
+The new triage rules took effect in August.
+:::
+
+:::table{caption="KPI: attributes"}
+
+| Attribute | Name in the Studio | Meaning | Required |
+|---|---|---|---|
+| `value` | Value | The figure as it should read, with its unit: value="94%", value="€1.2M". | yes |
+| `change` | Change | The change with its sign, as it should read: change=+12%, change="-1.1 h", change=0; a change of a percentage is in points (change="+6 pp"). When the source gives only the values, it is the difference to the period named in since. | no |
+| `since` | Compared with | What the change is measured against; the output puts "since" before it in English ("up 6 pp since Q2") and "oproti" in Czech, so a Czech value follows that word (since="roku 2025"). | no |
+| `good` | Better when | Which way is better: up (the default) or down, for costs, errors and waiting times. One of: `up`, `down`. | no |
+| `trend` | Trend | 3 to 24 recent values, oldest first (with only two, leave the trend out: the change says it), separated by commas (trend="81,85,88,94") or, with decimal commas, by semicolons (trend="3,5; 4,1"). The line has no labels and the values are written out under "Show the data": name the periods in a sentence, or give a table when each period matters. | no |
+
+:::
+
+::::accordion
+:::item[In each output]
+- **Web:** The name, the figure in large type, an arrow with the change in words and "better" or "worse", the trend line with its values under "Show the data"; side by side with the kpi blocks next to it.
+- **PDF:** Same, with the trend values printed.
+- **Slides:** The row on one slide; a single figure large.
+- **Word:** The name, the figure large and bold, the change and the trend in words.
+:::
+:::item[Accessibility]
+- The change is written in words ("up 6 pp since Q2") with "better" or "worse"; the arrow and the color only repeat it.
+- The trend line is hidden from screen readers; a sentence gives its first, last, highest and lowest values, and the values are a click away.
+- A row is a list, so a screen reader announces how many figures it holds.
+:::
+:::item[Avoid]
+- More than four figures in a row.
+- A change without what it is measured against.
+- A trend line as the only way to tell the direction.
 :::
 ::::
 
@@ -1822,7 +1961,7 @@ Real LibKa components shown as they look (light, dark or both), for manuals, pro
 | Attribute | Name in the Studio | Meaning | Required |
 |---|---|---|---|
 | `caption` | Caption | What the specimen shows. | yes |
-| `theme` | Theme | Show it in the light theme, the dark theme or both side by side. One of: `light`, `dark`, `both`. | no |
+| `theme` | Light or dark | Show it in light mode, dark mode or both side by side. One of: `light`, `dark`, `both`. | no |
 | `layout` | Layout | Components in a row (default) or stacked. One of: `row`, `stack`. | no |
 | `:::button label` | Button text | Button text, a verb: ::button[Save draft]. | yes |
 | `:::button variant` | Variant | Manual 10.1. One of: `primary`, `accent`, `iris`, `secondary`, `destructive`, `ghost`. | no |
@@ -1836,7 +1975,7 @@ Real LibKa components shown as they look (light, dark or both), for manuals, pro
 | `:::field options` | Options | Choices for select and radio, separated by \|. | no |
 | `:::field state` | State | Manual 10.2 states. One of: `default`, `hover`, `focus`, `disabled`, `readonly`. | no |
 | `:::field required` | Required | Marks the field as required. | no |
-| `:::badge label` | Text | Short status: ::badge[Beta]. | yes |
+| `:::badge label` | Text | Short status: ::badge[Passed]. | yes |
 | `:::badge variant` | Meaning | Meaning. One of: `neutral`, `info`, `success`, `warning`, `error`, `ai`. | no |
 | `:::toast label` | Title | The message title: ::toast[Draft saved]. | yes |
 | `:::toast variant` | Meaning | Meaning. One of: `info`, `success`, `warning`, `error`. | no |
@@ -1858,11 +1997,11 @@ Real LibKa components shown as they look (light, dark or both), for manuals, pro
 - **Web:** Components in a framed stage, light and/or dark, with the caption and a text description for screen readers.
 - **PDF:** Same, in color.
 - **Slides:** Same, on the slide.
-- **Word:** Picture of the specimen (both themes when asked) with its description as alternative text.
+- **Word:** Picture of the specimen (both modes when asked) with its description as alternative text.
 :::
 :::item[Accessibility]
 - The stage is inert and hidden from screen readers; a generated text describes every component instead.
-- Components keep their real contrast in both themes and in high contrast (Guard checks the specimen like any text).
+- Components keep their real contrast in both modes and in high contrast (Guard checks the specimen like any text).
 - Disabled specimens are marked as such, so their lower contrast is allowed.
 :::
 :::item[Avoid]
@@ -1889,10 +2028,10 @@ Press :kbd[Ctrl+Shift+P].
 A short status label inside text: neutral, info, success, warning, error or ai.
 
 ```markdown
-Export to PowerPoint :badge[Beta]{variant=info}
+The page checks :badge[Passed]{variant=success}
 ```
 
-Export to PowerPoint :badge[Beta]{variant=info}
+The page checks :badge[Passed]{variant=success}
 
 ### Footnote
 

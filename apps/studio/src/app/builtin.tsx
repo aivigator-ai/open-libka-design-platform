@@ -12,6 +12,7 @@ import * as s from '../state/store.ts';
 import { t } from '../state/text.ts';
 import { ChecksPanel } from '../ui/Panels.tsx';
 import { InspectorPanel, showDocument } from '../ui/Inspector.tsx';
+import { useEffect, useState } from 'preact/hooks';
 import { OutlineTab } from '../ui/Structure.tsx';
 import { Catalog } from '../ui/Visual.tsx';
 import { PreviewPanel } from '../ui/Workspace.tsx';
@@ -114,7 +115,14 @@ const exports: Extension = {
   ],
 };
 
-/** The panes' tabs: the companion's Preview, Checks and Properties; the left pane's Catalog and Outline. */
+/** The Design tab, with @libka/design, loaded when the tab first opens (the first load stays without it). */
+function LazyDesignPanel() {
+  const [Panel, setPanel] = useState<(() => preact.JSX.Element) | null>(null);
+  useEffect(() => { void import('../ui/Design.tsx').then((m) => setPanel(() => m.DesignPanel)); }, []);
+  return Panel ? <Panel /> : <p class="st-note" role="status">{t('design.loading')}</p>;
+}
+
+/** The panes' tabs: the companion's Preview, Checks, Properties and Design; the left pane's Catalog and Outline. */
 const panes: Extension = {
   id: 'core.panes',
   panels: [
@@ -125,6 +133,7 @@ const panes: Extension = {
       count: () => (s.checks.value || s.issues.value ? s.issues.value : null),
     },
     { id: 'properties', title: 'panel.properties', order: 30, render: () => <InspectorPanel /> },
+    { id: 'design', title: 'panel.design', order: 35, render: () => <LazyDesignPanel /> },
     { id: 'catalog', title: 'panel.catalog', order: 10, region: 'left', render: () => <Catalog /> },
     { id: 'outline', title: 'panel.outline', order: 20, region: 'left', render: () => <OutlineTab /> },
   ],

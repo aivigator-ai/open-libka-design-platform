@@ -23,9 +23,9 @@ LibKa turns one LibKa Markdown file into a web page, an A4 PDF, 16:9 slides and 
 ## Start a project
 
 :::steps
-1. **Create the project** Run `npm create libka@latest my-docs`. Add `-- --lang cs` for an example document in Czech.
+1. **Create the project** Run `npm create libka@latest my-docs`. Add `-- --lang cs` for the document in Czech, and `--template report` (after the same `--`) to start from a template instead of the example: `report`, `talk`, `manual`, `policy` or `decision-record`. Both together: `npm create libka@latest my-docs -- --lang cs --template report`.
 2. **Install it** Run `cd my-docs`, then `npm install`.
-3. **Build** Run `npm run build`. The web page, the PDF, the slides and the Word file land in `dist/`, checked and signed.
+3. **Build** Run `npm run build`. The outputs the document's front matter names land in `dist/`, checked and signed: for the example, the web page, the PDF, the slides and the Word file.
 4. **Verify** Run `npm run verify`. It confirms the files are the ones that were checked and signed.
 :::
 
@@ -70,6 +70,25 @@ Keep the box: the Wi-Fi password is on its label.
 - Every `##` and `###` heading is also a slide; `:::notes` holds what a presenter says.
 - Czech documents (`lang: cs`) get Czech labels and Czech typography.
 - The [block catalog](blocks.md) lists every block with its syntax, its attributes and what each output does with it.
+
+## Give it your look
+
+A document's look is a theme and a brand, and every output takes both. The theme sets the type, the heading weight, the corners and the density: `theme: classic` (the default) or `theme: modern` in the front matter. The brand is a `_brand.yml` file at the project's root (the nearest folder above the document with `.libka/`, else the nearest with `package.json` or `.git`, as a project from `npm create libka` has), which every document in the project takes:
+
+```yaml title="_brand.yml"
+meta:
+  name: Riverside Library
+color:
+  primary: "#0B5CAD"
+typography:
+  headings: Bitter
+logo: brand/logo.svg
+```
+
+- The colours are where the brand starts: where a colour would fail a contrast check, in light, dark or high contrast, LibKa uses the nearest shade of the same hue that passes, and the build says so in words.
+- The fonts come from the eight families LibKa ships; a font outside the list is reported with the ones you can use.
+- The first build writes the solved design as a lock next to the brand file, to commit with it.
+- [Brand file](../.claude/skills/libka-author/reference.md#brand-file) lists every key LibKa reads, and the [problem codes](problem-codes.md#brand-and-theme-files) what each finding in a brand or theme file means. In LibKa Studio the Design tab chooses the theme and the brand, and its brand editor writes `_brand.yml` for you.
 
 ## When a check fails
 

@@ -53,8 +53,20 @@ export interface DocumentMeta {
   ai?: AiProvenance;
   /** How the outputs write a YYYY-MM-DD date (front matter "date-format"); absent means DEFAULT_DATE_FORMAT. */
   dateFormat?: DateFormat;
+  /**
+   * The theme (front matter "theme"): a built-in theme's id or a `.theme.json` path relative to the document; absent,
+   * the project's (its `_brand.yml`'s `defaults.libka.theme`), else Classic. In a Marp deck (`marp: true`) "theme" is Marp's.
+   */
+  theme?: string;
+  /** The brand (front matter "brand"): a brand.yml file's path relative to the document, or `libka`; absent, the project's `_brand.yml`. */
+  brand?: string;
   lang: string;
 }
+
+/** The built-in themes' ids (@libka/design's BUILTIN_THEMES; a test keeps them in step). */
+export const BUILTIN_THEME_IDS = ['classic', 'modern'] as const;
+/** A front matter path to a file: relative to the document, no web address or absolute path (the build keeps it inside the project). */
+const projectPath = (path: string): boolean => !/^[a-z][a-z0-9+.-]*:/i.test(path) && !/^[\\/]/.test(path);
 
 /**
  * How the outputs write a date the source gives as YYYY-MM-DD, in the document's language: long "28 October 2026" /
@@ -86,7 +98,7 @@ export interface AiProvenance {
 }
 const AI_FIELDS = ['use', 'reviewed-by', 'approved-by', 'tool', 'date', 'checked', 'label'];
 /** Blocks LibKa itself fills in, which AI cannot have written: they take no ai attribute. */
-const AI_UNMARKABLE = ['toc', 'references', 'byline', 'doc-status'];
+const AI_UNMARKABLE = ['toc', 'agenda', 'references', 'byline', 'doc-status'];
 
 /** The outputs a document can ask for: the web page, its A4 PDF, 16:9 slides, a Word file. */
 export const OUTPUTS = ['web', 'pdf', 'deck', 'docx'] as const;
@@ -256,6 +268,13 @@ type BlockContent =
   | { type: 'summary'; title?: string; items: Inline[]; source: 'human' | 'ai'; reviewedBy?: string }
   | { type: 'cta'; label: string; href: string; variant: 'primary' | 'secondary'; text?: Inline }
   /**
+   * The end of a talk or document: a thank-you as its title, an optional sentence and recap list, and the contacts
+   * (`email` without mailto:, `url` as written). Last in the document; a ## section of its own on the page.
+   */
+  | { type: 'closing'; title?: string; text?: Inline; items?: Inline[]; email?: string; url?: string }
+  /** One to four figures side by side: adjacent :::kpi blocks in the source become one row. */
+  | { type: 'kpi'; items: KpiItem[] }
+  /**
    * A file to download: its format (the type attribute, else from the file name), its size as the author wrote it or
    * in bytes as the build measured it, and a PDF's pages.
    */
@@ -263,6 +282,15 @@ type BlockContent =
   /** Contents placed explicitly (resolved when rendering); replaces the manual's automatic contents. */
   | { type: 'toc'; title?: string; depth: 2 | 3;
       /** On slides only: the agenda entries this piece shows (set by the deck, so a long agenda can continue on the next slide). */
+      entries?: [number, number] }
+  /**
+   * The agenda of a talk: the ## sections (and parts) where it stands; like :::toc it replaces the manual's automatic
+   * contents. On slides it has a slide of its own and, unless `once`, repeats before each ## after it.
+   */
+  | { type: 'agenda'; title?: string; once: boolean;
+      /** On slides only: the section the repeated agenda marks as the current one (its heading id). */
+      current?: string;
+      /** On slides only: the entries this piece shows, as :::toc. */
       entries?: [number, number] }
   /** Where the list of cited sources goes, and its style. */
   | { type: 'references'; title?: string; style: 'numeric' | 'author-date' }
@@ -304,7 +332,7 @@ type BlockContent =
   | { type: 'metrics'; items: { value: string; label: Inline }[] }
   | { type: 'gallery'; images: { src: string; alt: string; caption: string }[] }
   | { type: 'video'; title: string; src: string; captions?: string; poster?: string; transcript: Block[] }
-  | { type: 'chart'; kind: 'bar' | 'line' | 'donut'; caption: string; unit?: string; category: string; labels: string[]; series: { name: string; values: number[] }[] }
+  | { type: 'chart'; kind: 'bar' | 'hbar' | 'line' | 'donut'; stacked?: boolean; caption: string; unit?: string; category: string; labels: string[]; series: { name: string; values: number[] }[] }
   | { type: 'ui'; caption: string; theme: 'light' | 'dark' | 'both'; layout: 'row' | 'stack'; items: UiItem[] };
 
 export interface CodeBlock { type: 'code'; lang: string | null; value: string; title?: string; marked?: number[] }
@@ -344,6 +372,22 @@ export const DECISION_PARTS = ['context', 'options', 'consequences'] as const;
 export type DecisionPart = (typeof DECISION_PARTS)[number];
 export const DECISION_STATUSES = ['proposed', 'accepted', 'rejected', 'superseded'] as const;
 export type DecisionStatus = (typeof DECISION_STATUSES)[number];
+
+/** One figure of a :::kpi row: its name, its value, its change and a short trend. */
+export interface KpiItem {
+  label: string;
+  value: string;
+  /** The change without its sign, as written ("12%"), and which way it went. */
+  change?: string;
+  direction?: 'up' | 'down' | 'flat';
+  /** What the change is measured against ("Q2"). */
+  since?: string;
+  /** Which way is better: up (the default) or down (costs, errors, waiting times). */
+  good?: 'up' | 'down';
+  /** The values of the trend line, oldest first. */
+  trend?: number[];
+  text?: Inline;
+}
 
 /** One component in a :::ui specimen (manual section 10). */
 export interface UiItem {
@@ -401,6 +445,8 @@ export type Fix =
   | { kind: 'wrap'; block: string; attributes?: Record<string, string> }
   | { kind: 'heading-level'; level: number }
   | { kind: 'list-type'; ordered: boolean }
+  /** Moves the block, with the speaker notes right after it, to the end of the document. */
+  | { kind: 'move-to-end' }
   | { kind: 'set-front-matter'; key: string; value: string | string[] }
   | { kind: 'remove-front-matter'; keys: string[] };
 
@@ -459,6 +505,9 @@ export interface Hint {
   message: string;
 }
 
+/** Advice found while reading blocks (a chart that would read better as hbar), collected by the parse that runs. */
+let advice: Hint[] = [];
+
 // Directive nodes added by remark-directive (typed locally to keep the public types small).
 interface DirectiveNode {
   type: 'containerDirective' | 'leafDirective' | 'textDirective';
@@ -493,6 +542,7 @@ export function parse(markdown: string): ParseResult {
   literalTextDirectives(tree, markdown);
   literalImageAlt(tree, markdown);
   const hidden = unshown(tree);
+  advice = [];
   dropInlineComments(tree);
   const definitions = footnoteDefinitions(tree, problems);
   const ids = new Set<string>();
@@ -532,10 +582,26 @@ export function parse(markdown: string): ParseResult {
             ...(near ? { fixes: [{ kind: 'set-front-matter' as const, key: 'date-format', value: near }] } : {}) });
         }
       }
-      const known = ['title', 'subtitle', 'version', 'date', 'date-format', 'lang', 'author', 'references', 'outputs', 'ai', ...Object.keys(STATUS_KEYS)];
+      // a Marp deck's "theme" is Marp's, not LibKa's
+      const marpDeck = data.marp === true || data.marp === 'true';
+      if (!marpDeck && data.theme !== undefined && data.theme !== null) {
+        const value = String(data.theme).trim();
+        if ((BUILTIN_THEME_IDS as readonly string[]).includes(value) || (/\.theme\.json$/i.test(value) && projectPath(value))) meta.theme = value;
+        else {
+          const near = nearest(value.toLowerCase(), BUILTIN_THEME_IDS);
+          problems.push({ code: 'theme-unknown', line: line(fm), message: `unknown theme "${data.theme}"${near ? ` (did you mean ${near}?)` : ''}: a built-in theme (${BUILTIN_THEME_IDS.join(', ')}) or a .theme.json file in the project, its path relative to the document`,
+            ...(near ? { fixes: [{ kind: 'set-front-matter' as const, key: 'theme', value: near }] } : {}) });
+        }
+      }
+      if (data.brand !== undefined && data.brand !== null) {
+        const value = String(data.brand).trim();
+        if (value === 'libka' || (/\.ya?ml$/i.test(value) && projectPath(value))) meta.brand = value;
+        else problems.push({ code: 'brand-unknown', line: line(fm), message: `unknown brand "${data.brand}": a brand.yml file in the project, its path relative to the document (such as _brand.yml), or libka for LibKa's own` });
+      }
+      const known = ['title', 'subtitle', 'version', 'date', 'date-format', 'lang', 'author', 'references', 'outputs', 'ai', ...(marpDeck ? [] : ['theme']), 'brand', ...Object.keys(STATUS_KEYS)];
       let unknown = Object.keys(data).filter((k) => !known.includes(k));
       // a Marp deck: its keys do nothing here, and the author learns where LibKa's slides come from
-      if (data.marp === true || data.marp === 'true') {
+      if (marpDeck) {
         marp = true;
         const keys = unknown.filter((k) => MARP_KEYS.includes(k));
         unknown = unknown.filter((k) => !MARP_KEYS.includes(k));
@@ -565,7 +631,15 @@ export function parse(markdown: string): ParseResult {
   const blocks: Block[] = [];
   for (const node of body) {
     const b = convertOne(node, problems, ids);
-    if (b) { LINES.set(b, line(node)); blocks.push(b); }
+    if (!b) continue;
+    // adjacent :::kpi blocks are one row of figures, up to four (the next ones start a row of their own)
+    const last = blocks[blocks.length - 1];
+    if (b.type === 'kpi' && last?.type === 'kpi' && last.ai === b.ai) {
+      if (last.items.length < 4) { last.items.push(...b.items); continue; }
+      problems.push({ code: 'kpi-row', line: line(node), message: 'at most 4 :::kpi stand side by side: this one starts a new row; put a heading or a sentence between the groups, or keep the four that matter most' });
+    }
+    LINES.set(b, line(node));
+    blocks.push(b);
   }
   headingOrder(body, problems);
   const notes = definitions.map((d) => {
@@ -583,7 +657,9 @@ export function parse(markdown: string): ParseResult {
     ...hidden.rules.map((at) => ({ line: at, message: 'a horizontal rule (---) shows in no output: sections and slides start at ## and ### headings; delete it, or start a section here' })),
     // a comment is a note for editors, but in a Marp deck it was a speaker note or a directive
     ...(marp ? hidden.comments.map((at) => ({ line: at, message: 'a comment shows in no output, and is not a speaker note: write the notes in :::notes under the heading of their slide' })) : []),
+    ...advice,
   ].sort((a, b) => a.line - b.line);
+  advice = [];
   return { document: { meta, blocks, ...(footnotes.length ? { footnotes } : {}) }, problems, hints };
 }
 
@@ -867,15 +943,21 @@ function checkFrame(blocks: Block[], meta: DocumentMeta, problems: Problem[], fm
     if (Array.isArray(value)) { value.forEach((v) => nested(v, top)); return; }
     if (!value || typeof value !== 'object') return;
     const b = value as { type?: string };
-    if (!top && ['doc-status', 'byline', 'section', 'toc', 'references', 'release', 'decision', 'revisions'].includes(b.type ?? '')) {
+    if (!top && ['doc-status', 'byline', 'section', 'toc', 'agenda', 'closing', 'kpi', 'references', 'release', 'decision', 'revisions'].includes(b.type ?? '')) {
       problems.push({ code: 'block-not-top-level', line: blockLines.get(b) ?? 0, message: `:::${b.type} cannot be inside another block: put it at the top level of the document` });
     }
     for (const v of Object.values(value)) if (v && typeof v === 'object') nested(v, false);
   };
   for (const b of blocks) for (const v of Object.values(b)) if (v && typeof v === 'object') nested(v, false);
-  for (const type of ['doc-status', 'byline', 'toc', 'references', 'revisions'] as const) {
+  for (const type of ['doc-status', 'byline', 'toc', 'agenda', 'closing', 'references', 'revisions'] as const) {
     const all = blocks.filter((b) => b.type === type);
     if (all.length > 1) problems.push({ code: 'block-twice', line: blockLines.get(all[1]!) ?? 0, message: `only one :::${type} per document` });
+  }
+  // the closing ends the document: after it only its speaker notes and the reference list
+  const closing = blocks.find((b) => b.type === 'closing');
+  if (closing && blocks.slice(blocks.indexOf(closing) + 1).some((b) => b.type !== 'notes' && b.type !== 'references')) {
+    problems.push({ code: 'closing-not-last', line: blockLines.get(closing) ?? 0, message: ':::closing ends the document: move it to the end (only speaker notes and :::references may follow it)',
+      fixes: [{ kind: 'move-to-end' }] });
   }
   const byline = blocks.find((b): b is Extract<Block, { type: 'byline' }> => b.type === 'byline');
   if (byline && meta.author) byline.author = meta.author;
@@ -1127,7 +1209,7 @@ function diagram(source: string, at: number, problems: Problem[]): Block {
   if (!title) problems.push({ code: 'diagram-title', line: at, message: 'a diagram needs a title: add "accTitle: What the diagram shows" after its first line (it becomes the caption)', fixes: [{ kind: 'field', target: 'text' }] });
   if (!desc) problems.push({ code: 'diagram-description', line: at, message: 'a diagram needs a description for readers who cannot see it: add "accDescr: what it shows, step by step" after its first line', fixes: [{ kind: 'field', target: 'text' }] });
   lines.forEach((l, i) => {
-    if (/^\s*(style|classDef|linkStyle)\s/.test(l)) problems.push({ code: 'diagram-colours', line: at + i + 1, message: `"${l.trim().split(/\s+/)[0]}" sets colours in a diagram; remove it (diagrams take LibKa's colours in every theme)` });
+    if (/^\s*(style|classDef|linkStyle)\s/.test(l)) problems.push({ code: 'diagram-colours', line: at + i + 1, message: `"${l.trim().split(/\s+/)[0]}" sets colours in a diagram; remove it (diagrams take LibKa's colours in every mode)` });
   });
   return { type: 'diagram', kind: kind ?? 'flowchart', source, title, desc };
 }
@@ -1272,7 +1354,7 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
         when: i.bold.trim(), body: [...(i.rest.length ? [{ type: 'paragraph', text: i.rest } as Block] : []), ...i.more],
       }));
       if (items.length < 2) problems.push({ code: 'timeline-count', line: line(node), message: ':::timeline needs at least two dated items (one item is a sentence)' });
-      if (items.some((i) => i.when && !i.body.length)) problems.push({ code: 'timeline-item', line: line(node), message: 'every item of :::timeline says what happens after its date: - **2026-Q1** Private beta' });
+      if (items.some((i) => i.when && !i.body.length)) problems.push({ code: 'timeline-item', line: line(node), message: 'every item of :::timeline says what happens after its date: - **2026-Q1** First release' });
       const current = attrs.current?.trim();
       if (current && !items.some((i) => i.when === current)) {
         problems.push({ code: 'timeline-current', line: line(node), message: `current="${current}" matches no item; use a date exactly as written in bold (${items.map((i) => `"${i.when}"`).join(', ')})` });
@@ -1419,9 +1501,11 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
       return { type: 'release', version, id: slug(version, ids), ...(date ? { date } : {}), ...(intro.length ? { intro } : {}), groups };
     }
     case 'toc':
+    case 'agenda':
     case 'references': {
       if (children.length) problems.push({ code: 'block-generated', line: line(node), message: `:::${node.name} has no content: it is filled in when the document is built (close it with ::: on the next line)` });
       const title = label.trim() ? { title: label.trim() } : {};
+      if (node.name === 'agenda') return { type: 'agenda', ...title, once: 'once' in attrs };
       return node.name === 'toc'
         ? { type: 'toc', ...title, depth: (attrs.depth === '3' ? 3 : 2) as 2 | 3 }
         : { type: 'references', ...title, style: (attrs.style ?? 'numeric') as 'numeric' | 'author-date' };
@@ -1482,6 +1566,37 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
       const p = children[0]?.type === 'paragraph' ? children[0] : undefined;
       return { type: 'cta', label: text, href, variant: (attrs.variant ?? 'primary') as 'primary' | 'secondary', ...(p ? { text: p.children } : {}) };
     }
+    case 'closing': {
+      // at most one short sentence, then at most one bulleted recap list
+      const [first, second] = children;
+      const shapeOk = children.length <= 2 && (!first || first.type === 'paragraph' || first.type === 'list')
+        && (!second || (first?.type === 'paragraph' && second.type === 'list'));
+      if (!shapeOk) problems.push({ code: 'closing-content', line: line(node), message: ':::closing holds at most one short sentence and one bulleted recap list, in that order; nothing else fits one slide' });
+      const p = first?.type === 'paragraph' ? first : undefined;
+      const list = [first, second].find((c) => c?.type === 'list');
+      const items = list?.type === 'list' ? list.children.map((item) => {
+        const ip = item.children[0];
+        if (item.children.length !== 1 || ip?.type !== 'paragraph') {
+          problems.push({ code: 'closing-recap', line: line(item), message: 'each point of the closing\'s recap is one short paragraph (no nested lists or blocks)' });
+          return [] as Inline;
+        }
+        return ip.children;
+      }) : undefined;
+      if (list?.type === 'list' && list.ordered) problems.push({ code: 'closing-recap', line: line(node), message: 'the closing\'s recap is a bulleted list (- ...), not a numbered one', fixes: [{ kind: 'list-type', ordered: false }] });
+      if (items && items.length > 5) problems.push({ code: 'closing-recap', line: line(node), message: `the closing's recap has at most 5 points (found ${items.length}): the closing is one slide` });
+      const email = attrs.email?.trim().replace(/^mailto:/i, '');
+      if (email !== undefined && !/^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i.test(email)) {
+        problems.push({ code: 'closing-email', line: line(node), message: `email "${attrs.email}" is not an e-mail address: write it as name@example.org`, fixes: [{ kind: 'field', target: 'attribute:email' }] });
+      }
+      const url = attrs.url?.trim();
+      if (url !== undefined && !/^(https?:\/\/)?[\w-]+(\.[\w-]+)+(:\d+)?([/?#][^\s<>"]*)?$/i.test(url)) {
+        problems.push({ code: 'closing-url', line: line(node), message: `url "${attrs.url}" is not a web address: write it as https://example.org or example.org/contact`, fixes: [{ kind: 'field', target: 'attribute:url' }] });
+      }
+      return { type: 'closing', ...(label.trim() ? { title: label.trim() } : {}), ...(p ? { text: p.children } : {}), ...(items ? { items } : {}),
+        ...(email ? { email } : {}), ...(url ? { url } : {}) };
+    }
+    case 'kpi':
+      return { type: 'kpi', items: [kpiItem(label, attrs, children, problems, line(node))] };
     case 'download': {
       const href = (attrs.href ?? '').trim();
       const text = label.trim();
@@ -1748,9 +1863,52 @@ function directive(node: DirectiveNode, problems: Problem[], ids: Set<string>): 
   return null;
 }
 
+/**
+ * One :::kpi figure. The change carries its sign (+12%, -3 h, 0); the trend is numbers separated by commas, or by
+ * semicolons when they have decimal commas (3,5; 4,1); inside, at most one short sentence.
+ */
+function kpiItem(label: string, attrs: Record<string, string | null | undefined>, children: Content[], problems: Problem[], at: number): KpiItem {
+  const name = label.trim();
+  if (!name) problems.push({ code: 'kpi-label', line: at, message: 'a KPI needs its name: :::kpi[Revenue]{value="€1.2M"}', fixes: [{ kind: 'field', target: 'label' }] });
+  if (children.length > 1 || (children[0] && children[0].type !== 'paragraph')) {
+    problems.push({ code: 'kpi-content', line: at, message: ':::kpi holds at most one short sentence about the figure; longer text goes after the row' });
+  }
+  const item: KpiItem = { label: name, value: (attrs.value ?? '').trim() };
+  const change = attrs.change?.trim();
+  if (change) {
+    const m = change.match(/^([+\-−–±]?)\s*(\d[\d\s .,]*)(.*)$/);
+    const zero = m ? Number(m[2]!.replace(/[\s ]/g, '').replace(',', '.')) === 0 : false;
+    if (!m || (!m[1] && !zero)) {
+      problems.push({ code: 'kpi-change', line: at, message: `change "${change}" needs its sign and a number: change=+12% for a rise, change=-3% for a fall, change=0 for none`, fixes: [{ kind: 'field', target: 'attribute:change' }] });
+    } else {
+      item.change = change.slice(m[1]!.length).trim();
+      item.direction = zero || m[1] === '±' ? 'flat' : m[1] === '+' ? 'up' : 'down';
+    }
+  }
+  if (attrs.since?.trim()) {
+    if (!item.change) problems.push({ code: 'kpi-change', line: at, message: 'since says what the change is measured against: add the change too, change=+12% since="Q2"', fixes: [{ kind: 'field', target: 'attribute:change' }] });
+    item.since = attrs.since.trim();
+  }
+  if (attrs.good === 'down') item.good = 'down';
+  const trend = attrs.trend?.trim();
+  if (trend) {
+    const parts = (trend.includes(';') ? trend.split(';') : trend.split(/[\s,]+/)).map((s) => s.trim()).filter(Boolean);
+    const values = parts.map((s) => Number(s.replace(/[\s ]/g, '').replace(',', '.').replace('−', '-')));
+    if (values.some((v) => !Number.isFinite(v))) {
+      problems.push({ code: 'kpi-trend', line: at, message: `trend "${trend}" is numbers separated by commas (trend="3,4,6") or, with decimal commas, by semicolons (trend="3,5; 4,1; 4,8")` });
+    } else if (values.length < 3 || values.length > 24) {
+      problems.push({ code: 'kpi-trend', line: at, message: `a trend line shows 3 to 24 values (found ${values.length})` });
+    } else item.trend = values;
+  }
+  const p = children[0];
+  if (p?.type === 'paragraph') item.text = p.children;
+  return item;
+}
+
 function chart(attrs: Record<string, string | null | undefined>, caption: string, head: string[], rows: { cells: string[]; line: number }[],
   problems: Problem[], at: number): Block {
-  const kind = (attrs.type ?? 'bar') as 'bar' | 'line' | 'donut';
+  const kind = (attrs.type ?? 'bar') as 'bar' | 'hbar' | 'line' | 'donut';
+  const stacked = 'stacked' in attrs;
   const [category = '', ...names] = head;
   const series = names.map((name) => ({ name, values: [] as number[] }));
   const labels: string[] = [];
@@ -1770,9 +1928,22 @@ function chart(attrs: Record<string, string | null | undefined>, caption: string
     if (labels.length > 5) problems.push({ code: 'donut-parts', line: at, message: `a donut shows at most 5 parts (found ${labels.length}); use a bar chart` });
     if (series.some((s) => s.values.some((v) => v < 0))) problems.push({ code: 'donut-negative', line: at, message: 'a donut cannot show negative values' });
   }
-  if (kind === 'bar' && series.some((s) => s.values.some((v) => v < 0))) problems.push({ code: 'bar-negative', line: at, message: 'bar charts show values from zero up, so they cannot show negative values' });
+  if ((kind === 'bar' || kind === 'hbar') && series.some((s) => s.values.some((v) => v < 0))) problems.push({ code: 'bar-negative', line: at, message: 'bar charts show values from zero up, so they cannot show negative values' });
   if (kind === 'line' && labels.length < 3) problems.push({ code: 'line-points', line: at, message: 'a line chart needs at least 3 points; use a bar chart to compare fewer' });
-  return { type: 'chart', kind, caption, ...(attrs.unit ? { unit: attrs.unit } : {}), category, labels, series };
+  if (stacked && kind !== 'bar' && kind !== 'hbar') {
+    problems.push({ code: 'chart-stacked', line: at, message: `only bars stack: ${kind === 'line' ? 'use type=bar stacked for parts of each total, or remove stacked' : 'a donut already shows parts of one whole, remove stacked'}`,
+      fixes: [...(kind === 'line' ? [{ kind: 'set-attribute' as const, name: 'type', value: 'bar' }] : []), { kind: 'remove-attribute', name: 'stacked' }] });
+  } else if (stacked && series.length === 1) {
+    problems.push({ code: 'chart-stacked', line: at, message: 'stacked bars split each total into parts: give the table a column per part, or remove stacked', fixes: [{ kind: 'remove-attribute', name: 'stacked' }] });
+  }
+  // a column is about 568 px / categories wide; a category name in 13 px type takes about 7.5 px a character
+  const longest = Math.max(0, ...labels.map((l) => l.length));
+  if (kind === 'bar' && labels.length && (labels.length > 12 || longest * 7.5 > 568 / labels.length - 6)) {
+    advice.push({ line: at, message: labels.length > 12
+      ? `a bar chart with ${labels.length} categories crowds its columns: type=hbar gives each category a row of its own`
+      : `the category names are too long for ${labels.length} columns and would overlap: type=hbar writes them beside horizontal bars` });
+  }
+  return { type: 'chart', kind, ...(stacked && (kind === 'bar' || kind === 'hbar') ? { stacked: true } : {}), caption, ...(attrs.unit ? { unit: attrs.unit } : {}), category, labels, series };
 }
 
 function step(item: ListItem, problems: Problem[], ids: Set<string>): { title: Inline; body: Block[] } {

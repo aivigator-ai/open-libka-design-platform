@@ -2,11 +2,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { designCodeRows } from '@libka/design';
 import { problemCodesMarkdown } from './problem-codes.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const out = join(root, 'docs', 'problem-codes.md');
-const text = problemCodesMarkdown();
+const text = problemCodesMarkdown(designCodeRows());
 if (process.argv.includes('--check')) {
   let current = '';
   try { current = readFileSync(out, 'utf8'); } catch { /* missing */ }

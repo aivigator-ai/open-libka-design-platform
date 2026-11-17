@@ -108,13 +108,13 @@ function ItemRow({ item }: { item: Item }) {
       {item.problems.map((p, i) => <FixButtons key={i} problem={p} />)}
       {finding ? <Explained rule={finding.rule} /> : null}
       {inPreview ? (
-        <button type="button" class="st-btn st-btn--small st-showpreview" onClick={() => highlight(inPreview.selector, inPreview.mode === 'more-contrast', inPreview.target)}>{t('checks.show')}</button>
+        <button type="button" class="st-btn st-btn--small st-showpreview" onClick={() => highlight(inPreview.selector, inPreview.mode.endsWith('more-contrast'), inPreview.target)}>{t('checks.show')}</button>
       ) : null}
     </li>
   );
 }
 
-const CHECK_TITLE: Record<string, Key> = { 'axe/standard': 'guard.axe', 'contrast/standard': 'guard.contrast', 'structure/standard': 'guard.structure', 'contrast/more-contrast': 'guard.contrastMore', 'docx/standard': 'guard.docx' };
+const CHECK_TITLE: Record<string, Key> = { 'axe/standard': 'guard.axe', 'contrast/standard': 'guard.contrast', 'structure/standard': 'guard.structure', 'contrast/more-contrast': 'guard.contrastMore', 'contrast/dark': 'guard.contrastDark', 'contrast/dark-more-contrast': 'guard.contrastDarkMore', 'docx/standard': 'guard.docx' };
 const OUTPUT_TITLE: Record<s.Target, Key> = { manual: 'guard.manual', deck: 'guard.deck', docx: 'guard.word' };
 
 /** Details: each output's checks with their numbers, as `libka check` reports them; a passing output stays folded. */

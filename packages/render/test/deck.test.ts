@@ -163,6 +163,77 @@ describe('navigation and sources slides', () => {
   });
 });
 
+describe('the agenda', () => {
+  const heading = (s: { heading: unknown }) => typeof s.heading === 'string' ? s.heading : plainText(s.heading as never);
+  const talk = (agenda: string, lang = 'en') => `---\ntitle: Talk\nlang: ${lang}\n---\n\n${agenda}\n:::\n\n## Why\n\nText.\n\n### Detail\n\nMore.\n\n## How\n\nText.\n\n## Next\n\nText.[^1]\n\n[^1]: A note.\n`;
+
+  it('has a slide of its own and comes back before each later section, marking it in words and weight', () => {
+    const d = parse(talk(':::agenda')).document;
+    const list = slides(d);
+    // not again right before the first section, which follows the agenda slide
+    expect(list.map(heading)).toEqual(['Talk', 'Agenda', 'Why', 'Detail', 'Agenda', 'How', 'Agenda', 'Next', 'Notes']);
+    const marked = list.map((s) => s.body[0]?.type === 'agenda' ? s.body[0].current ?? '-' : '');
+    expect(marked).toEqual(['', '-', '', '', 'how', '', 'next', '', '']);
+    const body = renderDeck(d, { styles }).split('<body>')[1]!;
+    // the sections only (no Notes), named by the slide heading
+    expect(body).toMatch(/<h2 class="lk-slide-heading" id="(lk-agenda)">Agenda<\/h2>\n    <div class="lk-slide-body">\n<nav class="lk-block lk-toc" aria-labelledby="\1">\n<ol class="lk-toc-list"><li><a href="#why">Why<\/a><\/li><li><a href="#how">How<\/a><\/li><li><a href="#next">Next<\/a><\/li><\/ol>/);
+    expect(body).toMatch(/<li class="lk-agenda-current"><a href="#how" aria-current="step">How<\/a> <span class="lk-agenda-now">Now<span class="lk-visually-hidden">, you are here<\/span><\/span><\/li>/);
+    expect(body.match(/aria-current="step"/g)).toHaveLength(2);
+    // three agenda slides, each with a heading id of its own: the first a fixed one (links and the showcase go to it)
+    expect(new Set([...body.matchAll(/id="(lk-agenda|lk-lead-\d+)">Agenda</g)].map((m) => m[1])).size).toBe(3);
+    const cs = renderDeck(parse(talk(':::agenda', 'cs')).document, { styles });
+    expect(cs).toMatch(/>Program<\/h2>/);
+    expect(cs).toMatch(/<span class="lk-agenda-now">Nyní<span class="lk-visually-hidden">, jste zde<\/span><\/span>/);
+  });
+
+  it('shows once with once, and the section slides keep their source lines', () => {
+    expect(slides(parse(talk(':::agenda[Plan]{once}')).document).map(heading)).toEqual(['Talk', 'Plan', 'Why', 'Detail', 'How', 'Next', 'Notes']);
+    // a part divider between the agenda and the first section brings no second agenda; later parts come before their agenda
+    const parts = slides(parse('---\ntitle: T\n---\n\n:::agenda\n:::\n\n:::section[One]\n:::\n\n## A\n\nx\n\n## B\n\nx\n\n:::section[Two]\n:::\n\n## C\n\nx\n').document);
+    expect(parts.map(heading)).toEqual(['T', 'Agenda', 'One', 'A', 'Agenda', 'B', 'Two', 'Agenda', 'C']);
+    const list = slides(parse(talk(':::agenda')).document);
+    const again = list.filter((s) => s.body[0]?.type === 'agenda' && s.body[0].current);
+    expect(again).toHaveLength(2);
+    expect(again.every((s) => s.line === undefined)).toBe(true);
+    expect(list.filter((s) => s.kind === 'section').every((s) => typeof s.line === 'number')).toBe(true);
+  });
+
+  it('continues a long agenda on the next slide, the current section still marked', () => {
+    const md = ['---\ntitle: T\n---\n\n:::agenda\n:::\n'];
+    for (let i = 1; i <= 12; i++) md.push(`## S${i}\n\nText.\n`);
+    const d = parse(md.join('\n')).document;
+    const base = slides(d);
+    const agenda = base[1]!.body[0]!;
+    expect(agenda.type === 'agenda' && agenda.entries).toEqual([0, 12]);
+    expect(isSplittable(agenda)).toBe(true);
+    const at = base.findIndex((s) => s.body[0]?.type === 'agenda' && s.body[0].current === 's11');
+    const html = renderDeck(d, { styles, layout: { items: { [`${at}:0`]: [8] }, breaks: { [at]: [1] } } });
+    expect(html).toMatch(/data-title="Agenda \(continued\)"/);
+    expect(html).toMatch(/<ol class="lk-toc-list" start="9"><li><a href="#s9">S9<\/a><\/li><li><a href="#s10">S10<\/a><\/li><li class="lk-agenda-current"><a href="#s11" aria-current="step">/);
+  });
+});
+
+describe('the closing', () => {
+  const heading = (s: { heading: unknown }) => typeof s.heading === 'string' ? s.heading : plainText(s.heading as never);
+  const talk = (closing: string, lang = 'en') => `---\ntitle: Talk\nlang: ${lang}\n---\n\n:::agenda\n:::\n\n## Why\n\nText.\n\n## How\n\nText.[^1]\n\n${closing}\n\n[^1]: A note.\n`;
+
+  it('is the closing slide: the thank-you large, the recap and the contacts written out; the agenda does not come back before it', () => {
+    const d = parse(talk(':::closing[Thank you]{email=team@example.org url=https://example.org/contact/}\nQuestions welcome.\n\n- One\n- Two\n:::\n\n:::notes\nSay bye.\n:::')).document;
+    const list = slides(d);
+    expect(list.map(heading)).toEqual(['Talk', 'Agenda', 'Why', 'Agenda', 'How', 'Thank you', 'Notes']);
+    const last = list[5]!;
+    expect(last.closing).toBe(true);
+    expect(last.notes).toHaveLength(1);
+    const body = renderDeck(d, { styles }).split('<body>')[1]!;
+    expect(body).toMatch(/<div class="lk-slide lk-slide--closing">\n    <h2 class="lk-slide-heading" id="lk-closing">Thank you<\/h2>\n    <div class="lk-slide-body">\n<div class="lk-block lk-closing">\n<p class="lk-closing-text">Questions welcome.<\/p>\n<ul class="lk-closing-recap"><li>One<\/li><li>Two<\/li><\/ul>\n<dl class="lk-closing-contacts"><dt>E-mail<\/dt><dd><a href="mailto:team@example.org">team@example.org<\/a><\/dd><dt>Web<\/dt><dd><a href="https:\/\/example.org\/contact\/">example.org\/contact<\/a><\/dd><\/dl>/);
+    // the agenda lists the sections, never the closing
+    expect(body).not.toMatch(/<a href="#lk-closing">/);
+    // the defaults: the thank-you in the document's language, and nothing under it
+    const cs = renderDeck(parse(talk(':::closing\n:::', 'cs')).document, { styles }).split('<body>')[1]!;
+    expect(cs).toMatch(/<h2 class="lk-slide-heading" id="lk-closing">Děkujeme<\/h2>\n  <\/div>/);
+  });
+});
+
 describe('time and comparison slides', () => {
   it('gives every release a slide headed by its version, with the date as its tag, and lists releases in the contents', () => {
     const md = '---\ntitle: Changelog\n---\n\n::::release[v1.1.0]{date=2026-11-01}\n:::added\n- Timelines.\n:::\n::::\n\n### Migration\n\nNothing to do.\n\n::::release[v1.0.0]{date=2026-10-01}\n:::added\n- First release.\n:::\n::::\n';

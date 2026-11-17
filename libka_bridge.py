@@ -116,7 +116,7 @@ def bridge_css(tokens_css):
     canvas_rgb = {theme: _rgb_triplet(canvas.get(theme), f"color.semantic.bg.canvas.{theme}", errors)
                   for theme in ('light', 'dark')}
     for hc in ('light-high-contrast', 'dark-high-contrast'):   # the canvas changes with high contrast too
-        t = libka_tokens.tokens({'theme': hc})
+        t = libka_tokens.tokens({'mode': hc})
         canvas_rgb[hc] = _rgb_triplet(libka_tokens.css(t['color.semantic.bg.canvas'], t),
                                       f"color.semantic.bg.canvas ({hc})", errors)
 

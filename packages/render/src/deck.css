@@ -47,11 +47,22 @@ body { margin: 0; background: var(--lk-bg-elevated); color: var(--lk-text-primar
 .lk-deck .lk-statement { font-size: 1.6rem; max-width: 34ch; }
 .lk-deck .lk-slide--statement { justify-content: center; }
 .lk-deck .lk-slide--statement .lk-statement { font-size: 2.6rem; }
+/* the closing slide: the thank-you large, the recap and the contacts under it */
+.lk-deck .lk-slide--closing { justify-content: center; }
+.lk-deck .lk-slide--closing .lk-slide-heading { font-size: 3rem; line-height: 1.05; }
+.lk-slide .lk-closing { font-size: 1.2rem; }
+.lk-slide .lk-closing-text { font-size: 1.4rem; }
 .lk-deck .lk-metrics { --lk-metric-size: 2rem; }
+/* KPIs in one row across the slide; a single figure stands large */
+.lk-slide .lk-kpi { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.lk-slide .lk-kpi-item { font-size: 1.15rem; }
+.lk-slide .lk-kpi[data-count="1"] { max-width: 34rem; }
+.lk-slide .lk-kpi[data-count="1"] { --lk-kpi-size: 4.5rem; }
+.lk-slide .lk-kpi-spark { max-width: 14rem; height: 3rem; }
 /* a process is always a row on the canvas (up to six stages fit), whatever its container queries say */
 .lk-slide .lk-process .lk-process-list { flex-direction: row; gap: var(--lk-space-8); }
 .lk-slide .lk-process .lk-process-stage:not(:last-child)::after { top: 50%; bottom: auto; left: auto; right: calc(-1 * var(--lk-space-8) / 2 - 6px); transform: translateY(-50%) rotate(45deg); }.lk-slide .lk-chart-svg { max-height: 360px; min-width: 0; }
-.lk-deck .lk-chart-data, .lk-deck .lk-video-transcript, .lk-deck .lk-diagram-source { display: none; }
+.lk-deck .lk-chart-data, .lk-deck .lk-kpi-data, .lk-deck .lk-video-transcript, .lk-deck .lk-diagram-source { display: none; }
 /* on a slide a diagram takes the space left under the heading and text (up to 420px high), and the viewBox
    scales it to fit; below 200px it overflows instead, so Guard reports a slide that is really too full */
 .lk-slide-body:has(> .lk-diagram) { flex: 1 1 auto; min-height: 0; }

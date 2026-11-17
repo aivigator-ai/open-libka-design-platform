@@ -57,6 +57,6 @@ export const markdownName = (name: string): string => {
 export function typeOf(path: string): string {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
   return ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif',
-    mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/quicktime', vtt: 'text/vtt', md: 'text/markdown' } as Record<string, string>)[ext]
+    mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/quicktime', vtt: 'text/vtt', md: 'text/markdown', yml: 'application/yaml', yaml: 'application/yaml', json: 'application/json' } as Record<string, string>)[ext]
     ?? 'application/octet-stream';
 }

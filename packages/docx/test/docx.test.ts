@@ -22,8 +22,9 @@ const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAA
 function everyBlock(lang = 'en'): string {
   const front = [...new Set(BLOCKS.flatMap((b) => (b.frontMatter ? [b.frontMatter] : [])))];
   return ['---', 'title: Every block', `lang: ${lang}`, ...front, '---', '',
-    // the revision history makes its own heading
-    ...BLOCKS.flatMap((b) => [...(b.name === 'revisions' ? [] : [`## ${b.title}`, '']), b.example, '']), ...INLINES.flatMap((i) => [`## ${i.title}`, '', i.example, ''])].join('\n');
+    // the revision history and the closing make their own heading; the closing ends the document
+    ...BLOCKS.filter((b) => b.name !== 'closing').flatMap((b) => [...(b.name === 'revisions' ? [] : [`## ${b.title}`, '']), b.example, '']), ...INLINES.flatMap((i) => [`## ${i.title}`, '', i.example, '']),
+    BLOCKS.find((b) => b.name === 'closing')!.example, ''].join('\n');
 }
 
 describe('renderDocx: every block', () => {
@@ -95,6 +96,31 @@ Text s poznámkou[^a] a zdrojem [@wcag22]. Kód \`v Praze\` zůstává.
     expect(xml).toMatch(/<w:pStyle w:val="Title"\/><\/w:pPr><w:r><w:t xml:space="preserve">Release guide<\/w:t>/);
     expect(xml).toMatch(/<w:pStyle w:val="Heading1"\/>[\s\S]*?<w:bookmarkStart w:name="lk_priprava_v_praze"/);
     expect(xml).toMatch(/<w:pStyle w:val="Heading2"\/>/);
+  });
+
+  it('ends with the closing as a heading, its recap and the contacts as links written out', async () => {
+    const docx = await build('---\ntitle: Talk\nlang: cs\n---\n\n## Proč\n\nText.\n\n## Jak\n\nText.\n\n:::closing{email=tym@example.org url=https://example.org/kontakt}\nDotazy vítáme.\n\n- Jeden\n- Dva\n:::\n');
+    expect(checkDocx(docx).violations).toEqual([]);
+    const xml = parts(docx)['word/document.xml']!;
+    expect(xml).toMatch(/<w:pStyle w:val="Heading1"\/>.*?<w:t xml:space="preserve">Děkujeme<\/w:t>/s);
+    expect(xml).toMatch(/<w:t xml:space="preserve">Dotazy vítáme\.<\/w:t>/);
+    expect(xml).toMatch(/<w:t xml:space="preserve">tym@example\.org<\/w:t>/);
+    expect(xml).toMatch(/<w:t xml:space="preserve">example\.org\/kontakt<\/w:t>/);
+    const rels = parts(docx)['word/_rels/document.xml.rels']!;
+    expect(rels).toMatch(/Target="mailto:tym@example\.org"/);
+    expect(rels).toMatch(/Target="https:\/\/example\.org\/kontakt"/);
+    // the automatic contents lists it after the sections
+    expect(xml.match(/<w:pStyle w:val="TOC1"\/>/g)).toHaveLength(3);
+  });
+
+  it('writes an agenda as links to the sections where it stands, instead of the automatic contents', async () => {
+    const docx = await build('---\ntitle: Talk\nlang: cs\n---\n\n:::agenda\n:::\n\n## Proč\n\nText.[^1]\n\n### Detail\n\nVíc.\n\n## Jak\n\nText.\n\n[^1]: Poznámka.\n');
+    expect(checkDocx(docx).violations).toEqual([]);
+    const xml = parts(docx)['word/document.xml']!;
+    expect(xml).toMatch(/<w:t xml:space="preserve">Program<\/w:t>/);
+    expect(xml).not.toMatch(/<w:t xml:space="preserve">Obsah<\/w:t>/);
+    expect(xml.match(/<w:pStyle w:val="TOC1"\/>/g)).toHaveLength(2);
+    expect(xml).not.toMatch(/<w:pStyle w:val="TOC2"\/>/);
   });
 
   it('writes a download as a link with its format, size and pages, the web address after it', async () => {
@@ -226,6 +252,22 @@ describe('renderDocx: fallbacks without drawings', () => {
     const docx = await build(md, { drawing: (b: Block) => { seen.push(b); return { data: PNG, type: 'png', width: 100, height: 50 } as DocxPicture; } });
     expect(seen.map((b) => b.type)).toEqual(['chart']);
     expect(Object.keys(unzipSync(docx)).filter((k) => k.startsWith('word/media/') && !k.endsWith('/'))).toHaveLength(1);
+  });
+
+  it('a KPI is its name, the figure and the change and trend in words', async () => {
+    const md = '# T\n\n:::kpi[Waiting time]{value="3.2 h" change=-1.1h since="Q2" good=down trend="5.1,4.6,3.2"}\nNew triage rules.\n:::\n';
+    const docx = await build(md);
+    const text = parts(docx)['word/document.xml']!.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    expect(text).toContain('Waiting time 3.2 h down 1.1h since Q2 (better) Trend over 3 periods: from 5.1 to 3.2, highest 5.1, lowest 3.2. (5.1, 4.6, 3.2) New triage rules.');
+    expect(checkDocx(docx).violations).toEqual([]);
+  });
+
+  it('stacked bars add each total to the data table, and their summary says so', async () => {
+    const md = '# T\n\n:::chart{type=hbar stacked caption="Staff"}\n| Office | Own | Partners |\n|---|---|---|\n| Prague | 3 | 1 |\n| Brno | 2 | 4 |\n:::\n';
+    const xml = parts(await build(md))['word/document.xml']!;
+    const text = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    expect(text).toContain('Stacked horizontal bar chart: Staff. 4 values in 2 series. Highest total: 6 (Brno). Lowest total: 4 (Prague).');
+    expect(text).toMatch(/Office Own Partners Total Prague 3 1 4 Brno 2 4 6/);
   });
 });
 

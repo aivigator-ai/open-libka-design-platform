@@ -4,8 +4,10 @@
  * the stylesheets as strings (see @libka/cli for reading them from the repository).
  */
 import type { PhrasingContent } from 'mdast';
+import type { ResolvedDesign } from '@libka/design';
 import { aiBadge, citationOrder, DEFAULT_DATE_FORMAT, isDeprecated, isIsoDate, kbdKeys, personText, plainText, sourceLine, videoEmbed, type AiProvenance, type Block, type CalloutVariant, type Citation, type DateFormat, type Footnote, type Inline, type LibkaDocument, type Person, type Reference } from '@libka/model';
 import { renderChart } from './chart.ts';
+import { kpiFit, kpiItemHtml } from './kpi.ts';
 import { escapeHtml, safeHref } from './escape.ts';
 import { fill, formatDate, LABELS, langOf, plural, type Labels, type Lang } from './labels.ts';
 import { czechText, typeset } from './typography.ts';
@@ -14,14 +16,17 @@ export type { HostSources } from './csp.ts';
 import type { PageLabels } from './page-runtime.ts';
 import { PAGE_RUNTIME } from './runtimes.ts';
 import { renderUi, uiStageCss, usesUi } from './ui.ts';
+import { logoCss, logoHtml, withDesign, type DesignLogo } from './design.ts';
 
 export { escapeHtml, safeHref } from './escape.ts';
 export { fill, formatDate, LABELS, langOf, plural, type Labels, type Lang } from './labels.ts';
 export { pageRuntime, type PageLabels } from './page-runtime.ts';
 export { describeUi, uiStageCss, usesUi } from './ui.ts';
 export { cleanDiagramSvg, MERMAID_CONFIG } from './diagram.ts';
-export { chartText } from './chart.ts';
+export { chartText, chartTotals } from './chart.ts';
+export { kpiWords } from './kpi.ts';
 export { czechText } from './typography.ts';
+export { logoCss, logoHtml, withDesign, type DesignLogo } from './design.ts';
 
 export interface ManualStyles {
   /** libka-tokens.css (generated): its light :root block and high-contrast block are used. */
@@ -47,7 +52,15 @@ export interface ManualOptions {
    * finding to its block. LibKa Studio's own render only: `libka build` never sets it, and exports strip it.
    */
   sourceLines?: boolean;
+  /**
+   * The design, a brand × a theme (`resolveDesign` in @libka/design); omitted, LibKa's default (LibKa's brand, the
+   * Classic theme), whose page is the token build's, byte for byte.
+   */
+  design?: ResolvedDesign;
+  /** The brand's logo, above the title. */
+  logo?: DesignLogo;
 }
+
 
 /** The first element of a block's HTML, marked with its source line (`data-lk-line`). */
 function withLine(html: string, line: number | undefined): string {
@@ -111,7 +124,7 @@ export interface DocInfo {
   /** Source id → its number in the numeric style (order of first citation). */
   citeNumber: Map<string, number>;
   style: 'numeric' | 'author-date';
-  /** A :::toc block replaces the automatic contents. */
+  /** A :::toc or :::agenda block replaces the automatic contents. */
   placedToc: boolean;
   /** Whether a reference list is shown at all, and whether a :::references block places it. */
   listRefs: boolean;
@@ -121,6 +134,10 @@ export interface DocInfo {
 export const NOTES_ID = 'lk-notes';
 export const REFERENCES_ID = 'lk-references';
 export const REVISIONS_ID = 'lk-revisions';
+/** The agenda's own slide (a document has one agenda); its repeats before the sections take generated ids. */
+export const AGENDA_ID = 'lk-agenda';
+/** The closing section (a document has one, at its end). */
+export const CLOSING_ID = 'lk-closing';
 
 export function docInfo(doc: LibkaDocument, labels: Labels): DocInfo {
   const footnotes = doc.footnotes ?? [];
@@ -132,6 +149,7 @@ export function docInfo(doc: LibkaDocument, labels: Labels): DocInfo {
     : b.type === 'release' ? [{ id: b.id, text: b.version, level: 2, part: false }]
     : b.type === 'decision' ? [{ id: b.id, text: b.title, level: 2, part: false }]
     : b.type === 'revisions' ? [{ id: REVISIONS_ID, text: b.title ?? labels.revisions, level: 2, part: false }]
+    : b.type === 'closing' ? [{ id: CLOSING_ID, text: b.title ?? labels.thankYou, level: 2, part: false }]
     : b.type === 'references' && listRefs ? [{ id: REFERENCES_ID, text: b.title ?? labels.references, level: 2, part: false }] : []);
   const toc = entries.flat();
   const first = entries.findIndex((e) => e.length);
@@ -140,7 +158,7 @@ export function docInfo(doc: LibkaDocument, labels: Labels): DocInfo {
   return {
     toc, contentsAt: first < 0 ? doc.blocks.length : first, ...(doc.meta.ai ? { ai: doc.meta.ai } : {}), footnotes, notes: new Map(footnotes.map((f, i) => [f.id, i + 1])), noteUses: new Map(),
     refs: new Map((doc.meta.references ?? []).map((r) => [r.id, r])), citeNumber: new Map(order.map((id, i) => [id, i + 1])),
-    style: refsBlock?.style ?? 'numeric', placedToc: doc.blocks.some((b) => b.type === 'toc'), listRefs, placedRefs: Boolean(refsBlock),
+    style: refsBlock?.style ?? 'numeric', placedToc: doc.blocks.some((b) => b.type === 'toc' || b.type === 'agenda'), listRefs, placedRefs: Boolean(refsBlock),
   };
 }
 
@@ -175,11 +193,14 @@ const fragment = (id: string) => id.replace(/[^\w-]/g, '-');
 /** "Doe" from "Doe, Jane"; anything written without a comma (an organisation) stays whole. */
 const surname = (author: string) => (author.includes(',') ? author.split(',')[0]!.trim() : author.trim());
 
-/** The short form of a source in author-date style: "Doe and Roe, 2020". */
+/**
+ * The short form of a source in author-date style: "Doe and Roe, 2020". It may break between words (an organisation's
+ * name can be longer than a phone's line), never before the year.
+ */
 function authorDate(r: Reference, L: Labels): string {
   const a = r.author ?? [];
   const who = a.length === 0 ? r.title : a.length === 1 ? surname(a[0]!) : a.length === 2 ? `${surname(a[0]!)} ${L.and} ${surname(a[1]!)}` : `${surname(a[0]!)} ${L.etAl}`;
-  return `${who}, ${r.year ?? L.noDate}`;
+  return `${who}, ${r.year ?? L.noDate}`;
 }
 
 function citation(c: Citation, ctx: RenderContext): string {
@@ -392,6 +413,51 @@ export function tocBlock(b: Extract<Block, { type: 'toc' }>, ctx: RenderContext,
     tocList(entries, 'lk-toc-list', start), '</nav>'].filter(Boolean).join('\n');
 }
 
+/** What an agenda lists: the ## sections and parts (and the sections that count as ##), without Notes, References and the closing. */
+export function agendaEntries(d: DocInfo | undefined): TocEntry[] {
+  return (d?.toc ?? []).filter((e) => e.level === 2 && e.id !== NOTES_ID && e.id !== REFERENCES_ID && e.id !== CLOSING_ID);
+}
+
+/** A closing's web address as a link target: one written without https:// gets it. */
+export const closingHref = (url: string): string => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
+/** A closing's web address as shown: without https:// and a trailing slash, so it reads (and prints) short. */
+export const closingUrlText = (url: string): string => url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+
+/**
+ * The closing's content: its sentence, its recap and the contacts, each a real link whose text is the address itself.
+ * The page wraps it in a ## section; a slide puts the title in its own heading.
+ */
+export function closingBody(b: Extract<Block, { type: 'closing' }>, ctx: RenderContext): string {
+  const L = ctx.labels;
+  const contact = (label: string, href: string | null, text: string) => (href ? `<dt>${escapeHtml(label)}</dt><dd><a href="${escapeHtml(href)}">${escapeHtml(text)}</a></dd>` : '');
+  const contacts = [b.email ? contact(L.contactEmail, `mailto:${b.email}`, b.email) : '', b.url ? contact(L.contactWeb, safeHref(closingHref(b.url)), closingUrlText(b.url)) : ''].join('');
+  return [b.text ? `<p class="lk-closing-text">${inline(b.text, ctx)}</p>` : '',
+    b.items?.length ? `<ul class="lk-closing-recap">${b.items.map((i) => `<li>${inline(i, ctx)}</li>`).join('')}</ul>` : '',
+    contacts ? `<dl class="lk-closing-contacts">${contacts}</dl>` : ''].filter(Boolean).join('\n');
+}
+
+/**
+ * The agenda: the sections as a list of links, parts as unnumbered rows. On a repeated agenda slide the current
+ * section is in bold with the word "Now" and aria-current, never by color alone; screen readers hear "you are here".
+ */
+export function agendaBlock(b: Extract<Block, { type: 'agenda' }>, ctx: RenderContext, labelledBy?: string): string {
+  const L = ctx.labels;
+  const all = agendaEntries(ctx.doc);
+  const entries = b.entries ? all.slice(b.entries[0], b.entries[1]) : all;
+  // a continued agenda keeps counting: parts take no number
+  const start = 1 + (b.entries ? all.slice(0, b.entries[0]).filter((e) => !e.part).length : 0);
+  const id = labelledBy ?? ctx.next('agenda');
+  const items = entries.map((e) => {
+    const current = e.id === b.current;
+    const cls = [e.part ? 'lk-toc-part' : '', current ? 'lk-agenda-current' : ''].filter(Boolean).join(' ');
+    const link = `<a href="#${escapeHtml(e.id)}"${current ? ' aria-current="step"' : ''}>${escapeHtml(e.text)}</a>`;
+    const now = current ? ` <span class="lk-agenda-now">${escapeHtml(L.now)}<span class="lk-visually-hidden">, ${escapeHtml(L.youAreHere)}</span></span>` : '';
+    return `<li${cls ? ` class="${cls}"` : ''}>${link}${now}</li>`;
+  });
+  return [`<nav class="lk-block lk-toc" aria-labelledby="${id}">`, labelledBy ? '' : `<p class="lk-toc-title" id="${id}">${escapeHtml(b.title ?? L.agenda)}</p>`,
+    `<ol class="lk-toc-list"${start > 1 ? ` start="${start}"` : ''}>${items.join('')}</ol>`, '</nav>'].filter(Boolean).join('\n');
+}
+
 /** The Notes section: every footnote, numbered, with a link back to where it was first used. */
 export function notesList(ctx: RenderContext, back?: (id: string, n: number) => string): string {
   const d = ctx.doc;
@@ -602,6 +668,14 @@ function blockHtml(b: Block, ctx: RenderContext, line: number | undefined): stri
       return summary(b, ctx);
     case 'toc':
       return tocBlock(b, ctx);
+    case 'agenda':
+      return agendaBlock(b, ctx);
+    case 'closing': {
+      // on a slide the title is the slide's heading; on the page a ## section of its own, listed in the contents
+      const body = closingBody(b, ctx);
+      if (ctx.target === 'deck') return body ? `<div class="lk-block lk-closing">\n${body}\n</div>` : '';
+      return `<section class="lk-block lk-closing" aria-labelledby="${CLOSING_ID}">\n<h2 id="${CLOSING_ID}" class="lk-manual-h2">${escapeHtml(b.title ?? L.thankYou)}</h2>${body ? `\n${body}` : ''}\n</section>`;
+    }
     case 'diagram':
       // the SVG is drawn at build time; until then (lint, tests) the description stands in for it
       return [`<figure class="lk-block lk-diagram">`,
@@ -773,6 +847,8 @@ function blockHtml(b: Block, ctx: RenderContext, line: number | undefined): stri
       const fit = metricsFit(b.items.map((i) => (ctx.lang === 'cs' ? czechText(i.value) : figure(i.value))));
       return `<ul class="lk-block lk-metrics" data-fit="${fit}">\n${b.items.map((i) => `  <li><span class="lk-metric-value">${escapeHtml(figure(i.value))}</span> <span class="lk-metric-label">${inline(i.label, ctx)}</span></li>`).join('\n')}\n</ul>`;
     }
+    case 'kpi':
+      return `<ul class="lk-block lk-kpi" data-count="${b.items.length}" data-fit="${kpiFit(b.items.map((k) => k.value))}">\n${b.items.map((k) => kpiItemHtml(k, ctx.lang, L, k.text ? inline(k.text, ctx) : '')).join('\n')}\n</ul>`;
     case 'gallery':
       return `<ul class="lk-block lk-gallery">\n${b.images.map((i) => `  <li>${block({ type: 'figure', ...i }, ctx)}</li>`).join('\n')}\n</ul>`;
     case 'video':
@@ -794,12 +870,12 @@ function cssBlock(css: string, selector: string): string {
 
 export function renderManual(doc: LibkaDocument, options: ManualOptions): string {
   const { meta } = doc;
-  const { styles } = options;
+  const styles = withDesign(options.styles, options.design);
   const ctx = context(meta.lang, 'manual', doc);
   if (options.sourceLines) ctx.sourceLines = true;
   const L = ctx.labels;
   const d = ctx.doc!;
-  // parts (:::section), ## sections, Notes and References make the automatic contents, unless a :::toc places them;
+  // parts (:::section), ## sections, Notes and References make the automatic contents, unless a :::toc or :::agenda places them;
   // they stand after the opening text, before the first of them
   const headings = d.placedToc ? [] : d.toc.filter((e) => e.level === 2);
   // owner and review dates go under the title unless a :::doc-status panel shows them
@@ -824,7 +900,7 @@ export function renderManual(doc: LibkaDocument, options: ManualOptions): string
     : '';
   const body = `<div class="lk-manual">
 <header class="lk-block lk-doc-header">
-  <h1 class="lk-doc-title">${escapeHtml(meta.title)}</h1>
+${logoHtml(options.logo, '  ')}  <h1 class="lk-doc-title">${escapeHtml(meta.title)}</h1>
 ${meta.subtitle ? `  <p class="lk-doc-subtitle">${escapeHtml(meta.subtitle)}</p>\n` : ''}${metaItems.length ? `  <div class="lk-doc-meta">\n${metaItems.join('\n')}\n  </div>\n` : ''}${aiLabel ? `  <p class="lk-doc-ai">${escapeHtml(aiLabel)}</p>\n` : ''}</header>
 ${banner}<main id="content" class="lk-manual-content">
 ${[...doc.blocks.slice(0, d.contentsAt).map((b) => block(b, ctx)),
@@ -837,8 +913,9 @@ ${[...doc.blocks.slice(0, d.contentsAt).map((b) => block(b, ctx)),
 </div>`;
   return renderPage({
     lang: meta.lang, title: meta.title, ...(meta.author ? { author: meta.author.map((p) => p.name).join(', ') } : {}), styles, body, script: runtimeScript(ctx),
-    css: usesUi(doc.blocks) ? uiStageCss(styles.tokens, styles.bridge) : '',
+    css: (usesUi(doc.blocks) ? uiStageCss(styles.tokens, styles.bridge) : '') + logoCss(options.logo, Boolean(options.frame?.dark)),
     ...(options.fontsHref ? { fontsHref: options.fontsHref } : {}), ...(options.frame ? { frame: options.frame } : {}),
+    ...(options.design ? { design: options.design } : {}),
   });
 }
 
@@ -857,11 +934,14 @@ export interface PageParts {
   /** The page runtime (runtimeScript). */
   script: string;
   frame?: SiteFrame;
+  /** The design (see `ManualOptions.design`). */
+  design?: ResolvedDesign;
 }
 
 /** A finished LibKa page: tokens (with more contrast, and dark when the frame asks), styles, runtime, its policy. */
 export function renderPage(p: PageParts): string {
-  const { styles, frame } = p;
+  const styles = withDesign(p.styles, p.design);
+  const { frame } = p;
   const L = LABELS[langOf(p.lang)];
   const indent = (css: string) => css.split('\n').map((l) => `  ${l}`).join('\n');
   const highContrast = indent([cssBlock(styles.tokens, '[data-contrast="high"]'), cssBlock(styles.bridge, '[data-contrast="high"]')].join('\n'));

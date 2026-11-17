@@ -1,7 +1,7 @@
 {
   "name": "LibKa design tokens",
   "version": "2025.10",
-  "description": "LibKa tokens: base sets (light theme values) plus a theme modifier: dark adds the dark overrides; the high-contrast contexts add AAA overrides on top of light or dark.",
+  "description": "LibKa tokens: base sets (light mode values) plus a mode modifier: dark adds the dark overrides; the high-contrast contexts add AAA overrides on top of light or dark.",
   "sets": {
     "primitive": {
       "sources": [
@@ -33,8 +33,8 @@
     }
   },
   "modifiers": {
-    "theme": {
-      "description": "Color theme and contrast",
+    "mode": {
+      "description": "Color mode and contrast",
       "contexts": {
         "light": [],
         "dark": [
@@ -73,7 +73,7 @@
       "$ref": "#/sets/foundation"
     },
     {
-      "$ref": "#/modifiers/theme"
+      "$ref": "#/modifiers/mode"
     }
   ]
 }

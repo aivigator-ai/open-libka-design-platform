@@ -1,6 +1,6 @@
 {
   "name": "@libka/studio",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "private": true,
   "license": "Apache-2.0",
   "description": "LibKa Studio: an installable local-first app to write LibKa documents, see them rendered and checked by Guard as you type, with projects, images and version history kept on your device.",
@@ -21,6 +21,7 @@
     "@lezer/highlight": "^1.2.5",
     "@lezer/markdown": "1.8.1",
     "@libka/blocks": "workspace:*",
+    "@libka/design": "workspace:*",
     "@libka/docx": "workspace:*",
     "@libka/editor": "workspace:*",
     "@libka/guard": "workspace:*",

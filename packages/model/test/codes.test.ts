@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { nearest, parse } from '../src/index.ts';
 import { SAMPLES } from '../src/samples.ts';
+import { designCodeRows } from '@libka/design';
 import { problemCodesMarkdown } from '../src/problem-codes.ts';
 
 const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'index.ts'), 'utf8');
@@ -46,7 +47,7 @@ describe('problem codes', () => {
 
   it('keeps docs/problem-codes.md in step with the model', () => {
     const docs = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'docs', 'problem-codes.md'), 'utf8');
-    expect(docs, 'run node packages/model/src/build-codes.ts').toBe(problemCodesMarkdown());
+    expect(docs, 'run node packages/model/src/build-codes.ts').toBe(problemCodesMarkdown(designCodeRows()));
   });
 
   it('finds the nearest of a list only for a likely misspelling', () => {

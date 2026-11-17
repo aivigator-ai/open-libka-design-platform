@@ -19,6 +19,7 @@ const directive = (n: PMNode) => n.type === schema.nodes.directive || n.type ===
 export function applyFix(source: string, line: number, fix: Fix): string | null {
   if (!appliesToText(fix)) return null;
   const loaded = load(source);
+  if (fix.kind === 'move-to-end') return moveToEnd(source, line, loaded);
   const wanted = (n: PMNode): boolean => {
     switch (fix.kind) {
       case 'remove-attribute': return directive(n) && fix.name in n.attrs.attributes;
@@ -74,6 +75,29 @@ export function applyFix(source: string, line: number, fix: Fix): string | null 
     }
     default: return null;
   }
+  const out = save(tr.doc, loaded);
+  return out === source ? null : out;
+}
+
+/** Moves the top-level block on `line`, with the speaker notes right after it, to the end of the document. */
+function moveToEnd(source: string, line: number, loaded: ReturnType<typeof load>): string | null {
+  const top: { node: PMNode; pos: number }[] = [];
+  loaded.doc.forEach((node, pos) => { top.push({ node, pos }); });
+  const at = top.findIndex((t) => loaded.lines.get(t.node) === line && t.node.isBlock);
+  if (at < 0) return null;
+  let end = at + 1;
+  while (end < top.length && top[end]!.node.type === schema.nodes.directive && top[end]!.node.attrs.name === 'notes') end++;
+  // it goes before a reference list that ends the document (that may follow it)
+  const isRefs = (t: { node: PMNode }) => t.node.type === schema.nodes.directive && t.node.attrs.name === 'references';
+  let last = top.length;
+  while (last > end && isRefs(top[last - 1]!)) last--;
+  if (last === end) return null; // already at the end
+  const from = top[at]!.pos;
+  const to = top[end - 1]!.pos + top[end - 1]!.node.nodeSize;
+  const moved = loaded.doc.slice(from, to).content;
+  const tr = EditorState.create({ doc: loaded.doc }).tr;
+  tr.insert(last === top.length ? tr.doc.content.size : top[last]!.pos, moved);
+  tr.delete(from, to);
   const out = save(tr.doc, loaded);
   return out === source ? null : out;
 }

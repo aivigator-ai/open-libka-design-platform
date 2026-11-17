@@ -1,7 +1,7 @@
 /**
  * The Studio's performance budget, measured in Chrome on the built Studio. A test fails when the
  * Studio is over a budget:
- * - the first load (main.js and studio.css) at most 1.5 MB (the build fails too);
+ * - the first load (main.js, every chunk it imports statically, and studio.css) at most 2 MB (the build fails too);
  * - ready to edit within 2 s of opening it;
  * - in the 27-page Open Source Guide, a keystroke shown within 50 ms (95th percentile, Event Timing: from the key to
  *   the next paint);
@@ -25,7 +25,7 @@ const chrome = [process.env.LIBKA_BROWSER, 'C:/Program Files/Google/Chrome/Appli
   '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
   .some((p) => p && existsSync(p));
 const slack = Number(process.env.LIBKA_PERF_SLACK ?? '1') || 1;
-const BUDGET = { firstLoad: 1.5 * 1024 * 1024, ready: 2000 * slack, key: 50 * slack, checks: 5000 * slack, slides: 10000 * slack };
+const BUDGET = { firstLoad: 2 * 1024 * 1024, ready: 2000 * slack, key: 50 * slack, checks: 5000 * slack, slides: 10000 * slack };
 
 let browser: Browser;
 let served: Served;
@@ -67,9 +67,19 @@ describe.skipIf(!chrome)('LibKa Studio performance budget', () => {
     await served?.close();
   });
 
-  it('loads at most 1.5 MB before it starts', () => {
-    const size = (f: string) => statSync(join(here, '..', 'dist', 'assets', f)).size;
-    const firstLoad = size('main.js') + size('studio.css');
+  it('loads at most 2 MB before it starts', () => {
+    const dir = join(here, '..', 'dist', 'assets');
+    const size = (f: string) => statSync(join(dir, f)).size;
+    // main.js and the chunks it imports statically (the browser fetches them before the Studio runs), never the ones
+    // it imports with import(), which load when needed
+    const scripts = new Set<string>();
+    const reach = (f: string) => {
+      if (scripts.has(f)) return;
+      scripts.add(f);
+      for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/(?:\bfrom\s*|\bimport\s*)["']\.\/([\w.-]+\.js)["']/g)) reach(m[1]!);
+    };
+    reach('main.js');
+    const firstLoad = [...scripts].reduce((n, f) => n + size(f), 0) + size('studio.css');
     console.log(`first load: ${Math.round(firstLoad / 1024)} KB (budget ${Math.round(BUDGET.firstLoad / 1024)} KB)`);
     expect(firstLoad).toBeLessThanOrEqual(BUDGET.firstLoad);
   });

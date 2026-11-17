@@ -363,11 +363,33 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-version-meta { margin: 2px 0 0; font-size: .8125rem; color: var(--lk-text-secondary); }
 
 /* ---- dialogs and the comparison ---- */
-.st-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-lg); background: var(--lk-bg-surface); color: var(--lk-text-primary); box-shadow: var(--lk-shadow-3); }
+/* a dialog: its heading with a close button at the top and its buttons at the bottom always in view; only the content
+   between them scrolls, inside the rounded frame (the frame clips nothing that scrolls, so no corner hides a scroll bar) */
+.st-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-lg); background: var(--lk-bg-surface); color: var(--lk-text-primary); box-shadow: var(--lk-shadow-3); }
 .st-dialog::backdrop { background: color-mix(in srgb, var(--lk-action-primary) 45%, transparent); }
 .st-dialog--compare { width: min(1100px, calc(100vw - 32px)); }
-.st-dialog-body { display: grid; gap: 14px; padding: 20px 22px; max-height: calc(100dvh - 34px); min-height: 0; overflow: auto; }
-.st-dialog--compare .st-dialog-body { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
+.st-dialog-body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: calc(100dvh - 34px); min-height: 0; overflow: hidden; }
+.st-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 12px 4px 22px; }
+.st-dialog-head .st-dialog-title { padding-top: 6px; }
+.st-dialog-x { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: var(--lk-radius-sm); background: none; color: var(--lk-text-primary); cursor: pointer; }
+.st-dialog-x:hover { background: var(--lk-bg-elevated); }
+.st-dialog-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 10px 22px 16px; }
+.st-dialog-content:focus-visible { outline-offset: -3px; }
+.st-dialog-actions { padding: 0 22px 18px; }
+/* a long dialog: the heading and the buttons set apart from the content that scrolls under them */
+.st-dialog--panels .st-dialog-head { padding-bottom: 10px; border-bottom: 1px solid var(--lk-border-default); }
+.st-dialog--panels .st-dialog-content { padding-top: 16px; }
+.st-dialog--panels .st-dialog-actions { padding-top: 12px; border-top: 1px solid var(--lk-border-default); }
+.st-dialog-saved { color: var(--lk-text-secondary); }
+.st-dialog--compare .st-dialog-content { grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+/* a window too low for a fixed heading and buttons (a phone on its side, a large zoom): the whole dialog scrolls, with
+   the keyboard and the wheel too (after the rules above, so it wins over them, a version compared included) */
+@media (max-height: 420px) {
+  .st-dialog .st-dialog-body { grid-template-rows: none; overflow: auto; }
+  .st-dialog .st-dialog-content, .st-dialog--compare .st-dialog-content { grid-template-rows: none; overflow: visible; overscroll-behavior: auto; }
+  /* the lists with scrollers of their own grow to their content and scroll with the dialog */
+  .st-dialog .st-keys, .st-dialog .st-compare-scroll { max-height: none; overflow: visible; }
+}
 .st-dialog-title { margin: 0; font: 650 1.125rem/1.3 var(--lk-font-brand); }
 .st-dialog p { margin: 0; }
 /* the accessibility statement: its paragraphs apart, each section's heading with its text */
@@ -379,9 +401,59 @@ button, input, textarea, summary { font: inherit; color: inherit; }
 .st-about > h3 { margin: 1.25em 0 .35em; }
 .st-about-links { list-style: none; margin: .75em 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .st-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.st-field { display: grid; gap: 6px; font-weight: 600; }
+.st-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; font-weight: 600; }
 .st-field input { min-height: 38px; padding: 0 10px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); font-weight: 400; }
 .st-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+/* New document: Blank and the templates as cards; the radio stays visible, the whole card is its label */
+.st-dialog--new { width: min(820px, calc(100vw - 32px)); }
+.st-templates { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.st-template { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; gap: 6px 8px; align-items: start; align-content: start;
+  padding: 10px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-md); background: var(--lk-bg-surface); cursor: pointer; }
+.st-template:has(input:checked) { border-color: var(--lk-action-accent-strong); box-shadow: inset 0 0 0 1px var(--lk-action-accent-strong); }
+.st-template:has(input:focus-visible) { outline: 2px solid var(--lk-focus-ring); outline-offset: 2px; }
+.st-template input { grid-column: 1; grid-row: 2; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--lk-action-accent-strong); }
+.st-template-picture { grid-column: 1 / -1; grid-row: 1; display: block; box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top;
+  border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-canvas); }
+.st-template-blank { background: var(--lk-bg-surface); }
+/* the Design tab: the themes as cards with their type, the brand, the solver's words */
+.st-design { display: flex; flex-direction: column; gap: 20px; }
+.st-design > section { display: flex; flex-direction: column; gap: 8px; }
+.st-themes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.st-theme-sample { aspect-ratio: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; color: var(--lk-text-heading); }
+.st-theme-heading { font-size: 1.75rem; line-height: 1.1; }
+.st-theme-body { font-size: .875rem; color: var(--lk-text-primary); }
+.st-design-copy { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.st-design-copy select, .st-brand-form select, .st-colour-hex { min-height: 36px; max-width: 100%; padding: 0 8px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; }
+/* the brand editor: the form on the left, the four modes and the words on the right; one column on a phone */
+.st-dialog--brand { width: min(1100px, calc(100vw - 32px)); }
+.st-brand-editor { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .st-brand-editor { grid-template-columns: minmax(0, 1fr); } }
+.st-brand-form, .st-brand-preview { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.st-brand-group { margin: 0; min-width: 0; padding: 10px 12px; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md); display: flex; flex-direction: column; gap: 10px; }
+.st-brand-group input[type="file"] { min-width: 0; max-width: 100%; }
+.st-brand-group legend { font-weight: 600; padding: 0 4px; }
+.st-colour-field { display: flex; flex-direction: column; gap: 4px; }
+.st-colour-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.st-colour-hex { width: 10ch; font-family: var(--lk-font-mono); }
+.st-colour-pick { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--lk-border-control); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); }
+.st-field-error { color: var(--lk-text-error); font-size: .875rem; }
+.st-brand-tint { display: flex; align-items: center; gap: 8px; }
+.st-mode-samples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .st-mode-samples { grid-template-columns: 1fr; } }
+.st-mode-sample { border: 1px solid; border-radius: var(--lk-radius-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.st-mode-sample p { margin: 0; }
+.st-mode-name { margin: 0; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.st-mode-heading { font-size: 1.25rem; line-height: 1.2; }
+.st-mode-text { font-size: .9375rem; }
+.st-mode-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8125rem; }
+.st-mode-chip { display: flex; align-items: center; gap: 6px; }
+.st-mode-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(128 128 128 / .5); }
+.st-mode-series { display: flex; align-items: flex-end; gap: 4px; height: 32px; }
+.st-mode-bar { display: inline-block; width: 18px; border-radius: 2px 2px 0 0; }
+.st-brand-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-design-words { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; font-size: .875rem; overflow-wrap: anywhere; }
+.st-template-name { grid-column: 2; grid-row: 2; font-weight: 600; }
+.st-template-text { grid-column: 2; grid-row: 3; color: var(--lk-text-secondary); font-size: .875rem; }
 .st-choices .st-btn { width: 100%; font-family: var(--lk-font-mono); font-size: .8125rem; }
 .st-compare-sum { color: var(--lk-text-secondary); }
 .st-compare-scroll { overflow: auto; min-height: 0; border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-sm); }

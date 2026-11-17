@@ -34,8 +34,8 @@ describe('every registry block', () => {
     const { problems } = parse('# T\n\n:::chart{type=pie caption="x" colour=red}\n| A | B |\n|---|---|\n| a | 1 |\n:::\n');
     const text = problems.map((p) => p.message).join('\n');
     expect(text).toMatch(/:::chart has unknown attributes: colour/);
-    expect(text).toMatch(/type must be one of bar, line, donut/);
-    expect(block('chart')!.attributes!.type!.values).toEqual(['bar', 'line', 'donut']);
+    expect(text).toMatch(/type must be one of bar, hbar, line, donut/);
+    expect(block('chart')!.attributes!.type!.values).toEqual(['bar', 'hbar', 'line', 'donut']);
   });
 });
 
@@ -74,6 +74,21 @@ describe('core block rules', () => {
     ['a video without transcript', ':::video[Demo]{src="https://vimeo.com/76979871"}\n:::', /need a transcript/],
     ['a donut with six parts', ':::chart{type=donut caption="x"}\n| A | V |\n|---|---|\n| a | 1 |\n| b | 1 |\n| c | 1 |\n| d | 1 |\n| e | 1 |\n| f | 1 |\n:::', /at most 5 parts/],
     ['a value that is not a number', ':::chart{type=bar caption="x"}\n| A | V |\n|---|---|\n| a | lots |\n:::', /"lots" in row "a" is not a number/],
+    ['a negative horizontal bar', ':::chart{type=hbar caption="x"}\n| A | V |\n|---|---|\n| a | -1 |\n:::', /cannot show negative values/],
+    ['a stacked line', ':::chart{type=line stacked caption="x"}\n| A | V | W |\n|---|---|---|\n| a | 1 | 2 |\n| b | 1 | 2 |\n| c | 1 | 2 |\n:::', /only bars stack: use type=bar stacked/],
+    ['a stacked donut', ':::chart{type=donut stacked caption="x"}\n| A | V |\n|---|---|\n| a | 1 |\n| b | 2 |\n:::', /a donut already shows parts of one whole/],
+    ['a KPI without its name', ':::kpi{value="94%"}\n:::', /a KPI needs its name/],
+    ['a KPI without its value', ':::kpi[Answered]\n:::', /:::kpi needs a value/],
+    ['a KPI with a list inside', ':::kpi[Answered]{value="94%"}\n- a\n:::', /at most one short sentence/],
+    ['a change without its sign', ':::kpi[Answered]{value="94%" change=6%}\n:::', /change "6%" needs its sign and a number/],
+    ['a change that is no number', ':::kpi[Answered]{value="94%" change="+ a lot"}\n:::', /needs its sign and a number/],
+    ['since without a change', ':::kpi[Answered]{value="94%" since="Q2"}\n:::', /add the change too/],
+    ['a trend of two points', ':::kpi[Answered]{value="94%" trend="1,2"}\n:::', /3 to 24 values \(found 2\)/],
+    ['a trend with words', ':::kpi[Answered]{value="94%" trend="1,two,3"}\n:::', /numbers separated by commas/],
+    ['good that is no direction', ':::kpi[Answered]{value="94%" good=left}\n:::', /good must be one of up, down/],
+    ['a KPI inside a callout', ':::callout[Note]{variant=info}\n:::kpi[A]{value=1}\n:::\n:::', /:::kpi cannot be inside another block/],
+    ['five KPIs in a row', [1, 2, 3, 4, 5].map((n) => `:::kpi[K${n}]{value=${n}}\n:::`).join('\n\n'), /at most 4 :::kpi stand side by side/],
+    ['stacked bars of one series', ':::chart{type=bar stacked caption="x"}\n| A | V |\n|---|---|\n| a | 1 |\n:::', /stacked bars split each total into parts/],
     ['a gallery of one', ':::gallery\n![a](a.png "A")\n:::', /at least two images/],
     ['a shortcut without keys', ':::shortcuts{caption="x"}\n- Save\n:::', /starts with its keys/],
     ['a highlighted line that does not exist', '```js {4}\nconst a = 1;\n```', /highlighted line 4 is beyond the 1 line of/],
@@ -93,7 +108,7 @@ describe('core block rules', () => {
   });
 
   it('reports an inline :kbd or :badge left open, as when a backslash escapes its bracket, but not in code', () => {
-    const { problems } = parse('# T\n\nSplit: :kbd[Cmd+\\].\n\nKey: :kbd[Ctrl+\\\\] and `:kbd[Cmd+\\]` as code.\n\n- New :badge[Beta\n');
+    const { problems } = parse('# T\n\nSplit: :kbd[Cmd+\\].\n\nKey: :kbd[Ctrl+\\\\] and `:kbd[Cmd+\\]` as code.\n\n- New :badge[Passed\n');
     expect(problems.map((p) => [p.line, p.message.slice(0, 26)])).toEqual([[3, '":kbd[" is not closed, so '], [7, '":badge[" is not closed, s']]);
   });
 });
@@ -109,7 +124,7 @@ describe('UI specimens and badges', () => {
   });
 
   it('keeps an inline badge, accepts quotes inside single-quoted values, and in-page links that exist', () => {
-    const { document, problems } = parse("# T\n\n## Getting started\n\nNew :badge[Beta]{variant=info}, see [here](#getting-started).\n\n:::quote{source='What \"open\" means'}\nx\n:::\n");
+    const { document, problems } = parse("# T\n\n## Getting started\n\nNew :badge[Passed]{variant=success}, see [here](#getting-started).\n\n:::quote{source='What \"open\" means'}\nx\n:::\n");
     expect(problems).toEqual([]);
     expect(JSON.stringify(document.blocks[1])).toMatch(/"name":"badge"/);
     expect(document.blocks[2]).toMatchObject({ type: 'quote', source: 'What "open" means' });
@@ -171,6 +186,7 @@ describe('the document frame', () => {
     ['a summary with six points', `:::summary\n${'- Point\n'.repeat(6)}:::`, /3 to 5 points \(found 6\)/],
     ['a block marked with an unknown AI use', ':::callout[T]{variant=tip ai=generatd}\nText.\n:::', /ai must be one of generated, assisted \(:::callout\)/],
     ['contents marked as AI content', ':::toc{ai=generated}\n:::', /:::toc has unknown attributes: ai/],
+    ['an agenda marked as AI content', ':::agenda{ai=generated}\n:::', /:::agenda has unknown attributes: ai/],
     ['a reviewer without source=ai', ':::summary{reviewed-by="Docs lead"}\n- A\n- B\n- C\n:::', /reviewed-by is shown only for AI summaries/],
     ['a summary point with a nested list', ':::summary\n- A\n  - nested\n- B\n- C\n:::', /one short paragraph/],
     ['a doc-status with nothing to show', ':::doc-status\n:::', /has nothing to show/],
@@ -375,8 +391,79 @@ describe('navigation and sources', () => {
     ['contents inside tabs', '::::tabs\n:::tab[A]\n:::toc\n:::\n:::\n:::tab[B]\nx\n:::\n::::', '', /:::toc cannot be inside another block/],
     ['contents with text inside', ':::toc\nText\n:::', '', /:::toc has no content/],
     ['a contents depth of 4', ':::toc{depth=4}\n:::', '', /depth must be one of 2, 3/],
+    ['two agendas', ':::agenda\n:::\n\n## A\n\n:::agenda\n:::', '', /only one :::agenda per document/],
+    ['an agenda inside tabs', '::::tabs\n:::tab[A]\n:::agenda\n:::\n:::\n:::tab[B]\nx\n:::\n::::', '', /:::agenda cannot be inside another block/],
+    ['an agenda with text inside', ':::agenda\nText\n:::', '', /:::agenda has no content/],
+    ['an agenda with an unknown setting', ':::agenda{repeat=false}\n:::', '', /:::agenda has unknown attributes: repeat/],
+    ['two closings', ':::closing\n:::\n\n:::closing\n:::', '', /only one :::closing per document/],
+    ['a closing inside tabs', '::::tabs\n:::tab[A]\n:::closing\n:::\n:::\n:::tab[B]\nx\n:::\n::::', '', /:::closing cannot be inside another block/],
+    ['a section after the closing', ':::closing\n:::\n\n## More', '', /:::closing ends the document: move it to the end/],
+    ['a paragraph after the closing', ':::closing\n:::\n\nOne more thing.', '', /:::closing ends the document/],
+    ['a closing with two paragraphs', ':::closing\nOne.\n\nTwo.\n:::', '', /:::closing holds at most one short sentence and one bulleted recap list, in that order/],
+    ['a closing with the list first', ':::closing\n- One\n\nThen text.\n:::', '', /in that order/],
+    ['a closing with a callout inside', ':::closing\n:::callout[T]{variant=info}\nx\n:::\n:::', '', /:::closing holds at most one short sentence/],
+    ['a numbered recap', ':::closing\n1. One\n2. Two\n:::', '', /the closing's recap is a bulleted list/],
+    ['a recap of six points', `:::closing\n${'- Point\n'.repeat(6)}:::`, '', /at most 5 points \(found 6\)/],
+    ['a recap point with a nested list', ':::closing\n- One\n  - nested\n:::', '', /each point of the closing's recap is one short paragraph/],
+    ['a closing e-mail without @', ':::closing{email="team at example.org"}\n:::', '', /email "team at example.org" is not an e-mail address/],
+    ['a closing web address that runs script', ':::closing{url="javascript:alert(1)"}\n:::', '', /url "javascript:alert\(1\)" is not a web address/],
+    ['a closing web address with spaces', ':::closing{url="example org"}\n:::', '', /is not a web address/],
     ['an unknown reference style', 'See [@wcag22] [@doe:2020].\n\n:::references{style=apa}\n:::', undefined, /style must be one of numeric, author-date/],
   ])('reports %s', (_, md, fm, message) => expect(messages(md, fm)).toMatch(message));
+
+  it('reads horizontal and stacked bars; only bars stack, and the fixes say how', () => {
+    const table = '| Office | Staff | Partners |\n|---|---|---|\n| Prague | 3 | 1 |\n| Brno | 2 | 2 |\n';
+    const ok = parse(`# T\n\n:::chart{type=hbar stacked caption="x"}\n${table}:::\n`);
+    expect(ok.problems).toEqual([]);
+    expect(ok.document.blocks[0]).toMatchObject({ type: 'chart', kind: 'hbar', stacked: true, labels: ['Prague', 'Brno'] });
+    expect(parse(`# T\n\n:::chart{type=bar caption="x"}\n${table}:::\n`).document.blocks[0]).not.toHaveProperty('stacked');
+    const line = parse(`# T\n\n:::chart{type=line stacked caption="x"}\n| A | V | W |\n|---|---|---|\n| a | 1 | 2 |\n| b | 1 | 2 |\n| c | 1 | 2 |\n:::\n`);
+    expect(line.problems).toMatchObject([{ code: 'chart-stacked', line: 3,
+      fixes: [{ kind: 'set-attribute', name: 'type', value: 'bar' }, { kind: 'remove-attribute', name: 'stacked' }] }]);
+    expect(line.document.blocks[0]).not.toHaveProperty('stacked');
+    expect(parse(`# T\n\n:::chart{type=bar stacked caption="x"}\n| A | V |\n|---|---|\n| a | 1 |\n:::\n`).problems)
+      .toMatchObject([{ code: 'chart-stacked', fixes: [{ kind: 'remove-attribute', name: 'stacked' }] }]);
+  });
+
+  it('reads KPIs: adjacent ones are one row of up to four, the change keeps its words and the trend its numbers', () => {
+    const kpi = (n: number, attrs = '') => `:::kpi[K${n}]{value=${n}${attrs}}\n:::`;
+    const r = parse(`# T\n\n${kpi(1, ' change="+12 %" since="Q2" trend="3,4,4,6,7"')}\n\n:::kpi[K2]{value=2 change="-0,6 mil. Kč" good=down trend="8,8; 9,1; 9,7"}\nEnergy got dearer.\n:::\n\n${kpi(3, ' change=0')}\n\nText.\n\n${kpi(4)}\n`);
+    expect(r.problems).toEqual([]);
+    const [row, , single] = r.document.blocks;
+    expect(r.document.blocks.map((b) => b.type)).toEqual(['kpi', 'paragraph', 'kpi']);
+    expect(plain(row)).toEqual({ type: 'kpi', items: [
+      { label: 'K1', value: '1', change: '12 %', direction: 'up', since: 'Q2', trend: [3, 4, 4, 6, 7] },
+      { label: 'K2', value: '2', change: '0,6 mil. Kč', direction: 'down', good: 'down', trend: [8.8, 9.1, 9.7], text: [{ type: 'text', value: 'Energy got dearer.' }] },
+      { label: 'K3', value: '3', change: '0', direction: 'flat' },
+    ] });
+    expect(single).toMatchObject({ type: 'kpi', items: [{ label: 'K4' }] });
+    // five in a row: the fifth starts a row of its own, and the row is pointed out
+    const five = parse(`# T\n\n${[1, 2, 3, 4, 5].map((n) => kpi(n)).join('\n\n')}\n`);
+    expect(five.document.blocks.map((b) => (b.type === 'kpi' ? b.items.length : 0))).toEqual([4, 1]);
+    expect(five.problems).toMatchObject([{ code: 'kpi-row', line: 15 }]);
+    expect(validate(plain(r.document)) ? [] : validate.errors).toEqual([]);
+  });
+
+  it('suggests hbar when a bar chart\'s category names would overlap or its categories crowd, as a hint', () => {
+    const long = '| Department | Score |\n|---|---|\n| Development and maintenance | 81 |\n| Sales and customer care | 74 |\n| Operations and accounting | 69 |\n| People and culture | 77 |\n';
+    const r = parse(`# T\n\n:::chart{type=bar caption="x"}\n${long}:::\n`);
+    expect(r.problems).toEqual([]);
+    expect(r.hints).toEqual([{ line: 3, message: 'the category names are too long for 4 columns and would overlap: type=hbar writes them beside horizontal bars' }]);
+    const many = Array.from({ length: 13 }, (_, i) => `| ${i + 1} | ${i} |`).join('\n');
+    expect(parse(`# T\n\n:::chart{type=bar caption="x"}\n| N | V |\n|---|---|\n${many}\n:::\n`).hints[0]!.message).toMatch(/^a bar chart with 13 categories crowds its columns/);
+    expect(parse(`# T\n\n:::chart{type=hbar caption="x"}\n${long}:::\n`).hints).toEqual([]);
+    expect(parse(`# T\n\n${BLOCKS.find((b) => b.name === 'chart')!.example}\n`).hints).toEqual([]);
+  });
+
+  it('reads a closing: its sentence, recap and contacts; speaker notes and the reference list may follow it', () => {
+    const { document, problems } = doc('See [@wcag22] [@doe:2020].\n\n:::closing[Thanks]{email="mailto:team@example.org" url=example.org/contact}\nQuestions welcome.\n\n- One\n- Two\n:::\n\n:::notes\nSay bye.\n:::\n\n:::references\n:::');
+    expect(problems).toEqual([]);
+    expect(plain(document.blocks[1])).toMatchObject({ type: 'closing', title: 'Thanks', text: [{ type: 'text', value: 'Questions welcome.' }],
+      items: [[{ type: 'text', value: 'One' }], [{ type: 'text', value: 'Two' }]], email: 'team@example.org', url: 'example.org/contact' });
+    expect(validate(plain(document)) ? [] : validate.errors).toEqual([]);
+    // the bare block is fine too: the title, the text and the contacts are all optional
+    expect(doc(':::closing\n:::', '').problems).toEqual([]);
+  });
 
   it('numbers footnotes by first use and keeps them out of the blocks', () => {
     const { document, problems } = doc('Second[^b] first? No: first[^a] then[^b] again.\n\n[^a]: Note A.\n\n[^b]: Note B.', '');

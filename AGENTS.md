@@ -23,7 +23,8 @@ node scripts/set-version.mts <version>              # the product version (root 
 Regenerate after changing their sources (the tests fail when a generated file is stale):
 
 ```bash
-.venv/Scripts/python.exe generate.py                # token outputs, lk-bridge.css, the Word theme
+.venv/Scripts/python.exe generate.py                # token outputs, lk-bridge.css, the Word theme, the design data
+node packages/design/src/build-locks.ts             # packages/design/locks/ (the built-in design locks)
 node packages/blocks/src/build-catalog.ts           # docs/blocks.md
 node packages/blocks/src/build-skill.ts             # .claude/skills/libka-author/reference.md
 node packages/guard/src/build-acr.ts                # docs/acr/libka-outputs.md
@@ -36,6 +37,7 @@ node npm/build-plugin.mts                           # the Claude Code plugin (pl
 ## Map
 
 - **`tokens/*.tokens.json` + `libka.resolver.json`:** the DTCG source of truth. `generate.py` validates it (with contrast gates for text, buttons and badges) and writes `libka-tokens.css`, `lk-bridge.css` (from `libka_bridge.py`), the SCSS, the Tailwind themes, parts of the manual and the verification page.
+- **`packages/design`:** brands and themes: the brand file (a brand.yml subset), the theme file (JSON, `schema/theme-1.schema.json`), LibKa's font list, and the colour solver that derives every colour of the four modes from a brand's colours so that every pair the token build gates passes, with its gates (a 0.05 margin over each threshold) and its lock; `resolveDesign` gives the renderers a design and the manifest its `design`, `designCss` its CSS custom properties per mode (applied by `withDesign` in `packages/render/src/design.ts`), `designWords` the solver's result in words. A document chooses its design with the front matter `theme:` and `brand:`, else the project's `_brand.yml` (`packages/cli/src/design.ts`). Browser-safe and deterministic (no `Math.pow` in the colour arithmetic); `generate.py` writes its sRGB table and default palette and validates the built-in locks. `packages/cli/test/golden.test.ts` holds the default design's outputs byte for byte (`LIBKA_GOLDEN_RECORD=1` rewrites its record, only when outputs are meant to change).
 - **`packages/blocks`:** the block registry, the single definition of every block, its Czech text (`i18n.ts`), what to write for content without a block (`fallbacks.ts`), the catalog and skill-reference generators.
 - **`packages/model`:** LibKa Markdown to typed blocks; problems by line, each with a code and, where safe, fixes; a sample document per code.
 - **`packages/render`:** the web page (`index.ts`), the deck (`deck.ts`), slide fitting (`fit.ts`), the Content Security Policy (`csp.ts`), Czech typography, charts, UI specimens, the page runtime, and the block styles (`src/components.css`, tokens only).
@@ -45,14 +47,14 @@ node npm/build-plugin.mts                           # the Claude Code plugin (pl
 - **`packages/editor`:** visual editing: the ProseMirror schema, the lossless LibKa Markdown round-trip, the block commands, fixes applied to text.
 - **`packages/cli`**, **`packages/mcp`:** `libka build|lint|check|verify|studio|doctor`, and the MCP server; `packages/cli/src/assets.ts` finds the shipped files in the repository or the npm package, and a document's project (its `.libka/` signing key and trusted keys).
 - **`packages/create-libka`:** the starter (`npm create libka`), with its templates.
-- **`npm/`:** the npm build (`build.mts`: `@libka/cli`, `@libka/mcp`, `@libka/tokens`, `create-libka`, the skill `.zip`, the Claude Desktop extension), the quick-start test from the packed files (`smoke.mts`), the packages' READMEs and the extension's manifest; `build-plugin.mts` writes the Claude Code plugin (`plugins/libka`) and `.claude-plugin/marketplace.json`.
+- **`npm/`:** the npm build (`build.mts`: `@libka/cli`, `@libka/mcp`, `@libka/tokens`, `create-libka`, the skill `.zip`, the Claude Desktop extension), the quick-start test from the packed files (`smoke.mts`), an SBOM per package for the release (`sbom.mts`, CycloneDX), the packages' READMEs and the extension's manifest; `build-plugin.mts` writes the Claude Code plugin (`plugins/libka`) and `.claude-plugin/marketplace.json`.
 - **The version:** one for everything, in the root `package.json`; `scripts/set-version.mts` writes its copies.
 - **`apps/studio`:** LibKa Studio, a local-first web app (Preact with signals, CodeMirror 6, ProseMirror); see `docs/admin/studio.md`.
 - **`.claude/skills/libka-author/`:** the authoring skill (`SKILL.md` hand-written, `reference.md` generated).
 
 ## Rules
 
-- **Never hand-edit generated files:** `libka-tokens*`, `lk-bridge.css`, `libka.tailwind.*`, `libka-verification.html`, `packages/docx/src/theme.ts`, `docs/blocks.md`, `docs/problem-codes.md`, `docs/acr/*.md`, `packages/render/src/runtimes.ts`, `.claude/skills/libka-author/reference.md`, `plugins/libka/**` (except its hand-written `README.md`), `.claude-plugin/marketplace.json`. Change the source, then regenerate.
+- **Never hand-edit generated files:** `libka-tokens*`, `lk-bridge.css`, `libka.tailwind.*`, `libka-verification.html`, `packages/docx/src/theme.ts`, `packages/design/src/srgb-table.ts`, `packages/design/src/palette.ts`, `packages/design/src/series.ts`, `packages/design/locks/*`, `docs/blocks.md`, `docs/problem-codes.md`, `docs/acr/*.md`, `packages/render/src/runtimes.ts`, `.claude/skills/libka-author/reference.md`, `plugins/libka/**` (except its hand-written `README.md`), `.claude-plugin/marketplace.json`. Change the source, then regenerate.
 - **Verify and report honestly:** run the tests and `check.py`; run Guard on any page you change; say plainly what failed and what was not verified.
 - **Accessibility wording:** say "passes these automated checks", never "accessible" or "compliant".
 - **English** for code, comments and docs; output and Studio text in English and Czech.

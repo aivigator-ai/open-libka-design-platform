@@ -64,6 +64,7 @@ export const DOCX_CRITERIA: Readonly<Record<string, string[]>> = {
   'docx-table-header': ['1.3.1'],
   'docx-link-text': ['2.4.4'],
   'docx-contrast': ['1.4.3'],
+  'docx-theme-color': ['1.4.3'],
 };
 /** What a PDF that passes PDF/UA-1 shows for these criteria (tagged structure, alternative text, order, title, link purpose, language). */
 export const PDFUA_CRITERIA = ['1.1.1', '1.3.1', '1.3.2', '2.4.2', '2.4.4', '3.1.1'];
@@ -157,6 +158,19 @@ const REPORT = {
  * A readable report of one output's conformance: a LibKa document in the document's language (English or Czech).
  * `pdfuaSkipped` says why the PDF was not validated.
  */
+/**
+ * What a Word file cannot take from a design, said in the conformance report when it was built with one other than
+ * LibKa's default: Word gets the colours, sizes and one font per family, each font as an Office font.
+ */
+export function wordDesignNote(lang: string, fonts: readonly { family: string; office: string }[]): string {
+  const cs = lang.toLowerCase().startsWith('cs');
+  const swaps = fonts.filter((f, i) => fonts.findIndex((g) => g.family === f.family) === i)
+    .map((f) => cs ? `${f.family} → ${f.office}` : `${f.family} as ${f.office}`).join(', ');
+  return cs
+    ? `:::callout[Dokument Word a design]{variant=note}\nDokument Word má barvy, velikosti písma a logo designu a písma jako písma Office (${swaps}), protože Word písma neobsahuje a jinde by je nahradil sám. Nemá zaoblení rohů ani tmavý režim a režim vysokého kontrastu: ty nastavuje Word nebo systém čtenáře.\n:::\n`
+    : `:::callout[The Word file and the design]{variant=note}\nThe Word file has the design's colours, type sizes and logo, and its fonts as Office fonts (${swaps}), since a Word file carries no fonts and would otherwise swap them itself. It has no rounded corners and no dark or high-contrast mode: Word or the reader's system sets those.\n:::\n`;
+}
+
 export function conformanceMarkdown(name: string, target: 'manual' | 'deck', c: Conformance, pdf: boolean, docx = false, pdfuaSkipped?: string, lang = 'en'): string {
   const cs = lang.toLowerCase().startsWith('cs');
   const T = cs ? REPORT.cs : REPORT.en;

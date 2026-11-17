@@ -24,7 +24,7 @@ export function czechIn(n: number): 'v' | 've' {
 }
 
 const en = {
-  skip: 'Skip to content', contents: 'Contents', version: 'Version', date: 'Date', status: 'Status',
+  skip: 'Skip to content', contents: 'Contents', agenda: 'Agenda', youAreHere: 'you are here', thankYou: 'Thank you', contactEmail: 'E-mail', contactWeb: 'Web', version: 'Version', date: 'Date', status: 'Status',
   builtWith: 'Built with LibKa', from: 'from',
   done: 'Done: ', open: 'Open: ',
   copy: 'Copy', copied: 'Copied to the clipboard', copyCode: 'Copy code', marked: 'Highlighted line',
@@ -36,8 +36,13 @@ const en = {
   showData: 'Show the data', transcript: 'Transcript',
   play: 'Play the video: {title}', loadsFrom: 'Loads from {provider} only when you play it (privacy-enhanced mode).',
   videoAt: 'Video: {title}, {src}',
-  bar: 'Bar chart', line: 'Line chart', donut: 'Donut chart',
+  bar: 'Bar chart', hbar: 'Horizontal bar chart', line: 'Line chart', donut: 'Donut chart',
+  stackedBar: 'Stacked bar chart', stackedHbar: 'Stacked horizontal bar chart', total: 'Total',
   summary: '{kind}: {caption}. {values} {inSeries}. Highest: {max} ({where}). Lowest: {min} ({whereMin}).',
+  stackedSummary: '{kind}: {caption}. {values} {inSeries}. Highest total: {max} ({where}). Lowest total: {min} ({whereMin}).',
+  kpiUp: 'up {amount}', kpiDown: 'down {amount}', kpiFlat: 'no change', kpiSince: '{change} since {since}',
+  better: 'better', worse: 'worse',
+  kpiTrend: 'Trend over {n} periods: from {first} to {last}, highest {max}, lowest {min}.',
   chartValues: { one: '{n} value', other: '{n} values' } as Forms,
   chartSeries: { one: 'in {n} series', other: 'in {n} series' } as Forms,
   donutSummary: '{kind}: {caption}. {parts}.',
@@ -68,7 +73,7 @@ const en = {
 export type Labels = typeof en;
 
 const cs: Labels = {
-  skip: 'Přeskočit na obsah', contents: 'Obsah', version: 'Verze', date: 'Datum', status: 'Stav',
+  skip: 'Přeskočit na obsah', contents: 'Obsah', agenda: 'Program', youAreHere: 'jste zde', thankYou: 'Děkujeme', contactEmail: 'E-mail', contactWeb: 'Web', version: 'Verze', date: 'Datum', status: 'Stav',
   builtWith: 'Vytvořeno v LibKa', from: 'ze souboru',
   done: 'Hotovo: ', open: 'Zbývá: ',
   copy: 'Kopírovat', copied: 'Zkopírováno do schránky', copyCode: 'Kopírovat kód', marked: 'Zvýrazněný řádek',
@@ -80,8 +85,13 @@ const cs: Labels = {
   showData: 'Zobrazit data', transcript: 'Přepis',
   play: 'Přehrát video: {title}', loadsFrom: 'Načte se ze služby {provider} až po spuštění (režim se zvýšeným soukromím).',
   videoAt: 'Video: {title}, {src}',
-  bar: 'Sloupcový graf', line: 'Spojnicový graf', donut: 'Prstencový graf',
+  bar: 'Sloupcový graf', hbar: 'Pruhový graf', line: 'Spojnicový graf', donut: 'Prstencový graf',
+  stackedBar: 'Skládaný sloupcový graf', stackedHbar: 'Skládaný pruhový graf', total: 'Celkem',
   summary: '{kind}: {caption}. {values} {inSeries}. Nejvyšší: {max} ({where}). Nejnižší: {min} ({whereMin}).',
+  stackedSummary: '{kind}: {caption}. {values} {inSeries}. Nejvyšší součet: {max} ({where}). Nejnižší součet: {min} ({whereMin}).',
+  kpiUp: 'nárůst o {amount}', kpiDown: 'pokles o {amount}', kpiFlat: 'beze změny', kpiSince: '{change} oproti {since}',
+  better: 'lepší', worse: 'horší',
+  kpiTrend: 'Vývoj za {n} období: od {first} do {last}, nejvýše {max}, nejníže {min}.',
   // integers only: one (1), few (2 to 4), other (0, 5 and more); {v} is "v" or "ve" as the number is read (czechIn)
   chartValues: { one: '{n} hodnota', few: '{n} hodnoty', other: '{n} hodnot' },
   chartSeries: { one: '{v} {n} řadě', other: '{v} {n} řadách' },

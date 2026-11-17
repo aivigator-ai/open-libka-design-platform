@@ -37,11 +37,12 @@ import { AXE_VERSION, formatReport, guardHtml, launchBrowser, type CheckResult, 
 import { linkTexts, pageCount, remediate, type RemediateReport } from '@libka/pdf';
 import { findVeraPdf, KNOWN_LIMITS, validatePdfs, veraPdfVersion, type VeraPdfResult } from '@libka/pdf/verapdf';
 import { buildManifest, embedManifest, loadSigningKey, verifyHtml, type AiContent, type SigningKey, type Verification } from '@libka/guard/manifest';
-import { conformance, conformanceMarkdown } from '@libka/guard/wcag';
+import { conformance, conformanceMarkdown, wordDesignNote } from '@libka/guard/wcag';
 import { checkDocx } from '@libka/guard/docx';
 import { renderDocx, sniffPicture, type DocxPicture } from '@libka/docx';
 import { aiMarks, aiReminders, OUTPUTS, outputsOf, parse, revisionEntries, type Block, type LibkaDocument, type OutputName } from '@libka/model';
-import { cleanDiagramSvg, LABELS, langOf, MERMAID_CONFIG, renderManual, safeHref } from '@libka/render';
+import { fontFiles, manifestDesign, type ResolvedDesign } from '@libka/design';
+import { cleanDiagramSvg, LABELS, langOf, MERMAID_CONFIG, renderManual, safeHref, type DesignLogo } from '@libka/render';
 import { renderDeck, slides, type DeckLayout, type Slide } from '@libka/render/deck';
 import { emptyFitting, FIT_ROUNDS, fitStep, measureSlides, type SlideFit } from '@libka/render/fit';
 import { plainText } from '@libka/model';
@@ -49,6 +50,7 @@ import type { Browser } from 'playwright-core';
 import { serveStatic } from './serve.ts';
 import { doctor, formatDoctor, isBrowserMissing } from './doctor.ts';
 import { asset, isHomeOrAbove, PACKAGED, projectRoot, projectTrustFile, readAsset, VERSION } from './assets.ts';
+import { chooseDesign } from './design.ts';
 
 export { VERSION } from './assets.ts';
 const posix = (p: string) => p.split(sep).join('/');
@@ -108,6 +110,12 @@ export interface BuildResult extends Partial<Output> {
   deck?: Output;
   /** This document's outputs from an earlier build that this one did not make again: deleted, so none is left stale. */
   removed?: string[];
+  /**
+   * What the build says besides problems: the design (the brand and theme files' warnings and notes, the solver's
+   * result in words, a lock written), a signing key made or trusted, a PDF not validated. The CLI prints them as
+   * `libka:` lines; the MCP server returns them.
+   */
+  notes?: string[];
 }
 
 /** The files a build can write for a document, after its name: only these are ever removed. */
@@ -255,10 +263,10 @@ function decodePath(href: string): string {
 
 /**
  * The pictures the Word file needs: local PNG, JPEG and GIF images as they are, SVG and other images drawn as PNG in
- * Chrome, and diagrams, charts and UI specimens drawn from the web page's own rendering (light theme, twice the
+ * Chrome, and diagrams, charts and UI specimens drawn from the web page's own rendering (light mode, twice the
  * pixels for print). Web addresses are not fetched: the Word file shows the image's alt text in their place.
  */
-async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: () => Promise<Browser>): Promise<{ pictures: Map<string, DocxPicture>; drawings: Map<Block, DocxPicture> }> {
+async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: () => Promise<Browser>, design?: ResolvedDesign, logo?: DesignLogo): Promise<{ pictures: Map<string, DocxPicture>; drawings: Map<Block, DocxPicture>; logo?: DocxPicture }> {
   const pictures = new Map<string, DocxPicture>();
   const drawings = new Map<Block, DocxPicture>();
   const toDraw: { src: string; path: string }[] = [];
@@ -273,7 +281,12 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
     else toDraw.push({ src, path });
   }
   const blocks = drawingBlocks(doc.blocks);
-  if (!toDraw.length && !blocks.length) return { pictures, drawings };
+  // the brand's logo: a PNG as it is, an SVG drawn in Chrome
+  let logoPicture: DocxPicture | undefined;
+  const logoData = logo ? Buffer.from(logo.src.slice(logo.src.indexOf(',') + 1), 'base64') : undefined;
+  if (logo && logo.src.startsWith('data:image/png')) { const known = sniffPicture(logoData!); if (known) logoPicture = { data: logoData!, ...known }; }
+  const drawLogo = Boolean(logo && !logoPicture);
+  if (!toDraw.length && !blocks.length && !drawLogo) return { pictures, drawings, ...(logoPicture ? { logo: logoPicture } : {}) };
 
   const context = await (await getBrowser()).newContext({ deviceScaleFactor: 2, bypassCSP: true, viewport: { width: 1000, height: 800 } });
   const page = await context.newPage();
@@ -286,10 +299,16 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
       if (!box || !box.width) continue;
       pictures.set(img.src, { data: await page.locator('#i').screenshot({ type: 'png' }), type: 'png', width: Math.round(box.width), height: Math.round(box.height) });
     }
+    if (drawLogo) {
+      writeFileSync(join(dir, 'logo.html'), `<!doctype html><html><body style="margin:0;background:transparent"><img id="i" src="${logo!.src}" style="height:96px;width:auto"></body></html>`);
+      await page.goto(pathToFileURL(join(dir, 'logo.html')).href, { waitUntil: 'load' });
+      const box = await page.locator('#i').boundingBox();
+      if (box?.width) logoPicture = { data: await page.locator('#i').screenshot({ type: 'png', omitBackground: true }), type: 'png', width: Math.round(box.width), height: Math.round(box.height) };
+    }
     if (blocks.length) {
       // the blocks rendered as on the web page, then each drawing shot without its caption, data table or source
       const sheet: LibkaDocument = { meta: { title: doc.meta.title, lang: doc.meta.lang }, blocks };
-      const html = renderManual(sheet, { styles: { ...styles(), manual: readAsset('manual.css') }, fontsHref: pathToFileURL(join(asset('fonts'), 'libka-fonts.css')).href });
+      const html = renderManual(sheet, { styles: { ...styles(), manual: readAsset('manual.css') }, fontsHref: pathToFileURL(join(asset('fonts'), 'libka-fonts.css')).href, ...(design ? { design } : {}) });
       writeFileSync(join(dir, 'drawings.html'), html);
       await page.goto(pathToFileURL(join(dir, 'drawings.html')).href, { waitUntil: 'load' });
       await page.addStyleTag({ content: '.lk-manual-content figcaption, .lk-manual-content details, .lk-manual-content .lk-visually-hidden { display: none !important; } .lk-manual-content figure { margin: 0 !important; }' });
@@ -308,7 +327,7 @@ async function docxPictures(doc: LibkaDocument, sourceDir: string, getBrowser: (
     await context.close();
     rmSync(dir, { recursive: true, force: true });
   }
-  return { pictures, drawings };
+  return { pictures, drawings, ...(logoPicture ? { logo: logoPicture } : {}) };
 }
 
 /** Every download, nested ones included. */
@@ -473,14 +492,20 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
   if (options.check !== false && isHomeOrAbove(projectRoot(source))) {
     messages.push(`${file}: the document is directly in your home folder, where LibKa will not keep a signing key: move it into a folder of its own (npm create libka makes one)`);
   }
+  // the design: the document's brand and theme, else the project's _brand.yml, else LibKa's (solved, locked, in the manifest)
+  const chosen = chooseDesign(source, document, { writeLock: messages.length === 0 });
+  messages.push(...chosen.problems.map((p) => p.message));
+  const notes = chosen.notes;
+  const design = chosen.design;
   const outDir = resolve(options.out ?? join(dirname(source), 'dist'));
   mkdirSync(outDir, { recursive: true });
   messages.push(...await placeFiles(document, text, dirname(source), outDir, file));
-  if (messages.length) return { ok: false, problems: messages };
+  if (messages.length || !design) return { ok: false, problems: messages, ...(notes.length ? { notes } : {}) };
 
   const name = basename(source, extname(source));
   if (!OWN_OUTPUTS.some((s) => join(outDir, name + s) === source)) clear(outDir, name);
-  const fontsHref = fontsFor(outDir);
+  const fontsHref = fontsFor(outDir, design);
+  const logo = chosen.logo;
   const check = options.check !== false;
   // Chrome is needed to draw diagrams, to check and to print; it is started once, only when needed
   let browser: Browser | undefined;
@@ -496,7 +521,7 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
     if (want.has('web')) {
       pages.push({
         target: 'manual', path: join(outDir, `${name}.html`),
-        html: renderManual(document, { styles: { ...styles(), manual: readAsset('manual.css') }, fontsHref, source: basename(source) }),
+        html: renderManual(document, { styles: { ...styles(), manual: readAsset('manual.css') }, fontsHref, source: basename(source), design, ...(logo ? { logo } : {}) }),
       });
     }
     if (want.has('deck')) {
@@ -504,11 +529,11 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
       const deckPath = join(outDir, `${name}.deck.html`);
       const deckStyles = { ...styles(), deck: readAsset('deck.css') };
       browser ??= await launchBrowser();
-      pages.push({ target: 'deck', path: deckPath, html: await fitDeck(slides(document), (layout) => renderDeck(document, { styles: deckStyles, fontsHref, layout }), deckPath, browser) });
+      pages.push({ target: 'deck', path: deckPath, html: await fitDeck(slides(document), (layout) => renderDeck(document, { styles: deckStyles, fontsHref, layout, design, ...(logo ? { logo } : {}) }), deckPath, browser) });
     }
     for (const p of pages) writeFileSync(p.path, p.html);
     outputs.push(...pages.map((p) => ({ html: p.path })));
-    result = { ok: true, problems: [] };
+    result = { ok: true, problems: [], ...(notes.length ? { notes } : {}) };
     collect(result, pages, outputs);
     if (!check && !want.has('pdf') && !want.has('docx')) return result;
 
@@ -517,7 +542,7 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
       for (const [i, p] of pages.entries()) {
         const report = outputs[i]!.report = await guardHtml(p.path, browser);
         result.problems.push(...report.checks.flatMap((c) => c.violations.map((v) =>
-          `${file}: guard${p.target === 'deck' ? ' (deck)' : ''} ${c.id}${c.mode === 'more-contrast' ? ' (more contrast)' : ''}: ${v.message} [${v.target}]`)));
+          `${file}: guard${p.target === 'deck' ? ' (deck)' : ''} ${c.id}${MODE_WORDS[c.mode]}: ${v.message} [${v.target}]`)));
       }
       if (result.problems.length) {
         result.ok = false;
@@ -537,7 +562,7 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
         if (!ua) {
           const msg = 'PDF/UA not checked: veraPDF was not found (libka doctor says how to install it)';
           if (process.env.LIBKA_REQUIRE_VERAPDF === '1') result.problems.push(`${file}: ${msg}`);
-          else console.log(`libka: ${msg}`);
+          else (result.notes ??= []).push(msg);
           // the manifest and the conformance report say so too
           for (const out of outputs) out.pdfua = { skipped: 'veraPDF was not found' };
         } else {
@@ -562,10 +587,10 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
       const i = pages.findIndex((p) => p.target === 'manual');
       const out = outputs[i]!;
       // every local image is in the output folder by now (placeFiles), at the src the document holds
-      const { pictures, drawings } = await docxPictures(document, outDir, async () => (browser ??= await launchBrowser()));
+      const { pictures, drawings, logo: wordLogo } = await docxPictures(document, outDir, async () => (browser ??= await launchBrowser()), design, logo);
       const epoch = Number(process.env.SOURCE_DATE_EPOCH);
       const docx = await renderDocx(document, {
-        picture: (src) => pictures.get(src), drawing: (b) => drawings.get(b),
+        picture: (src) => pictures.get(src), drawing: (b) => drawings.get(b), design, ...(wordLogo && logo ? { logo: { picture: wordLogo, alt: logo.alt } } : {}),
         ...(Number.isFinite(epoch) && process.env.SOURCE_DATE_EPOCH ? { date: new Date(epoch * 1000) } : {}),
       });
       out.docx = pages[i]!.path.replace(/\.html$/, '.docx');
@@ -586,7 +611,7 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
     await browser?.close();
   }
   if (check) {
-    const key = projectKey(projectRoot(source));
+    const key = projectKey(projectRoot(source), (m) => (result.notes ??= []).push(m));
     const ai = aiContent(document);
     const history = document.blocks.find((b): b is Extract<Block, { type: 'revisions' }> => b.type === 'revisions');
     const facts = { media: hasBlock(document.blocks, 'video'), forms: false };   // LibKa outputs hold no forms (UI specimens are inert)
@@ -594,7 +619,7 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
       const out = outputs[i]!;
       const wcag = conformance(out.report!, facts);
       const manifest = buildManifest({
-        target: p.target, sourceName: basename(source), source: text, tokensVersion: tokensVersion(), html: p.html,
+        target: p.target, sourceName: basename(source), source: text, tokensVersion: tokensVersion(), design: manifestDesign(design), html: p.html,
         report: out.report!, axe: AXE_VERSION, key, ...(out.pdf ? { pdf: readFileSync(out.pdf) } : {}), ...(out.docx ? { docx: readFileSync(out.docx) } : {}),
         ...(out.pdfua ? { pdfua: out.pdfua } : {}),
         conformance: wcag, ...(document.meta.ai ? { provenance: document.meta.ai } : {}), ai, ...(document.meta.author ? { author: document.meta.author } : {}), ...(history ? { revisions: revisionEntries(history) } : {}),
@@ -604,7 +629,8 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
       writeFileSync(out.manifest, JSON.stringify(manifest, null, 2) + '\n');
       // the same result for people: every WCAG 2.2 A/AA criterion with its EN 301 549 clause and status
       out.conformance = p.path.replace(/\.html$/, '.conformance.md');
-      writeFileSync(out.conformance, conformanceMarkdown(document.meta.title, p.target, wcag, Boolean(out.pdf), Boolean(out.docx), out.pdfua && 'skipped' in out.pdfua ? out.pdfua.skipped : undefined, document.meta.lang));
+      writeFileSync(out.conformance, conformanceMarkdown(document.meta.title, p.target, wcag, Boolean(out.pdf), Boolean(out.docx), out.pdfua && 'skipped' in out.pdfua ? out.pdfua.skipped : undefined, document.meta.lang)
+        + (out.docx && !design.isDefault ? `\n${wordDesignNote(document.meta.lang, [design.design.fonts.heading, design.design.fonts.body, design.design.fonts.mono])}` : ''));
     }
   }
   collect(result, pages, outputs);
@@ -615,9 +641,19 @@ async function buildOutputs(input: string, options: BuildOptions, clear: (outDir
  * The fonts stylesheet a page links. In the repository the page links the repository's fonts; from the npm
  * package the fonts are copied into the output folder (fonts/), so the folder works wherever it is copied.
  */
-function fontsFor(outDir: string): string {
+function fontsFor(outDir: string, design: ResolvedDesign): string {
   if (!PACKAGED) return posix(relative(outDir, join(asset('fonts'), 'libka-fonts.css')));
-  cpSync(asset('fonts'), join(outDir, 'fonts'), { recursive: true });
+  // only the design's fonts, with the stylesheet's rules for them and their licences
+  const { heading, body, mono } = design.design.fonts;
+  const files = new Set(fontFiles([heading, body, mono]));
+  const dir = join(outDir, 'fonts');
+  mkdirSync(join(dir, 'licenses'), { recursive: true });
+  for (const f of files) copyFileSync(join(asset('fonts'), f), join(dir, f));
+  for (const font of [heading, body, mono]) copyFileSync(join(asset('fonts'), 'licenses', `OFL-${font.id}.txt`), join(dir, 'licenses', `OFL-${font.id}.txt`));
+  const css = readFileSync(join(asset('fonts'), 'libka-fonts.css'), 'utf8');
+  // the stylesheet's header, then one comment and @font-face rule per file: kept when its file is
+  const [head, ...rules] = css.split(/(?=^\/\* [^\n]*, latin(?:-ext)? \*\/$)/m);
+  writeFileSync(join(dir, 'libka-fonts.css'), [head, ...rules.filter((r) => files.has(/url\('([^']+)'\)/.exec(r)?.[1] ?? ''))].join(''));
   return 'fonts/libka-fonts.css';
 }
 
@@ -650,6 +686,9 @@ export function projectKey(project: string, log: (m: string) => void = (m) => co
 }
 
 /** The manual's output at the top level of a result, the deck's under `deck`. */
+/** How a finding names the colours it was measured in. */
+const MODE_WORDS: Record<CheckResult['mode'], string> = { 'standard': '', 'more-contrast': ' (more contrast)', 'dark': ' (dark)', 'dark-more-contrast': ' (dark, more contrast)' };
+
 function collect(result: BuildResult, pages: { target: Target }[], outputs: Output[]): void {
   pages.forEach((p, i) => { if (p.target === 'manual') Object.assign(result, outputs[i]); else result.deck = outputs[i]!; });
 }
@@ -665,6 +704,8 @@ export interface LintResult {
   slides: number;
   /** Advice, not errors: slides that will probably not fit (the build measures them exactly), what no output shows, the frame, AI marks. */
   hints: string[];
+  /** The design the build will use (with a file: the brand and theme files are read and checked too). */
+  design: { brand: string; theme: string; notes: string[] };
 }
 
 /** About this many words fill a slide; the build's Guard measures the real fit. */
@@ -744,7 +785,7 @@ function frameHints(document: LibkaDocument, today: string): string[] {
     }
   }
   const agenda = document.blocks.filter((b) => (b.type === 'heading' && b.level === 2) || b.type === 'section').length;
-  if (agenda > AGENDA_ENTRIES && document.blocks.some((b) => b.type === 'toc')) {
+  if (agenda > AGENDA_ENTRIES && document.blocks.some((b) => b.type === 'toc' || b.type === 'agenda')) {
     hints.push(`the contents list ${agenda} sections and parts; an agenda slide holds about ${AGENDA_ENTRIES}: the build continues it on a second slide; nothing to change`);
   }
   const due = document.meta.nextReview;
@@ -755,21 +796,42 @@ function frameHints(document: LibkaDocument, today: string): string[] {
 }
 
 /** Parse only: what an author or an AI agent needs to fix before building. `today` is YYYY-MM-DD. */
-export function lint(markdown: string, today = new Date().toISOString().slice(0, 10)): LintResult {
-  const { document, problems, hints } = parse(markdown);
+/**
+ * Parse-only checks of a document. With `file` (where the document is), its brand and theme files are found, read and
+ * checked as the build will; without it (text only, as the MCP server's check), only a built-in theme is known.
+ */
+export function lint(markdown: string, today = new Date().toISOString().slice(0, 10), file?: string): LintResult {
+  const parsed = parse(markdown);
+  const { document, hints } = parsed;
+  const problems = [...parsed.problems];
+  const fm = parsed.problems.find((p) => p.code === 'theme-unknown' || p.code === 'brand-unknown')?.line ?? 1;
+  let design: LintResult['design'] = { brand: document.meta.brand ?? 'libka', theme: document.meta.theme ?? 'classic', notes: [] };
+  if (file) {
+    const chosen = chooseDesign(file, document, { writeLock: false });
+    problems.push(...chosen.problems.map((p) => ({ code: p.code, line: fm, message: p.message })));
+    if (chosen.design) {
+      const d = chosen.design.design;
+      design = { brand: chosen.brandFile ? posix(relative(dirname(resolve(file)), chosen.brandFile)) : 'libka', theme: chosen.themeFile ? posix(relative(dirname(resolve(file)), chosen.themeFile)) : d.theme.id, notes: chosen.notes };
+    } else design = { ...design, notes: chosen.notes };
+  } else if (document.meta.brand && document.meta.brand !== 'libka') {
+    design = { ...design, notes: [`the brand file ${document.meta.brand} is read when the document is built (or checked) from its folder`] };
+  }
   const deck = slides(document);
   const blocks: Record<string, number> = {};
   const walk = (list: unknown): void => {
     if (Array.isArray(list)) { list.forEach(walk); return; }
     if (list && typeof list === 'object') {
       const t = (list as { type?: unknown }).type;
-      if (typeof t === 'string' && !['text', 'strong', 'emphasis', 'inlineCode', 'link', 'break', 'delete', 'image', 'textDirective', 'footnoteReference', 'citation'].includes(t)) blocks[t] = (blocks[t] ?? 0) + 1;
+      if (typeof t === 'string' && !['text', 'strong', 'emphasis', 'inlineCode', 'link', 'break', 'delete', 'image', 'textDirective', 'footnoteReference', 'citation'].includes(t)) {
+        // a row of figures counts each :::kpi written in the source
+        blocks[t] = (blocks[t] ?? 0) + (t === 'kpi' ? ((list as { items?: unknown[] }).items?.length ?? 1) : 1);
+      }
       for (const v of Object.values(list)) if (v && typeof v === 'object') walk(v);
     }
   };
   walk(document.blocks);
   return {
-    ok: problems.length === 0, problems, title: document.meta.title, outputs: outputsOf(document.meta),
+    ok: problems.length === 0, problems, title: document.meta.title, outputs: outputsOf(document.meta), design,
     outline: document.blocks.flatMap((b) => (b.type === 'heading' ? [{ level: b.level, text: plainText(b.text) }]
       : b.type === 'section' ? [{ level: 2, text: b.title }] : b.type === 'release' ? [{ level: 2, text: b.version }] : b.type === 'decision' ? [{ level: 2, text: b.title }]
       : b.type === 'revisions' ? [{ level: 2, text: b.title ?? LABELS[langOf(document.meta.lang ?? 'en')].revisions }] : [])),
@@ -841,11 +903,12 @@ async function run(argv: string[]): Promise<number> {
   if (command === 'lint') {
     const file = resolve(input);
     if (!existsSync(file)) { console.error(`${input}: file not found`); return 1; }
-    const r = lint(readFileSync(file, 'utf8'));
+    const r = lint(readFileSync(file, 'utf8'), undefined, file);
     if (rest.includes('--json')) console.log(JSON.stringify(r, null, 2));
     else {
       for (const p of r.problems) console.error(`${rel(file)}:${p.line}: ${p.message}`);
       for (const h of r.hints) console.log(`hint: ${h}`);
+      for (const n of r.design.notes) console.log(`libka: ${n}`);
       console.log(`libka: ${r.problems.length ? `${r.problems.length} problem(s)` : 'no problems'}; builds ${r.outputs.join(', ')}; ${r.outline.filter((h) => h.level === 2).length} sections, ${r.slides} slides; ` +
         Object.entries(r.blocks).filter(([t]) => !['paragraph', 'heading', 'list'].includes(t)).map(([t, n]) => `${n} ${t}`).join(', '));
     }
@@ -894,6 +957,7 @@ async function run(argv: string[]): Promise<number> {
     ? `\n  PDF/UA-2 (recorded, not required; the PDF is made to PDF/UA-1): ${o.pdfua.ua2.failedRules} rule(s) not met, listed by veraPDF --flavour ua2` : '';
   if (result.report) console.log(`web:\n${formatReport(result.report)}${ua2(result)}`);
   if (result.deck?.report) console.log(`deck:\n${formatReport(result.deck.report)}${ua2(result.deck)}`);
+  for (const n of result.notes ?? []) console.log(`libka: ${n}`);
   for (const p of result.removed ?? []) console.log(`libka: removed ${rel(p)} (from an earlier build)`);
   if (!result.ok) {
     for (const p of result.problems) console.error(p);

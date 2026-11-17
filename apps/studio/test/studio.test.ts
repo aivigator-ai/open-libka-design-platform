@@ -188,6 +188,157 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     await page.context().close();
   }, 60000);
 
+  it('starts a new document blank or from a template, in the interface\'s language, and the picker passes Guard', async () => {
+    const page = await open();
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type('new document');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.st-dialog--new[open]');
+    // Blank first and chosen, with the focus on it; then the templates with their pictures
+    expect(await page.$$eval('.st-dialog--new input[type=radio]', (els) => els.map((e) => [(e as HTMLInputElement).value, (e as HTMLInputElement).checked])))
+      .toEqual([['blank', true], ['decision-record', false], ['manual', false], ['policy', false], ['report', false], ['talk', false]]);
+    expect(await page.evaluate(() => (document.activeElement as HTMLInputElement | null)?.value)).toBe('blank');
+    expect(await page.$$eval('.st-dialog--new img', (els) => els.every((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    expect(await page.textContent('[data-template="talk"] .st-template-name')).toBe('Talk');
+    // (the editor's own inline styles behind the dialog are CodeMirror's, as in the other tests)
+    const report = await guardPage(page);
+    expect(report.checks.flatMap((c) => c.violations).filter((v) => !(v.rule === 'no-inline-style' && /\.cm-/.test(v.target)))
+      .map((v) => `${v.rule} ${v.target}: ${v.message}`)).toEqual([]);
+    // the arrow keys move through the group; Create makes the chosen template's document
+    await page.keyboard.press('ArrowDown');
+    expect(await page.isChecked('[data-template="decision-record"] input')).toBe(true);
+    await page.click('.st-dialog--new button[type=submit]');
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'decisions.md');
+    expect((await hook(page)).source).toMatch(/^---\ntitle: "Support team: decision records"\n[\s\S]*\ntheme: classic\n/);
+    // in Czech, the Czech template
+    await chooseLang(page, 'cs');
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type('nový dokument');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.st-dialog--new[open]');
+    await page.click('[data-template="talk"]');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'talk.md');
+    expect((await hook(page)).source).toMatch(/\ntitle: Rychlejší odpovědi pro naše zákazníky\n[\s\S]*\ntheme: modern\n/);
+    // Escape makes nothing
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type('nový dokument');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.st-dialog--new[open]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.st-dialog--new', { state: 'detached' });
+    expect((await hook(page)).project?.name).toBe('talk.md');
+    await page.context().close();
+  }, 120000);
+
+  it('shows a document in its design: the Design tab writes the theme, and a brand among its files colours the preview, the logo and Guard', async () => {
+    const page = await open();
+    type D = { theme: string; brandPath: string | null; resolved: boolean; logo: boolean; problems: number; notes: string[] } | null;
+    const design = () => page.evaluate(() => (window as unknown as { libkaStudio: { design: D } }).libkaStudio.design);
+    const html = () => page.evaluate(() => (window as unknown as { libkaStudio: { html: string } }).libkaStudio.html);
+    await page.click('#tab-design');
+    await page.waitForSelector('.st-design');
+    expect(await page.isChecked('[data-theme-id="classic"] input')).toBe(true);
+    // the theme: written to the front matter, applied to the preview (Space Grotesk headings), one step to undo
+    await page.click('[data-theme-id="modern"]');
+    expect((await hook(page)).source).toMatch(/\ntheme: modern\n/);
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: { design: D } }).libkaStudio.design?.resolved === true, undefined, { timeout: 15000 });
+    expect(await html()).toContain('Space Grotesk');
+    // the tab passes Guard
+    const report = await guardPage(page);
+    expect(report.checks.flatMap((c) => c.violations).filter((v) => !(v.rule === 'no-inline-style' && /\.cm-|st-theme-/.test(v.target)))
+      .map((v) => `${v.rule} ${v.target}: ${v.message}`)).toEqual([]);
+    // a project with a brand: imported from a zip with _brand.yml and its logo
+    const { zipSync, strToU8 } = await import('fflate');
+    const zip = join(out, 'branded.zip');
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(zip, zipSync({
+      'report.md': strToU8('---\ntitle: Branded\nlang: en\noutputs: [web, deck]\n---\n\n## One\n\nA [link](https://example.com) and text.\n'),
+      '_brand.yml': strToU8('meta:\n  name: Sunny Lane\ncolor:\n  primary: "#FFD400"\nlogo: logo.svg\n'),
+      'logo.svg': strToU8('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#FFD400"/></svg>'),
+    }));
+    await page.click('#library-toggle');
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('.st-library-actions [data-command="project.import"]')]);
+    await chooser.setFiles(zip);
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.name === 'report.md');
+    expect((await hook(page)).files.sort()).toEqual(['_brand.yml', 'logo.svg']);
+    // the new document's design (the one before was already resolved: wait for this one's brand, not for any design)
+    await page.waitForFunction(() => { const d = (window as unknown as { libkaStudio: { design: D } }).libkaStudio.design; return d?.resolved === true && d.brandPath === '_brand.yml' && d.logo; }, undefined, { timeout: 15000 });
+    const d = (await design())!;
+    expect(d).toMatchObject({ brandPath: '_brand.yml', logo: true, problems: 0 });
+    expect(d.notes.join('\n')).toMatch(/the primary colour #FFD400: .*links and accent text use #[0-9A-F]{6} to reach 4\.5:1/);
+    expect(await html()).toMatch(/<img class="lk-logo-light" src="data:image\/svg\+xml;base64,[^"]+" alt="Sunny Lane"/);
+    // Guard measures the branded page and slides, and finds nothing
+    await page.waitForFunction(() => document.documentElement.dataset.guard === 'done' && (window as unknown as { libkaStudio: Hook }).libkaStudio.checks !== null, undefined, { timeout: 60000 });
+    const h = await hook(page);
+    expect(h.checks!.flatMap((c) => c.violations)).toEqual([]);
+    expect(h.checks!.some((c) => c.target === 'deck' && c.mode === 'dark')).toBe(true);
+    // LibKa's own design instead: brand: libka, so the project's brand is not found by itself
+    await page.click('#tab-design');
+    await page.click('.st-design input[name="st-brand"]');
+    expect((await hook(page)).source).toMatch(/\nbrand: libka\n/);
+    // LibKa's design needs nothing chosen (null)
+    await page.waitForFunction(() => !(window as unknown as { libkaStudio: { design: D } }).libkaStudio.design?.resolved, undefined, { timeout: 15000 });
+    expect(await html()).not.toContain('lk-logo-light');
+    await page.context().close();
+  }, 180000);
+
+  it('edits a brand in its dialog: each change saved to _brand.yml and drawn, a wrong hex said in words, Reset and Remove', async () => {
+    const page = await open();
+    type D = { brandPath: string | null; resolved: boolean; logo: boolean; problems: number; notes: string[] } | null;
+    const design = () => page.evaluate(() => (window as unknown as { libkaStudio: { design: D } }).libkaStudio.design);
+    const brandText = () => page.evaluate(() => {
+      const h = (window as unknown as { libkaStudio: { files: string[] } }).libkaStudio;
+      return h.files.includes('_brand.yml');
+    });
+    await page.click('#tab-design');
+    await page.click('#design-edit-brand');
+    await page.waitForSelector('#brand-primary', { timeout: 20000 });
+    // a wrong hex is said in words and not saved
+    await page.fill('#brand-primary', '#F2C5');
+    expect(await page.getAttribute('#brand-primary', 'aria-invalid')).toBe('true');
+    expect(await page.textContent('#brand-primary-error')).toMatch(/six hexadecimal digits/);
+    await page.waitForTimeout(600);
+    expect(await brandText()).toBe(false);
+    // a right one is saved as _brand.yml and drawn: the solver's words beside it, the preview in the brand
+    await page.fill('#brand-name', 'Sunny Lane');
+    await page.fill('#brand-primary', '#F2C500');
+    await page.fill('#brand-link', '#1D4E89');
+    // (each field may be saved on its own, 250 ms apart: wait for the last one's words)
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: { design: D } }).libkaStudio.design?.notes.some((n) => n.includes('the link colour #1D4E89')) === true, undefined, { timeout: 15000 });
+    expect(await brandText()).toBe(true);
+    const d = (await design())!;
+    expect(d.brandPath).toBe('_brand.yml');
+    expect(d.notes.join('\n')).toMatch(/the link colour #1D4E89 passes as it is: links and accent text use it/);
+    expect(await page.textContent('.st-brand-preview')).toContain('the link colour #1D4E89');
+    // the open dialog passes Guard (the samples' colours are inline styles by design)
+    const report = await guardPage(page);
+    expect(report.checks.flatMap((c) => c.violations).filter((v) => !(v.rule === 'no-inline-style' && /\.cm-|st-mode-|st-theme-/.test(v.target)))
+      .map((v) => `${v.rule} ${v.target}: ${v.message}`)).toEqual([]);
+    // Reset: the brand as it was when the dialog opened (there was none)
+    await page.click('.st-brand-actions button:has-text("Reset")');
+    await page.waitForFunction(() => !(window as unknown as { libkaStudio: { files: string[] } }).libkaStudio.files.includes('_brand.yml'));
+    expect(await page.inputValue('#brand-primary')).toBe('');
+    // made again, then removed with a second press
+    await page.fill('#brand-primary', '#6A4C93');
+    await page.waitForFunction(() => (window as unknown as { libkaStudio: { files: string[] } }).libkaStudio.files.includes('_brand.yml'));
+    await page.click('.st-brand-actions button:has-text("Remove the brand")');
+    await page.click('.st-brand-actions button:has-text("Remove the brand file for good")');
+    await page.waitForFunction(() => !(window as unknown as { libkaStudio: { files: string[] } }).libkaStudio.files.includes('_brand.yml'));
+    await page.waitForFunction(() => !(window as unknown as { libkaStudio: { design: D } }).libkaStudio.design?.resolved, undefined, { timeout: 15000 });
+    // it opened at its heading (a long dialog); Escape closes it from a text field, and so does Close
+    await page.focus('#brand-name');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.st-dialog--brand', { state: 'detached' });
+    await page.click('#design-edit-brand');
+    await page.waitForSelector('#brand-primary', { timeout: 20000 });
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('dialog-title');
+    await page.focus('#brand-name');
+    await page.click('.st-dialog--brand .st-dialog-actions button');
+    await page.waitForSelector('.st-dialog--brand', { state: 'detached' });
+    await page.context().close();
+  }, 180000);
+
   it('renames and duplicates from Document ▾, and names the document\'s properties in plain words', async () => {
     const page = await open();
     // Document ▾: three groups, each command's keys at the end of its row
@@ -272,6 +423,8 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
 
     await page.click('#library-toggle');
     await page.click('.st-library-actions [data-command="project.new"]');
+    await page.waitForSelector('.st-dialog--new[open]');
+    await page.keyboard.press('Enter');   // Blank is chosen
     await page.waitForFunction((id) => (window as unknown as { libkaStudio: Hook }).libkaStudio.project?.id !== id, first.id);
     expect((await hook(page)).source).toContain('title: Untitled document');
     await page.click('#library-toggle');
@@ -327,6 +480,21 @@ describe.skipIf(!chrome)('LibKa Studio', () => {
     expect(await page.textContent('.st-diff')).toContain('Written after the version.');
     // Guard on the comparison dialog
     expect(findings(await guardPage(page))).toEqual([]);
+    // in a window too low for a fixed heading and buttons (400 % zoom), the whole dialog scrolls, the changes too
+    await page.setViewportSize({ width: 320, height: 256 });
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => {
+      const body = document.querySelector('.st-dialog--compare .st-dialog-body')!;
+      return [document.querySelector('.st-compare-scroll')!.getBoundingClientRect().height > 60, body.scrollHeight > body.clientHeight];
+    })).toEqual([true, true]);
+    // with the keyboard from the changes themselves
+    await page.focus('.st-compare-scroll');
+    const top = () => page.evaluate(() => document.querySelector('.st-dialog--compare .st-dialog-body')!.scrollTop);
+    const before = await top();   // (focusing may already scroll the changes into view)
+    await page.keyboard.press('PageDown');
+    await page.waitForTimeout(600);   // (the browser scrolls smoothly)
+    expect(await top()).toBeGreaterThan(before);
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.click('.st-dialog button:has-text("Restore this version")');
     await page.waitForFunction(() => !(window as unknown as { libkaStudio: Hook }).libkaStudio.source.includes('Written after the version.'));
     await page.waitForSelector('.st-version:has-text("Restored from")');

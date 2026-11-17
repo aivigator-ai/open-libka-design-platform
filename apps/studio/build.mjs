@@ -15,7 +15,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFi
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { deflateSync } from 'node:zlib';
+import { deflateSync, gzipSync } from 'node:zlib';
 import { aboutData, hostedGaps, hostedHeaders } from './hosting.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -79,6 +79,17 @@ const virtual = {
     `export const files = ${imagesOf(tutorialDir)};`,
   ].join('\n'),
 };
+// the templates of create-libka's gallery: their text in both languages, their pictures as files (templates/<id>.<lang>.png)
+const galleryDir = join(root, 'packages', 'create-libka', 'gallery');
+const templates = readdirSync(galleryDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().map((id) => {
+  const meta = JSON.parse(readFileSync(join(galleryDir, id, 'template.json'), 'utf8'));
+  return {
+    id, name: meta.name, description: meta.description, file: meta.file,
+    sources: { en: readFileSync(join(galleryDir, id, 'en.md'), 'utf8'), cs: readFileSync(join(galleryDir, id, 'cs.md'), 'utf8') },
+    pictures: { en: `templates/${id}.en.png`, cs: `templates/${id}.cs.png` },
+  };
+});
+virtual['studio:templates'] = `export const templates = ${JSON.stringify(templates)};`;
 // the accessibility statement's facts, from the Studio's audit (audit/audit.ts)
 const audit = await import(pathToFileURL(join(here, 'audit', 'audit.ts')).href);
 virtual['studio:about'] = `export const about = ${JSON.stringify(about)};`;
@@ -192,6 +203,9 @@ writeFileSync(join(outDir, 'csp.txt'), `${studioPolicy}\n`);
 
 /* ---------- fonts (with their licences) ---------- */
 cpSync(join(root, 'fonts'), join(outDir, 'fonts'), { recursive: true });
+// the templates' pictures, for the New document dialog
+mkdirSync(join(outDir, 'templates'), { recursive: true });
+for (const tpl of templates) for (const lang of ['en', 'cs']) cpSync(join(galleryDir, tpl.id, `${lang}.png`), join(outDir, 'templates', `${tpl.id}.${lang}.png`));
 
 /* ---------- icons: the LibKa dot on the ink of the tokens, drawn here so the build needs no browser ---------- */
 const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${colors.ink}"/>`
@@ -256,8 +270,13 @@ const list = files(outDir).map((f) => posix(relative(outDir, f))).sort();
 const hash = createHash('sha256');
 for (const f of list) hash.update(f).update(readFileSync(join(outDir, f)));
 const version = hash.digest('hex').slice(0, 10);
-const main = join(outDir, 'assets', 'main.js');
-writeFileSync(main, readFileSync(main, 'utf8').replace(BUILD_ID, version));
+// written where the module that holds it (studio:assets) was bundled: main.js or a chunk it shares with lazy code
+let filled = 0;
+for (const f of list.filter((p) => p.endsWith('.js') && p !== 'assets/axe.min.js')) {
+  const text = readFileSync(join(outDir, f), 'utf8');
+  if (text.includes(BUILD_ID)) { writeFileSync(join(outDir, f), text.replaceAll(BUILD_ID, version)); filled++; }
+}
+if (!filled) { console.error('studio: the build id is in no script (studio:assets buildId): About would not show the version'); process.exit(1); }
 await build({
   entryPoints: [join(here, 'src', 'sw.ts')], bundle: true, format: 'iife', platform: 'browser', target: 'es2022', minify: true, legalComments: 'none',
   outfile: join(outDir, 'sw.js'),
@@ -268,11 +287,22 @@ await build({
 const size = (f) => statSync(join(outDir, f)).size;
 const kb = (n) => `${Math.round(n / 1024)} KB`;
 const chunks = Object.keys(app.metafile.outputs).filter((f) => f.endsWith('.js'));
+// the first load: main.js, every chunk it imports statically (the browser fetches them before the Studio starts), and
+// studio.css; the chunks it imports dynamically load when they are needed
+const startup = new Set();
+const reach = (out) => {
+  if (startup.has(out)) return;
+  startup.add(out);
+  for (const i of app.metafile.outputs[out]?.imports ?? []) if (i.kind === 'import-statement') reach(i.path);
+};
+reach(chunks.find((f) => f.endsWith('/main.js')));
+const firstFiles = [...[...startup].map((f) => posix(relative(outDir, resolve(f)))), 'assets/studio.css'];
+const firstLoad = firstFiles.reduce((n, f) => n + size(f), 0);
+const firstGzip = firstFiles.reduce((n, f) => n + gzipSync(readFileSync(join(outDir, f)), { level: 9 }).length, 0);
 console.log(`studio: built ${posix(relative(process.cwd(), outDir))}/ (version ${version}): ${list.length + 1} files, `
-  + `${kb(list.reduce((n, f) => n + size(f), 0))} in all; first load ${kb(size('assets/main.js') + size('assets/studio.css'))} (main.js and studio.css), ${chunks.length} script chunks`);
-// the performance budget: what loads before the Studio can start stays within 1.5 MB
-const FIRST_LOAD_BUDGET = 1.5 * 1024 * 1024;
-const firstLoad = size('assets/main.js') + size('assets/studio.css');
+  + `${kb(list.reduce((n, f) => n + size(f), 0))} in all; first load ${kb(firstLoad)} (${kb(firstGzip)} gzipped: main.js, the ${startup.size - 1} chunks it imports and studio.css), ${chunks.length} script chunks`);
+// the performance budget: what loads before the Studio can start stays within 2 MB uncompressed (since 2.0.4)
+const FIRST_LOAD_BUDGET = 2 * 1024 * 1024;
 if (firstLoad > FIRST_LOAD_BUDGET && process.env.LIBKA_STUDIO_PROFILE !== '1') {
   console.error(`studio: the first load is ${kb(firstLoad)}, over the budget of ${kb(FIRST_LOAD_BUDGET)}: load the new code when it is needed (a dynamic import)`);
   process.exit(1);

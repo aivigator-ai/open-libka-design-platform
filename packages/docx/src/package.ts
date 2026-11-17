@@ -47,6 +47,8 @@ export interface NormalizeOptions {
   date?: Date;
   /** Captions of the tables in document order, written as their alternative text (w:tblCaption). */
   tableCaptions?: string[];
+  /** The theme's colour scheme (hex without #, by slot), written into word/theme/theme1.xml instead of Office's. */
+  scheme?: Readonly<Record<string, string>>;
 }
 
 /** The Word file with fixed dates, ids and ZIP times (see the module comment). */
@@ -63,6 +65,14 @@ export function normalize(docx: Uint8Array, options: NormalizeOptions): Uint8Arr
       stamp ? `<dcterms:${which} xsi:type="dcterms:W3CDTF">${stamp}</dcterms:${which}>` : '');
     if (!/<dc:language>/.test(out)) out = out.replace('</cp:coreProperties>', `<dc:language>${xmlEscape(options.lang)}</dc:language></cp:coreProperties>`);
     put('docProps/core.xml', out);
+  }
+
+  // the theme's colours: the design's, slot by slot, in the order the format gives them
+  const theme = text('word/theme/theme1.xml');
+  if (theme && options.scheme) {
+    const slots = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
+    const scheme = `<a:clrScheme name="LibKa">${slots.map((s) => `<a:${s}><a:srgbClr val="${options.scheme![s]}"/></a:${s}>`).join('')}</a:clrScheme>`;
+    put('word/theme/theme1.xml', theme.replace(/<a:clrScheme\b[^>]*>[\s\S]*?<\/a:clrScheme>/, scheme));
   }
 
   // random relationship ids (hyperlinks) numbered in order, per part and its relationships

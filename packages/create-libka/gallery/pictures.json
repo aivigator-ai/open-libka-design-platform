@@ -1,0 +1,22 @@
+{
+  "decision-record": {
+    "en": "7aa1a2ee410160ca7acc8fa6f9b0ce11613f382e844e18de03dfd4e6c01ec4bd",
+    "cs": "6bfb2e9e70718c0039f0de139c1aeff242961fe9af6e8214ea0b32c8a9c268fc"
+  },
+  "manual": {
+    "en": "3ca42d8758003653b1f4389436230bedb81fd6c2d9df498bce2bc863abc2f9ed",
+    "cs": "ca08bbe286498d4ced9f3733dfb65e2821d6a8bc57a2a0916fcb6b5558864502"
+  },
+  "policy": {
+    "en": "04944438a00b9621e61e179a9acf1a8a7f553adfbc608160e9acc9ce146fd0fe",
+    "cs": "dd9a5d4cada9ee54e06cb33197a4fb3d6b3046f4e851a6fb69339820797b9033"
+  },
+  "report": {
+    "en": "426c16f72793facbc2930f0c6c99b066210f5990cf4ef7137cca8ebbfbddee45",
+    "cs": "abfcd875904c6db45bea295481763dc0ddd0be801cab91646e147ebd073134d3"
+  },
+  "talk": {
+    "en": "8a95f625c45f5688f96715171c0d6f1ebcd42b6a3208ef8db3d2b331a288a975",
+    "cs": "3d138aa359ab690b491e55834ed7208b5cd957c051cdbef5a1fc6e78f6dfce6d"
+  }
+}

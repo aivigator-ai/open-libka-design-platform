@@ -1,12 +1,12 @@
 {
-  "$description": "LibKa AI generation profiles (manual Appendix A2). This file is the source: generate.py writes the profiles into the manual with the current version and fails the build if a profile names a token, theme or density that does not exist. AI tools can read this file directly.",
+  "$description": "LibKa AI generation profiles (manual Appendix A2). This file is the source: generate.py writes the profiles into the manual with the current version and fails the build if a profile names a token, mode or density that does not exist. AI tools can read this file directly.",
   "profiles": [
     {
       "id": "dashboard",
       "title": "Dashboard profile",
       "spec": {
         "screen_type": "dashboard",
-        "theme": "light | dark",
+        "mode": "light | dark",
         "density": "comfortable",
         "required_components": ["topbar", "sidebar", "insight-cards (min 3)", "data-table or chart", "status-badges"],
         "primary_action": "single verb label",
@@ -24,7 +24,7 @@
       "title": "Landing / hero profile",
       "spec": {
         "screen_type": "landing",
-        "theme": "light | dark",
+        "mode": "light | dark",
         "density": "spacious",
         "required_components": ["hero (title + lead + primary CTA)", "dot logo mark", "max 2 CTAs total", "one supporting section"],
         "typography": { "hero_title": "type.display.xl or type.display.lg (Fraunces)", "body": "type.body.lg" },
@@ -42,7 +42,7 @@
       "title": "Documentation page profile",
       "spec": {
         "screen_type": "documentation",
-        "theme": "light",
+        "mode": "light",
         "density": "comfortable",
         "structure": ["title (type.heading.h1)", "purpose paragraph", "rules section", "examples", "tokens used (code blocks)", "accessibility notes", "anti-patterns"],
         "typography": { "headings": "Inter (UI sans) except top H1", "code": "JetBrains Mono" },
@@ -59,7 +59,7 @@
       "title": "Form / onboarding profile",
       "spec": {
         "screen_type": "form",
-        "theme": "light | dark",
+        "mode": "light | dark",
         "density": "comfortable",
         "required_components": ["progress indicator", "labeled inputs (never placeholder-only)", "inline validation", "primary submit button", "back/skip option"],
         "accessibility": { "contrast": "WCAG 2.2 AA", "keyboard": true, "error_association": "aria-describedby" },

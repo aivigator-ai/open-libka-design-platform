@@ -71,7 +71,9 @@
 .st-blockbar[data-where="dock"] { padding-inline: 8px; border-right: 1px solid var(--lk-border-default); }
 .st-blockbar[data-where="dock"] select, .st-blockbar[data-where="dock"] .st-blockbar-btn { min-height: 40px; }
 /* on a phone: a row of its own, 44 px targets */
-.st-blockbar[data-where="phone"] { padding: 4px 8px; border-left: 0; border-top: 1px solid var(--lk-border-default); background: var(--lk-bg-surface); }
+.st-blockbar[data-where="phone"] { gap: 2px; padding: 4px 8px; border-left: 0; border-top: 1px solid var(--lk-border-default); background: var(--lk-bg-surface); }
+/* (a figure's bar, the widest, fits one row at 390 px with Properties as an icon, the 44 px targets kept) */
+.st-blockbar[data-where="phone"] .st-blockbar-sep { margin: 0; }
 .st-blockbar[data-where="phone"] select, .st-blockbar[data-where="phone"] .st-blockbar-btn { min-height: 44px; }
 .st-blockbar[data-where="phone"] .st-blockbar-icon { min-width: 44px; }
 @media (max-width: 899px) { .st-blockbar[data-where="dock"] .st-blockbar-key { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
@@ -423,12 +425,14 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .st-pref-choice legend { margin-bottom: 4px; font-weight: 600; }
 .st-pref-choice label { display: flex; align-items: center; gap: 8px; min-height: 26px; }
 .st-pref-choice input { accent-color: var(--lk-action-accent-strong); }
-.st-keys { display: grid; gap: 12px; overflow: auto; max-height: calc(100dvh - 200px); }
-.st-keys .st-palette-search { margin: 0; }
+.st-keys { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; overflow: auto; max-height: calc(100dvh - 200px); }
+.st-keys .st-palette-search { margin: 0; min-width: 0; }
 .st-keys-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
 .st-keys-table caption { text-align: left; margin-bottom: 4px; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--lk-text-secondary); }
 .st-keys-table th { text-align: left; font-size: .75rem; color: var(--lk-text-secondary); padding: 4px 8px; border-bottom: 1px solid var(--lk-border-default); }
-.st-keys-table td { padding: 5px 8px; border-bottom: 1px solid var(--lk-border-default); vertical-align: top; }
+.st-keys-table td { padding: 5px 8px; border-bottom: 1px solid var(--lk-border-default); vertical-align: top; overflow-wrap: anywhere; }
+/* a key combination breaks only after a "+" or a "/" (keyBreaks), never inside a key's name */
+.st-keys-table kbd { overflow-wrap: normal; }
 .st-keys-table td:first-child { width: 42%; }
 kbd { font: 600 .8125rem/1.4 var(--lk-font-mono); padding: 1px 6px; border: 1px solid var(--lk-border-strong); border-radius: var(--lk-radius-xs); background: var(--lk-bg-canvas); }
 
@@ -475,7 +479,7 @@ kbd { font: 600 .8125rem/1.4 var(--lk-font-mono); padding: 1px 6px; border: 1px 
 
 /* ---- the command palette ---- */
 .st-dialog--palette { width: min(640px, calc(100vw - 32px)); margin-top: 12vh; }
-.st-dialog--palette .st-dialog-body { padding: 0; gap: 0; overflow: hidden; }
+.st-dialog--palette .st-dialog-body { grid-template-rows: none; padding: 0; gap: 0; overflow: hidden; }
 .st-cmdk { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: min(560px, 70dvh); }
 .st-cmdk-input { margin: 12px; min-height: 42px; padding: 0 12px; border: 1px solid var(--lk-input-border-default); border-radius: var(--lk-radius-sm); background: var(--lk-bg-surface); color: var(--lk-text-primary); font: inherit; font-size: 1rem; }
 .st-cmdk-list { list-style: none; margin: 0; padding: 0 8px 8px; overflow: auto; }
@@ -488,6 +492,7 @@ kbd { font: 600 .8125rem/1.4 var(--lk-font-mono); padding: 1px 6px; border: 1px 
 .st-cmdk-none { padding: 10px; color: var(--lk-text-secondary); }
 .st-cmdk-hint { padding: 8px 14px; border-top: 1px solid var(--lk-border-default); font-size: .75rem; color: var(--lk-text-secondary); }
 /* the keys of the Studio's commands, in Preferences */
+.st-keys-cell { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
 .st-keys-edit td { vertical-align: middle; }
 .st-keys-edit td:first-child { width: auto; }
 .st-keys-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }

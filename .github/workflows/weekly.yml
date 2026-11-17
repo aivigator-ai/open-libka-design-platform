@@ -1,0 +1,19 @@
+# Weekly on the pinned runner: the whole design matrix (every built-in theme under every example brand, built in
+# full and checked by Guard) and the solver's property tests at full size. A push builds one rotating combination;
+# release tags run this too (check.yml).
+name: weekly
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  designs:
+    uses: ./.github/workflows/typescript.yml
+    with:
+      runs-on: ubuntu-24.04
+      part: designs

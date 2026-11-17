@@ -4,7 +4,7 @@
 
 **Write a document once in LibKa Markdown. Get a web page, an A4 PDF, 16:9 slides and an editable Word file, each checked for accessibility, with a signed record of what was checked.**
 
-LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one file in LibKa Markdown, Markdown extended with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (42 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
+LibKa is a design system (W3C DTCG design tokens) and a document platform. You write one file in LibKa Markdown, Markdown extended with LibKa blocks: steps, callouts, tables, charts, diagrams, timelines, comparisons, release notes and more (45 block types in all). The build renders the outputs the document asks for. **Guard** then checks each one, the pages in a real browser, and signs a manifest of the checks for the outputs that pass. **LibKa Studio** lets anyone write the same documents visually, without touching Markdown.
 
 ![How LibKa builds a document: a LibKa Markdown file is linted, built into a web page, a PDF, slides and a Word file; Guard checks each output (axe-core WCAG 2.2, contrast, structure, reflow at 320 px, veraPDF PDF/UA-1, Word structure); outputs that pass get a signed manifest and a conformance report](docs/images/pipeline.svg)
 
@@ -12,7 +12,7 @@ LibKa is a design system (W3C DTCG design tokens) and a document platform. You w
 - **Try LibKa Studio in your browser:** https://libka-studio.aivigator.ai/
 - **Documentation:** [`docs/`](docs/README.md), starting with [getting started](docs/getting-started.md) and the [block catalog](docs/blocks.md)
 
-> **Status:** version 2.0.3. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
+> **Status:** version 2.0.4. Developed and tested on Windows; CI runs the full test suite on Linux (Ubuntu) and the health check on Windows; macOS is not tested.
 
 ## Why LibKa
 
@@ -21,14 +21,18 @@ Markdown publishing tools already turn one source into web pages, PDFs and slide
 - **The rules that can be automated are enforced; the rest is listed for a person:** blocks carry their accessibility rules (an image cannot go in without alternative text), the build stops on problems with `file:line` messages, Guard measures the rendered result in Chrome, not the source, and the conformance report names what a person still has to review.
 - **The PDF is repaired and validated:** Chrome's tagged PDFs are repaired for PDF/UA-1 and, when Java and veraPDF are installed, validated by veraPDF, the PDF Association's reference validator, on every rule a machine can check (the rest of PDF/UA, such as a meaningful reading order, needs a person).
 - **Every output gets a record:** a signed manifest of the checks and a WCAG 2.2 / EN 301 549 conformance report per build.
-- **A design system, not a theme:** colours, type and spacing come from DTCG tokens whose contrast the token build gates, in light, dark and high contrast.
+- **Your organisation's look, still checked:** colours, type and spacing come from DTCG tokens whose contrast the token build gates, in light, dark and high contrast. A project's brand (`_brand.yml`: colours, fonts from the eight families LibKa ships, a logo) and a theme (Classic or Modern) reach every output, and each brand colour moves only as far as a contrast check needs, in every mode, with the build saying so in words.
 - **Visual editing for people who never touch Markdown,** with the page and Word checks live in LibKa Studio, while the LibKa Markdown stays the single source.
 
 LibKa is a good fit for manuals, guides, policies, reports and decks that must be accessible and consistent. It is not a page-layout tool: you choose blocks, not positions.
 
 ## LibKa Studio
 
+The Studio is where an AI's draft meets the people who read, check and edit it. It opens any Markdown file, a LibKa document or not. The AI writes LibKa blocks as plain text, which it handles easily; in the Studio they show as the page, so a decision, a process or pros and cons reads at a glance instead of as a wall of text. A person edits the draft visually, without knowing Markdown. The blocks nobody edited stay byte for byte as the AI wrote them, and the file stays plain text the AI can read back and continue. The Studio has no AI of its own and connects to no model.
+
 ![LibKa Studio in Write mode with Split on: the visual editor and the LibKa Markdown source side by side, the Preview of the A4 page on the right, and "Ready to publish" with no checks to fix](docs/images/studio-split.png)
+
+It has three modes: **Write** (the editor, with the Preview beside it), **Blocks** (the catalog of blocks, the editor and the selected block's Properties) and **Focus** (the page alone). When the cursor is in a block, the **block bar** shows its name and most used setting, with Move and Properties beside them; **Checks** lists what to fix; **Present** shows the slides full screen, with a presenter view.
 
 An installable web app that keeps documents on your own device: a visual editor, a source editor, or both side by side; a live preview of the web page, phone, A4 and slides; the page and Word checks while you type, with one-click fixes where a fix is safe and plain-word explanations otherwise; versions, a command palette, English and Czech, light, dark and high contrast, offline once opened. The Studio has its own accessibility self-audit ([`docs/acr/studio.md`](docs/acr/studio.md)), tested with the keyboard alone, NVDA, forced colours, reflow and touch emulation.
 
@@ -45,7 +49,7 @@ Run it locally: `npx -y @libka/cli studio`, and open the address it prints.
 Start a project:
 
 ```bash
-npm create libka@latest my-docs        # add -- --lang cs for the example in Czech
+npm create libka@latest my-docs        # add -- --lang cs for Czech, -- --template report (or talk, manual, policy, decision-record) for a template
 cd my-docs
 npm install
 npm run build                          # web page, PDF, slides and Word file in dist/, checked and signed
@@ -89,6 +93,7 @@ Keep the box: the Wi-Fi password is on its label.
 - Every block is defined once, in `packages/blocks`: syntax, attributes, a JSON schema, accessibility rules, anti-patterns, and what the web page, PDF, slides and Word file do with it.
 - **Slides come from the same file:** every `##` and `###` is a slide, `:::notes` holds speaker notes, and overfull slides are shrunk a little or continued.
 - Czech documents (`lang: cs`) get Czech labels and Czech typography.
+- **Themes and brands:** `theme: modern` in the front matter changes the type, the headings and the corners (`classic` is the default), and a `_brand.yml` at the project's root gives every document its colours, fonts and logo; [getting started](docs/getting-started.md#give-it-your-look) shows one, and the skill's [Brand file](.claude/skills/libka-author/reference.md#brand-file) lists every key LibKa reads.
 
 ## What every output gets
 
@@ -106,13 +111,19 @@ Keep the box: the Wi-Fi password is on its label.
 - **Agent Skill** in `.claude/skills/libka-author/`: the workflow, and the exact syntax of every block (generated from the registry).
 - **MCP server** `@libka/mcp` (in `packages/mcp`): list and describe blocks, check a document, build it.
 - **For Claude Code,** both come as one plugin: `/plugin marketplace add aivigator-ai/open-libka-design-platform`, then `/plugin install libka@libka`. Claude Desktop, claude.ai, the API and other MCP clients: [`docs/ai-tools.md`](docs/ai-tools.md).
-- Whatever an AI writes goes through the same checks. A document declares how AI took part (the front matter key `ai`: `ai: ai-assisted` or `ai: ai-generated`, or with who reviewed it in the long form, `use: ai-generated` and `reviewed-by: Ann Novak` on indented lines under `ai:`; a block's `ai=generated`), and the signed manifest records it. The label under the title ("Created with AI tools.") is shown only when the author turns it on.
+- Whatever an AI writes goes through the same checks, and people read and edit its draft as a page in [LibKa Studio](#libka-studio).
+- A document declares how AI took part in the front matter key `ai`, and the signed manifest records it:
+  - `ai: ai-assisted` or `ai: ai-generated`;
+  - the long form also names who reviewed it: `use: ai-generated` and `reviewed-by: Ann Novak` on indented lines under `ai:`;
+  - a single block AI wrote carries `ai=generated`.
+- The label under the title ("Created with AI tools.") is shown only when the author turns it on.
 
 ## Repository map
 
 | Path | What it is |
 |---|---|
 | `tokens/`, `libka.resolver.json`, `generate.py` | The DTCG design tokens and their build: CSS, SCSS, Tailwind ([`docs/tokens.md`](docs/tokens.md), [the design-system manual](docs/design-system/manual.md)) |
+| `packages/design`, `fonts/` | Brands (`_brand.yml`) and themes: the colour solver, its contrast gates and locks, the design in every output; the eight font families LibKa ships, with their licences |
 | `packages/blocks` | The block registry, the catalog and skill-reference generators |
 | `packages/model` | LibKa Markdown to typed blocks, with problems by line, each with a code and safe fixes ([`docs/problem-codes.md`](docs/problem-codes.md)) |
 | `packages/render` | Web page, slides, charts, slide fitting, Content Security Policy, typography, the block styles |
@@ -120,7 +131,7 @@ Keep the box: the Wi-Fi password is on its label.
 | `packages/pdf`, `packages/docx` | PDF/UA repair and veraPDF validation; the Word file |
 | `packages/editor` | Visual editing: the ProseMirror schema, the lossless round-trip with LibKa Markdown, the block commands |
 | `packages/cli`, `packages/mcp` | `libka build \| lint \| check \| verify \| studio \| doctor`; the MCP server |
-| `packages/create-libka` | The starter, `npm create libka` |
+| `packages/create-libka` | The starter, `npm create libka`, and its five templates |
 | `npm/`, `plugins/libka`, `.claude-plugin/` | The npm packages' build and the quick-start test; the Claude Code plugin and its marketplace file |
 | `apps/studio` | LibKa Studio |
 | `examples/`, `docs/` | Examples; the documentation and the maintainer guide |

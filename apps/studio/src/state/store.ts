@@ -8,6 +8,7 @@ import { buildChecklist } from '../core/checklist.ts';
 import type { ScanResult } from '@libka/guard/scan';
 import type { ProjectRecord, VersionRecord } from '../storage/db.ts';
 import type { Key, Lang } from '../i18n.ts';
+import type { StudioDesign } from '../core/design.ts';
 
 /** Interface preferences are per-browser conveniences in localStorage; documents never go there. */
 export const prefs = {
@@ -19,7 +20,7 @@ const media = (q: string) => typeof matchMedia === 'function' && matchMedia(q).m
 
 export type CheckId = 'axe' | 'contrast' | 'structure' | 'docx';
 export type Target = 'manual' | 'deck' | 'docx';
-export interface Check extends ScanResult { target: Target; id: CheckId; mode: 'standard' | 'more-contrast' }
+export interface Check extends ScanResult { target: Target; id: CheckId; mode: 'standard' | 'more-contrast' | 'dark' | 'dark-more-contrast' }
 export type Device = 'web' | 'phone' | 'a4' | 'slides';
 /** On a phone, the one pane shown: the editor, the companion (Preview, Checks, Properties) or the left pane (Catalog, Outline). */
 export type Pane = 'write' | 'companion' | 'left';
@@ -68,6 +69,8 @@ export const problems = signal<Problem[]>([]);
 /** Lint hints (a rule no output shows, Marp comments): advice, never counted. */
 export const hints = signal<Hint[]>([]);
 export const html = signal('');
+/** The design the document is shown in (theme, brand, logo, the solver's words), chosen at each render. */
+export const design = signal<StudioDesign | null>(null);
 export const deckHtml = signal('');
 export const checks = signal<Check[] | null>(null);
 export const guardRunning = signal(false);
@@ -132,7 +135,21 @@ export type DialogState =
   | { kind: 'prefs' }
   | { kind: 'palette' }
   | { kind: 'accessibility' }
-  | { kind: 'about' };
+  | { kind: 'about' }
+  | { kind: 'brand' }
+  /** New document: blank or a template; resolves the chosen template's id, 'blank', or null. */
+  | { kind: 'new'; templates: readonly StudioTemplate[]; resolve(choice: string | null): void };
+
+/** A template the Studio can start a document from (gallery/ in create-libka, bundled by build.mjs). */
+export interface StudioTemplate {
+  readonly id: string;
+  readonly name: { readonly en: string; readonly cs: string };
+  readonly description: { readonly en: string; readonly cs: string };
+  readonly file: string;
+  readonly sources: { readonly en: string; readonly cs: string };
+  /** The picture's path in the Studio's files, per language. */
+  readonly pictures: { readonly en: string; readonly cs: string };
+}
 export const dialog = signal<DialogState | null>(null);
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;

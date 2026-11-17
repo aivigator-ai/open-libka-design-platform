@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { strFromU8, unzipSync } from 'fflate';
 import { PDFDocument } from 'pdf-lib';
 import { afterAll, describe, expect, it } from 'vitest';
+import { manifestDesign, resolveDesign, sha256Hex } from '@libka/design';
 import { parse } from '@libka/model';
 import { build, chosenOutputs, keyStatus, trustedFingerprints, trustedKeys, verify } from '../src/libka.ts';
 
@@ -147,6 +148,10 @@ describe('libka build', () => {
     const v = verify(result.html!);
     expect(v.problems).toEqual([]);
     expect(v.manifest!.source.name).toBe('guide.md');
+    // the design it was built with: LibKa's brand × Classic, and the hash of the built-in lock
+    const lock = readFileSync(join(root, 'packages', 'design', 'locks', 'libka.classic.design.lock.json'), 'utf8');
+    expect(v.manifest!.design).toEqual(manifestDesign(resolveDesign()));
+    expect(v.manifest!.design!.lock).toBe(sha256Hex(lock));
     expect(JSON.parse(readFileSync(result.manifest!, 'utf8'))).toEqual(v.manifest);
     writeFileSync(result.html!, readFileSync(result.html!, 'utf8').replace('Writing a LibKa manual', 'Writing a manual'));
     expect(verify(result.html!).problems).toEqual(['the HTML was changed after it was checked and signed']);

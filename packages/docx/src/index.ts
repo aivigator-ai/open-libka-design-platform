@@ -20,14 +20,17 @@ import {
 import type { PhrasingContent } from 'mdast';
 import { aiBadge, isDeprecated, isIsoDate, kbdKeys, personText, plainText, type Block, type Citation, type Inline, type LibkaDocument, type Person } from '@libka/model';
 import {
-  aiLabelText, chartText, citationParts, czechText, describeUi, docInfo, downloadDetails, fill, formatDate, LABELS, langOf, NOTES_ID, orderedReferences, plural, referenceParts,
+  agendaEntries, aiLabelText, chartText, chartTotals, citationParts, kpiWords, CLOSING_ID, closingHref, closingUrlText, czechText, describeUi, docInfo, downloadDetails, fill, formatDate, LABELS, langOf, NOTES_ID, orderedReferences, plural, referenceParts,
   REFERENCES_ID, REVISIONS_ID, safeHref, type DocInfo, type Labels, type Lang,
 } from '@libka/render';
+import type { ResolvedDesign } from '@libka/design';
 import { normalize, type DocxPicture } from './package.ts';
 import { THEME } from './theme.ts';
 
 export { normalize, sniffPicture, type DocxPicture } from './package.ts';
 export { THEME } from './theme.ts';
+export { docxTheme, wordScheme, type WordTheme } from './design.ts';
+import { docxTheme, wordScheme, type WordTheme } from './design.ts';
 
 export interface DocxOptions {
   /** The picture of a figure or gallery image, by its src as written in the source; undefined when it cannot be read. */
@@ -36,6 +39,10 @@ export interface DocxOptions {
   drawing?: (block: Block) => DocxPicture | undefined;
   /** Created and modified date in the properties; without it they are left out, so builds are byte-identical. */
   date?: Date;
+  /** The design, as the web page's (`ManualOptions.design` in @libka/render): omitted, LibKa's default. */
+  design?: ResolvedDesign;
+  /** The brand's logo, above the title, with its alt text. */
+  logo?: { picture: DocxPicture; alt: string };
 }
 
 /** The Word language tag for a document language: a region is added where Word needs one for proofing. */
@@ -50,9 +57,11 @@ const CONTENT_PX = Math.floor((PAGE.width - 2 * PAGE.margin) / 15);
 /** Indent of one list level and of a definition under its term. */
 const STEP = 360;
 
-const C = THEME.colors;
-const F = THEME.fonts;
-const S = THEME.sizes;
+// the design's Word theme, set at the start of each render (synchronously, before the first await, so renders never mix)
+let W: WordTheme = THEME;
+let C = W.colors;
+let F = W.fonts;
+let S = W.sizes;
 const TONES: Record<string, string> = {
   info: C['text-info'], note: C['text-info'], tip: C['text-success'], success: C['text-success'], important: C['text-ai'],
   warning: C['text-warning'], caution: C['text-error'], error: C['text-error'],
@@ -318,6 +327,16 @@ function matrix(c: Ctx, b: Extract<Block, { type: 'matrix' }>, fr: Frame): Child
 }
 
 /** A picture scaled to fit the text width, with its alternative text. */
+/** The brand's logo above the title: at most 48 px high and 192 px wide, its alt text the brand's. */
+function logo(c: Ctx, l: { picture: DocxPicture; alt: string }): Paragraph {
+  const p = l.picture;
+  const scale = Math.min(1, 48 / p.height, 192 / p.width);
+  return new Paragraph({ spacing: { after: 120 }, children: [new ImageRun({
+    type: p.type, data: p.data, transformation: { width: Math.max(1, Math.round(p.width * scale)), height: Math.max(1, Math.round(p.height * scale)) },
+    altText: { name: `${c.L.picture} ${++c.pictures}`, title: l.alt, description: l.alt },
+  })] });
+}
+
 function picture(c: Ctx, p: DocxPicture, alt: { title: string; description: string }, fr: Frame): Paragraph {
   const max = CONTENT_PX - Math.ceil(fr.indent / 15);
   const scale = Math.min(1, max / p.width);
@@ -376,6 +395,8 @@ function block(c: Ctx, b: Block, fr: Frame): Child[] {
     }
     case 'toc':
       return contents(c, b.title ?? L.contents, c.d.toc.filter((e) => e.level <= b.depth), fr);
+    case 'agenda':
+      return contents(c, b.title ?? L.agenda, agendaEntries(c.d), fr);
     case 'diagram': {
       // the picture and its description; the Mermaid source stays in the .md file and the web page
       const p = c.options.drawing?.(b);
@@ -436,6 +457,17 @@ function block(c: Ctx, b: Block, fr: Frame): Child[] {
       const action = [run(c, b.label, { bold: true }, href === null ? undefined : 'Hyperlink')];
       return [...(b.text ? [para(inlines(c, b.text), fr, { keepNext: true })] : []),
         para([...(href === null ? action : link(c, href, action)), ...(url ? [run(c, ` (${url})`, {})] : [])], fr)];
+    }
+    case 'closing': {
+      // a section of its own at the end: the heading, the sentence, the recap and the contacts as links written out
+      const ref = listRef(c, false);
+      const contact = (name: string, href: string | null, shown: string) => para([run(c, `${name}: `, { bold: true }),
+        ...(href === null ? [run(c, shown, {})] : link(c, href, [run(c, shown, {}, 'Hyperlink')]))], fr);
+      return [new Paragraph({ heading: HeadingLevel.HEADING_1, keepNext: true, children: [new Bookmark({ id: bookmark(c, CLOSING_ID), children: [run(c, b.title ?? L.thankYou, {})] })] }),
+        ...(b.text ? [para(inlines(c, b.text), fr)] : []),
+        ...(b.items ?? []).flatMap((i) => item(c, inlines(c, i), [], ref, 0, fr)),
+        ...(b.email ? [contact(L.contactEmail, `mailto:${b.email}`, b.email)] : []),
+        ...(b.url ? [contact(L.contactWeb, safeHref(closingHref(b.url)), closingUrlText(b.url))] : [])];
     }
     case 'steps': {
       const ref = listRef(c, true, b.start ?? 1);
@@ -509,6 +541,15 @@ function block(c: Ctx, b: Block, fr: Frame): Child[] {
       return [para(inlines(c, b.text), fr, { style: 'LibKaStatement' })];
     case 'metrics':
       return b.items.map((i) => para([run(c, i.value, { bold: true, size: S.h2 }), new TextRun({ break: 1 }), ...inlines(c, i.label)], fr, { keepLines: true }));
+    case 'kpi':
+      // each figure: its name, the figure large, then the change and the trend in words (Word has no trend line)
+      return b.items.flatMap((k) => {
+        const w = kpiWords(k, c.lang, L);
+        const lines = [w.change ? `${w.change}${w.verdict ? ` (${w.verdict})` : ''}` : '', w.trend ? `${w.trend} (${w.values})` : ''].filter(Boolean);
+        return [para([run(c, k.label, { bold: true }), new TextRun({ break: 1 }), run(c, k.value, { bold: true, size: S.h2 }),
+          ...lines.flatMap((l) => [new TextRun({ break: 1 }), run(c, l, {})])], fr, { keepLines: true, ...(k.text ? { keepNext: true } : {}) }),
+          ...(k.text ? [para(inlines(c, k.text), fr)] : [])];
+      });
     case 'gallery':
       return b.images.flatMap((i) => block(c, { type: 'figure', ...i }, fr));
     case 'video': {
@@ -521,10 +562,11 @@ function block(c: Ctx, b: Block, fr: Frame): Child[] {
     case 'chart': {
       const { fmt, summary } = chartText(b, c.lang, L);
       const p = c.options.drawing?.(b);
+      const totals = b.stacked ? chartTotals(b) : null;
       return [p ? picture(c, p, { title: b.caption, description: summary }, fr) : para([run(c, summary, {})], fr, { keepNext: true }),
         caption(c, b.caption, fr),
-        ...table(c, `${b.caption} (${L.data})`, [[run(c, b.category, {})], ...b.series.map((s) => [run(c, s.name, {})])],
-          b.labels.map((l, i) => [[run(c, l, {})], ...b.series.map((s) => [run(c, fmt(s.values[i] ?? 0), {})])]), fr, true)];
+        ...table(c, `${b.caption} (${L.data})`, [[run(c, b.category, {})], ...b.series.map((s) => [run(c, s.name, {})]), ...(totals ? [[run(c, L.total, {})]] : [])],
+          b.labels.map((l, i) => [[run(c, l, {})], ...b.series.map((s) => [run(c, fmt(s.values[i] ?? 0), {})]), ...(totals ? [[run(c, fmt(totals[i]!), {})]] : [])]), fr, true)];
     }
     case 'ui': {
       const desc = describeUi(b, c.lang);
@@ -569,16 +611,16 @@ function references(c: Ctx, title: string): Child[] {
 /* ---------- the document ---------- */
 
 function styles(lang: string) {
-  const line = Math.round(240 * THEME.lineHeight);
+  const line = Math.round(240 * W.lineHeight);
   const color = C['text-primary'];
   const family = (f: 'brand' | 'ui') => F[f];
   return {
     default: {
       document: { run: { font: F.ui, size: S.body, color, language: { value: lang } }, paragraph: { spacing: { after: 160, line } } },
-      title: { run: { font: family(THEME.families.title), size: S.title, bold: true, color }, paragraph: { spacing: { after: 120, line: 240 } } },
-      heading1: { run: { font: family(THEME.families.h2), size: S.h2, bold: true, color }, paragraph: { spacing: { before: 360, after: 120, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 0 } },
-      heading2: { run: { font: family(THEME.families.h3), size: S.h3, bold: true, color }, paragraph: { spacing: { before: 280, after: 100, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 1 } },
-      heading3: { run: { font: family(THEME.families.h3), size: S.h4, bold: true, color }, paragraph: { spacing: { before: 240, after: 80, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 2 } },
+      title: { run: { font: family(W.families.title), size: S.title, bold: true, color }, paragraph: { spacing: { after: 120, line: 240 } } },
+      heading1: { run: { font: family(W.families.h2), size: S.h2, bold: true, color }, paragraph: { spacing: { before: 360, after: 120, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 0 } },
+      heading2: { run: { font: family(W.families.h3), size: S.h3, bold: true, color }, paragraph: { spacing: { before: 280, after: 100, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 1 } },
+      heading3: { run: { font: family(W.families.h3), size: S.h4, bold: true, color }, paragraph: { spacing: { before: 240, after: 80, line: 276 }, keepNext: true, keepLines: true, outlineLevel: 2 } },
       hyperlink: { run: { color: C['text-accent'], underline: {} } },
     },
     paragraphStyles: [
@@ -599,6 +641,8 @@ function styles(lang: string) {
 
 /** Renders the document as a Word file. */
 export async function renderDocx(doc: LibkaDocument, options: DocxOptions = {}): Promise<Uint8Array> {
+  W = docxTheme(options.design);
+  C = W.colors; F = W.fonts; S = W.sizes;
   const lang = langOf(doc.meta.lang);
   const L = LABELS[lang];
   const tag = wordLang(doc.meta.lang);
@@ -617,6 +661,7 @@ export async function renderDocx(doc: LibkaDocument, options: DocxOptions = {}):
     ...statusLines(meta, c).filter(([k]) => !panel || k === L.status),
   ].map(([k, v]) => `${k}: ${v}`).join(' · ');
   const head: Child[] = [
+    ...(options.logo ? [logo(c, options.logo)] : []),
     new Paragraph({ style: 'Title', children: [run(c, meta.title, {})] }),
     ...(meta.subtitle ? [new Paragraph({ style: 'Subtitle', children: [run(c, meta.subtitle, {})] })] : []),
     ...(metaLine ? [para([run(c, metaLine, {})], fr, { style: 'LibKaMeta' })] : []),
@@ -627,7 +672,7 @@ export async function renderDocx(doc: LibkaDocument, options: DocxOptions = {}):
       return [label(c, L.deprecated, box, { color: C['text-error'] }), para([run(c, L.deprecatedText, {})], box)];
     })() : []),
   ];
-  // the automatic contents: parts and ## sections, unless a :::toc places them; after the opening text, as on the page
+  // the automatic contents: parts and ## sections, unless a :::toc or :::agenda places them; after the opening text, as on the page
   const auto = c.d.placedToc ? [] : c.d.toc.filter((e) => e.level === 2 && e.id !== NOTES_ID);
   const body = [...blocks(c, doc.blocks.slice(0, c.d.contentsAt), fr), ...(auto.length >= 2 ? contents(c, L.contents, auto, fr) : []),
     ...blocks(c, doc.blocks.slice(c.d.contentsAt), fr)];
@@ -649,5 +694,5 @@ export async function renderDocx(doc: LibkaDocument, options: DocxOptions = {}):
     }],
   });
   const packed = new Uint8Array(await Packer.toArrayBuffer(document));
-  return normalize(packed, { lang: tag, tableCaptions: c.tableCaptions, ...(options.date ? { date: options.date } : {}) });
+  return normalize(packed, { lang: tag, tableCaptions: c.tableCaptions, scheme: wordScheme(W), ...(options.date ? { date: options.date } : {}) });
 }

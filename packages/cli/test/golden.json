@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "recorded": {
+    "commit": "2.0.4",
+    "reason": "the catalog's examples and text (badge, cards, kpi in points, the ui block's modes and its setting's title), the deck's Dark mode button and the manual example's wording changed; the default design is unchanged"
+  },
+  "documents": {
+    "examples/manual/guide.md": {
+      "web": "1e777d163abf0c5cad459da4064ff9a2fead2cbf4a33f96ee1a2dc999005047a",
+      "deck": "15648b3b8642b3d3c9fbcf313225cdd85ce604b63e9e82f18f3b1460a5a43877",
+      "docx": "d0cda66f9b6ea10ed7221ae61ab9ebd3fd42d6a16e381ad6afb07049363052f2",
+      "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+    },
+    "examples/open-source-guide/guide.md": {
+      "web": "a36bcd0cd2820ebe7a35ed6b49b1c6d1d3f389f6e960b549dfd27cda3f0aa7a3",
+      "deck": "97a758da94c73df6df071c8c93319bf0821d0cb1d797719a24097ae974037d9e",
+      "docx": "ce609735b929e819bc0d2e39a4174983d4185ff19f5c6b882d8906896aa83798",
+      "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+    },
+    "docs/blocks.md": {
+      "web": "795d7777f59cf937bd3a084726da0315058c39f081237cc01471d51819a45807",
+      "deck": "5c46bc2421bb4531dd40288f68ba604a80f6196cc96445f4ce715eec43cecc37",
+      "docx": "897627b2f578db7b8ac0005a5860e54f9ec560a071f0e0652e5ccb91441d35b7",
+      "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+    },
+    "packages/create-libka/templates/en/docs/guide.md": {
+      "web": "44f354f1ef4edcf87c2841c06cdac68a3a2af71758a80e121694ef66a05387d8",
+      "deck": "95f90256cf4e34fa85814d7d4163c94ace6750c665c695fce94afbd6c16178db",
+      "docx": "f7fe9cc1a5b2ba37fb507a0429b1841d08c43dd8c69a3b3c2f7edbad43c1590e",
+      "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+    },
+    "packages/create-libka/templates/cs/docs/guide.md": {
+      "web": "7c6e78a9b9d4c4f7b4e13e63eaa75c37b3368fada89a3ef839bd87f611c85fbb",
+      "deck": "efcaba58fb121a4e7e6ae9193df8e35a124b3bb61e9fa0acb42bc16c547ca67c",
+      "docx": "482ff8a206752a70a38e5078fbb303e4dcc709c87937013f3c0e20e80c27d7fb",
+      "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+    }
+  },
+  "chrome": {
+    "157.0.8103.52": {
+      "examples/open-source-guide/guide.md": {
+        "web": "22fc011cd0751b498d5344d4c6eaeb272a39ff15668446878975f38620e27a23",
+        "deck": "7e7975bf2b21af5e36b47331bf2480c3cd669fa9e34af8c21a29b71a552a42ad",
+        "pdf": "9afd81eaf292efa5d04b493540f1387a04b3185bbb709614377a8f4fb9c6763d",
+        "deckPdf": "60dad2db444ba3d20820a2f6f0fd4fd72d367d4302d6e59d096723087fd20d49",
+        "docx": "ce609735b929e819bc0d2e39a4174983d4185ff19f5c6b882d8906896aa83798",
+        "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+      },
+      "packages/create-libka/templates/cs/docs/guide.md": {
+        "web": "31b09be94b603c16cde3bfaf94d1432a64a3fc37fe2a86193bb45cc42f226f11",
+        "deck": "62bba001cb5bfd8db9dc784fa48c2f30297fd2f630ebd83e0c7fe2c061c4f391",
+        "pdf": "d6dd194a4f779bea4a6ddf12a01d79c7c6f0b1fe0ce085e320ecf017bf6d3106",
+        "deckPdf": "568fd86b8952e35108aacd6841fd1071204a8e0bc9077ef658cdc2d460ff080d",
+        "docx": "482ff8a206752a70a38e5078fbb303e4dcc709c87937013f3c0e20e80c27d7fb",
+        "docxTheme": "b19a94b2806b92aff90f11008fad0d77c86a3246fed8471b74b2c184414267fb"
+      }
+    }
+  }
+}

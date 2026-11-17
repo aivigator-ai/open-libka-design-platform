@@ -39,11 +39,11 @@ td.mono,th.mono{font-family:var(--mono);font-size:12px}
 </head>
 <body>
 <h1>LibKa — Verification</h1>
-<p class="sub">This page recomputes every accessibility claim in the browser from the token values that the build writes into this page from <code>tokens/*.tokens.json</code>. Nothing here is asserted by hand — open it, read the numbers. Toggle the theme to confirm both modes.</p>
+<p class="sub">This page recomputes every accessibility claim in the browser from the token values that the build writes into this page from <code>tokens/*.tokens.json</code>. Nothing here is asserted by hand — open it, read the numbers. Switch the mode to confirm both.</p>
 
 <div class="topbar">
-  <button class="btn" onclick="setTheme('light')">Light theme</button>
-  <button class="btn" onclick="setTheme('dark')">Dark theme</button>
+  <button class="btn" onclick="setTheme('light')">Light mode</button>
+  <button class="btn" onclick="setTheme('dark')">Dark mode</button>
   <button class="btn" onclick="runAll()">Re-run all checks</button>
 </div>
 
@@ -53,11 +53,11 @@ td.mono,th.mono{font-family:var(--mono);font-size:12px}
 <p class="note">Every component/icon/viz token that uses <code>ref</code> must point at a value that exists. A broken chain fails the build.</p>
 <div id="ref-result"></div>
 
-<h2>2 · Contrast matrix — light theme</h2>
+<h2>2 · Contrast matrix — light mode</h2>
 <p class="note">Normal text needs 4.5:1 (WCAG 2.2 AA). UI / large text / focus ring need 3:1.</p>
 <div id="contrast-light"></div>
 
-<h2>3 · Contrast matrix — dark theme</h2>
+<h2>3 · Contrast matrix — dark mode</h2>
 <div id="contrast-dark"></div>
 
 <h2>4 · Colorblind distinguishability (viz series)</h2>
@@ -70,7 +70,7 @@ td.mono,th.mono{font-family:var(--mono);font-size:12px}
 <!-- BEGIN GENERATED: token-data -->
 <script type="application/json" id="lk-token-data">
 {
- "version": "2.0.3",
+ "version": "2.0.4",
  "theme": {
   "light": {
    "bg.canvas": "#F6F7F9",
@@ -136,12 +136,12 @@ td.mono,th.mono{font-family:var(--mono);font-size:12px}
   }
  },
  "series": {
-  "1": "#0F8FA1",
-  "2": "#7A7CFF",
-  "3": "#F0B35E",
-  "4": "#16633F",
-  "5": "#D8576B",
-  "6": "#B8C0CC"
+  "1": "#138DAD",
+  "2": "#817AFE",
+  "3": "#C67A1D",
+  "4": "#206424",
+  "5": "#DA5353",
+  "6": "#8B8C8C"
  },
  "refs": {
   "button.primary.background": "color.semantic.action.primary",
@@ -488,7 +488,7 @@ function contrastTable(theme,elId){
   const fcr=contrast(T['focus.ring'],T['bg.canvas']);const fok=fcr>=3;fok?pass++:fail++;
   rows+=`<tr><td class="mono"><span class="swatch-cell" style="background:${T['focus.ring']}"></span>focus.ring</td><td class="num">3.0</td><td class="num" colspan="3">${fcr.toFixed(2)} on canvas ${fok?'<span class="pill p-pass">✓</span>':'<span class="pill p-fail">✗</span>'}</td></tr>`;
   totals.pass+=pass;totals.fail+=fail;
-  document.getElementById(elId).innerHTML=`<table><tr><th>Foreground</th><th>Need</th><th>on canvas</th><th>on surface</th><th>on elevated</th></tr>${rows}</table><p class="note">${pass} pass · ${fail} fail in ${theme} theme.</p>`;
+  document.getElementById(elId).innerHTML=`<table><tr><th>Foreground</th><th>Need</th><th>on canvas</th><th>on surface</th><th>on elevated</th></tr>${rows}</table><p class="note">${pass} pass · ${fail} fail in ${theme} mode.</p>`;
 }
 
 function colorblind(){

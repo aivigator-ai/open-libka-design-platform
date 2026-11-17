@@ -1,0 +1,12 @@
+{
+  "id": "policy",
+  "name": { "en": "Policy", "cs": "Směrnice" },
+  "description": {
+    "en": "A policy: its owner and review dates, numbered rules, a table of periods and a revision history, for the web, a PDF and Word.",
+    "cs": "Směrnice: vlastník a termíny revize, číslovaná pravidla, tabulka lhůt a historie změn, pro web, PDF a Word."
+  },
+  "file": "policy",
+  "theme": "classic",
+  "outputs": ["web", "pdf", "docx"],
+  "picture": "page"
+}

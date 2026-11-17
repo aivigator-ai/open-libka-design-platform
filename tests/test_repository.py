@@ -27,7 +27,7 @@ class SelfHostedFonts(unittest.TestCase):
             self.assertTrue(os.path.isfile(path), url)
             with open(path, 'rb') as f:
                 self.assertEqual(f.read(4), b'wOF2', url)
-        for family in ('fraunces', 'inter', 'jetbrains-mono'):
+        for family in ('fraunces', 'inter', 'jetbrains-mono', 'literata', 'bitter', 'space-grotesk', 'atkinson-hyperlegible-next', 'public-sans'):
             text = open(os.path.join(ROOT, 'fonts', 'licenses', f'OFL-{family}.txt'), encoding='utf-8').read()
             self.assertIn('SIL OPEN FONT LICENSE', text.upper())
 

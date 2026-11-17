@@ -8,13 +8,15 @@
  *   ####           stays inside its slide as a subheading
  *   :::notes       speaker notes of the slide it is in; never shown on the slide
  */
+import type { ResolvedDesign } from '@libka/design';
 import { plainText, sourceLine, type Block, type Inline, type LibkaDocument } from '@libka/model';
 import type { DeckLabels } from './deck-runtime.ts';
 import { DECK_RUNTIME } from './runtimes.ts';
-import { aiLabelText, authorItems, block, context, decisionBlock, docInfo, escapeHtml, inline, notesList, NOTES_ID, referencesList, REFERENCES_ID, releaseBlock, REVISIONS_ID, runtimeScript, statusItems, tocBlock, summary, uiStageCss, usesUi, type ManualStyles, type RenderContext } from './index.ts';
+import { AGENDA_ID, agendaBlock, agendaEntries, aiLabelText, CLOSING_ID, authorItems, block, context, decisionBlock, docInfo, escapeHtml, inline, notesList, NOTES_ID, referencesList, REFERENCES_ID, releaseBlock, REVISIONS_ID, runtimeScript, statusItems, tocBlock, summary, uiStageCss, usesUi, type ManualStyles, type RenderContext } from './index.ts';
 import { fill, formatDate, LABELS as LABELS_, langOf } from './labels.ts';
 import { typeset } from './typography.ts';
 import { withCsp } from './csp.ts';
+import { logoCss, logoHtml, withDesign, type DesignLogo } from './design.ts';
 
 export interface Slide {
   kind: 'title' | 'section' | 'content';
@@ -27,8 +29,10 @@ export interface Slide {
   notes: Block[];
   /** A :::section part divider (full-bleed section slide). */
   part?: boolean;
-  /** A slide of its own for a :::summary or :::toc; the slide heading names the block. */
+  /** A slide of its own for a :::summary, :::toc or :::agenda; the slide heading names the block. */
   lead?: boolean;
+  /** The :::closing slide: its title large, then the sentence, the recap and the contacts. */
+  closing?: boolean;
   /** The Notes or References slide at the end (or where :::references stands). */
   end?: 'notes' | 'references';
   /** Position in slides() before continuation slides were added, and which part of it this is (0 = the slide itself). */
@@ -71,10 +75,14 @@ export interface DeckOptions {
   layout?: DeckLayout;
   /** Mark each top-level block with its source line, as `ManualOptions.sourceLines` (LibKa Studio only). */
   sourceLines?: boolean;
+  /** The design, as `ManualOptions.design`: omitted, LibKa's default. */
+  design?: ResolvedDesign;
+  /** The brand's logo, above the title slide's title. */
+  logo?: DesignLogo;
 }
 
 /** Block types whose items can continue on the next slide (a long list, table, procedure or agenda). */
-export const SPLITTABLE = ['steps', 'list', 'checklist', 'table', 'revisions', 'shortcuts', 'dl', 'glossary', 'accordion', 'cards', 'toc'] as const;
+export const SPLITTABLE = ['steps', 'list', 'checklist', 'table', 'revisions', 'shortcuts', 'dl', 'glossary', 'accordion', 'cards', 'toc', 'agenda'] as const;
 export const isSplittable = (b: Block) => (SPLITTABLE as readonly string[]).includes(b.type);
 
 /** The items of a splittable block (steps, rows, terms, agenda entries ...), or none. */
@@ -83,7 +91,7 @@ export function itemCount(b: Block): number {
     case 'steps': return b.steps.length;
     case 'table': case 'revisions': return b.rows.length;
     case 'cards': return b.cards.length;
-    case 'toc': return b.entries ? b.entries[1] - b.entries[0] : 0;
+    case 'toc': case 'agenda': return b.entries ? b.entries[1] - b.entries[0] : 0;
     case 'list': case 'checklist': case 'shortcuts': case 'dl': case 'glossary': case 'accordion': return b.items.length;
     default: return 0;
   }
@@ -117,6 +125,7 @@ export function splitBlock(b: Block, cuts: readonly number[]): Block[] {
       case 'glossary': return { ...b, items: b.items.slice(from, to) };
       case 'accordion': return { ...b, items: b.items.slice(from, to) };
       case 'toc': return { ...b, entries: [b.entries![0] + from, b.entries![0] + to] };
+      case 'agenda': return { ...b, entries: [b.entries![0] + from, b.entries![0] + to] };
       default: return b;
     }
   });
@@ -194,8 +203,21 @@ export function slides(doc: LibkaDocument): Slide[] {
   let sections = 0;
   // an agenda on slides lists the sections and parts; giving it their count lets a long one continue on the next slide
   const agenda = info.toc.filter((e) => e.level <= 2).length;
+  // an :::agenda lists the sections and parts; unless once, it comes back before each section after it, marking it,
+  // except the first one: the agenda's own slide has just shown the plan (a part divider between them changes nothing)
+  const sectionsListed = agendaEntries(info).length;
+  let repeat: { block: Extract<Block, { type: 'agenda' }>; first: boolean } | undefined;
+  const again = (id: string) => {
+    if (!repeat) return;
+    if (repeat.first) { repeat.first = false; return; }
+    const r = repeat.block;
+    out.push({ kind: 'content', tag: '', heading: r.title ?? L.agenda, body: [{ ...r, entries: [0, sectionsListed], current: id }], notes: [], lead: true });
+  };
   for (const raw of doc.blocks) {
-    const before = out.length;
+    let before = out.length;
+    // a repeated agenda carries no source line: the section's slide after it does
+    const opens = raw.type === 'heading' && raw.level === 2 ? raw.id : raw.type === 'release' || raw.type === 'decision' ? raw.id : raw.type === 'revisions' ? REVISIONS_ID : undefined;
+    if (opens) { again(opens); before = out.length; }
     const b: Block = raw.type === 'toc' ? { ...raw, entries: [0, agenda] } : raw;
     if (b.type === 'section') {
       // a part divider: a full section slide of its own; the next ## starts the part's first section
@@ -205,6 +227,11 @@ export function slides(doc: LibkaDocument): Slide[] {
       // key takeaways or an agenda before the first section get their own slide after the title
       current = { kind: 'content', tag: '', heading: b.title ?? (b.type === 'toc' ? L.contents : L.keyTakeaways), body: [b], notes: [], lead: true };
       out.push(current);
+    } else if (b.type === 'agenda') {
+      // the agenda: a slide of its own wherever it stands
+      current = { kind: 'content', tag: '', heading: b.title ?? L.agenda, id: AGENDA_ID, body: [{ ...b, entries: [0, sectionsListed] }], notes: [], lead: true };
+      out.push(current);
+      if (!b.once) repeat = { block: b, first: true };
     } else if (b.type === 'release') {
       // one release per slide, headed by its version; ### after it are its slides; it counts as a section (the contents number it)
       section = b.version;
@@ -218,6 +245,10 @@ export function slides(doc: LibkaDocument): Slide[] {
       sections++;
       const parts = b.parts.flatMap((p): Block[] => [{ type: 'heading', level: 4, id: `${b.id}-${p.kind}`, text: [{ type: 'text', value: L.decision[p.kind] }] }, ...p.body]);
       current = { kind: 'section', tag: pad(sections), heading: b.title, id: b.id, body: [{ ...b, parts: [] }, ...parts], notes: [], lead: true };
+      out.push(current);
+    } else if (b.type === 'closing') {
+      // the closing slide, headed by its thank-you; the agenda does not come back before it
+      current = { kind: 'content', tag: '', heading: b.title ?? L.thankYou, id: CLOSING_ID, body: [b], notes: [], closing: true };
       out.push(current);
     } else if (b.type === 'references') {
       current = { kind: 'content', tag: '', heading: b.title ?? L.references, id: REFERENCES_ID, body: [], notes: [], end: 'references' };
@@ -260,14 +291,14 @@ const LABELS: Record<'en' | 'cs', DeckLabels & {
     noNotes: 'No speaker notes for this slide.', end: 'End of the deck.', popupBlocked: 'Allow pop-ups for this file to open the presenter view.',
     slide: 'slide', slides: 'Slides', controls: 'Slide controls', prev: 'Previous slide', next: 'Next slide',
     notes: 'Speaker notes', nextSlide: 'Next slide', overview: 'Overview', presenter: 'Presenter view', fullscreen: 'Full screen',
-    theme: 'Dark theme', contrast: 'High contrast', timer: 'Elapsed time', letters: 'Letter shortcuts',
+    theme: 'Dark mode', contrast: 'High contrast', timer: 'Elapsed time', letters: 'Letter shortcuts',
   },
   cs: {
     of: '{n} / {total}', announce: 'Snímek {n} z {total}: {title}', goTo: 'Přejít na snímek {n}: {title}',
     noNotes: 'K tomuto snímku nejsou poznámky řečníka.', end: 'Konec prezentace.', popupBlocked: 'Povolte pro tento soubor vyskakovací okna, aby se otevřel pohled přednášejícího.',
     slide: 'snímek', slides: 'Snímky', controls: 'Ovládání snímků', prev: 'Předchozí snímek', next: 'Další snímek',
     notes: 'Poznámky řečníka', nextSlide: 'Další snímek', overview: 'Přehled', presenter: 'Pohled přednášejícího', fullscreen: 'Celá obrazovka',
-    theme: 'Tmavý motiv', contrast: 'Vysoký kontrast', timer: 'Uplynulý čas', letters: 'Písmenové zkratky',
+    theme: 'Tmavý režim', contrast: 'Vysoký kontrast', timer: 'Uplynulý čas', letters: 'Písmenové zkratky',
   },
 };
 
@@ -276,17 +307,18 @@ function slideBlock(b: Block, ctx: RenderContext, headingId?: string): string {
   if (b.type === 'heading') return `<h3 class="lk-deck-h3">${inline(b.text, ctx)}</h3>`;
   if (b.type === 'summary' && headingId) return summary(b, ctx, headingId);
   if (b.type === 'toc' && headingId) return tocBlock(b, ctx, headingId);
+  if (b.type === 'agenda' && headingId) return agendaBlock(b, ctx, headingId);
   if (b.type === 'release' && headingId) return releaseBlock(b, ctx, headingId);
   if (b.type === 'decision' && headingId) return decisionBlock(b, ctx, headingId);
   return block(b, ctx);
 }
 
-function slideHtml(s: Slide, n: number, total: number, L: (typeof LABELS)['en'], ctx: RenderContext, subtitle?: string, status?: string, noteSlides?: Map<string, number>): string {
+function slideHtml(s: Slide, n: number, total: number, L: (typeof LABELS)['en'], ctx: RenderContext, subtitle?: string, status?: string, noteSlides?: Map<string, number>, logo = ''): string {
   const text = typeof s.heading === 'string' ? escapeHtml(s.heading) : inline(s.heading, ctx);
   const plain = typeof s.heading === 'string' ? s.heading : plainText(s.heading);
   const divider = s.kind === 'section' && (!s.body.length || s.part);
   const statement = s.body.length === 1 && s.body[0]!.type === 'statement';
-  const cls = (s.kind === 'title' ? ' lk-slide--title' : divider ? ` lk-slide--section${s.part ? ' lk-slide--part' : ''}` : statement ? ' lk-slide--statement' : '')
+  const cls = (s.kind === 'title' ? ' lk-slide--title' : divider ? ` lk-slide--section${s.part ? ' lk-slide--part' : ''}` : statement ? ' lk-slide--statement' : s.closing ? ' lk-slide--closing' : '')
     + (s.fit ? ` lk-slide--fit-${s.fit}` : '');
   const h = s.kind === 'title' ? 'h1' : 'h2';
   const id = s.id ?? (s.lead ? ctx.next('lead') : undefined);
@@ -298,7 +330,7 @@ function slideHtml(s: Slide, n: number, total: number, L: (typeof LABELS)['en'],
   const start = ctx.sourceLines && s.line && !s.continued ? ` data-lk-slide-line="${s.line}"` : '';
   return `<section class="lk-deck-frame" id="slide-${n}" data-title="${escapeHtml(plain)}"${start}${s.base !== undefined ? ` data-base="${s.base}" data-part="${s.continued ?? 0}" data-blocks="${s.body.length}"` : ''} data-role="${L.slide}" aria-roledescription="${L.slide}" aria-label="${n} / ${total}">
   <div class="lk-slide${cls}">
-${s.tag ? `    <span class="lk-slide-tag">${escapeHtml(s.tag)}</span>\n` : ''}    <${h} class="lk-slide-heading"${id ? ` id="${escapeHtml(id)}"` : ''}>${text}</${h}>
+${logo}${s.tag ? `    <span class="lk-slide-tag">${escapeHtml(s.tag)}</span>\n` : ''}    <${h} class="lk-slide-heading"${id ? ` id="${escapeHtml(id)}"` : ''}>${text}</${h}>
 ${subtitle ? `    <p class="lk-doc-subtitle">${escapeHtml(subtitle)}</p>\n` : ''}${content ? `    <div class="lk-slide-body">\n${content}\n    </div>\n` : ''}${status ? `    ${status}\n` : ''}  </div>${notes}
 </section>`;
 }
@@ -314,7 +346,7 @@ export function renderDeck(doc: LibkaDocument, options: DeckOptions): string {
   const ctx = context(meta.lang, 'deck', doc);
   if (options.sourceLines) ctx.sourceLines = true;
   const list = layoutSlides(slides(doc), options.layout, ctx.labels.continued);
-  const { styles } = options;
+  const styles = withDesign(options.styles, options.design);
   const button = (name: string, label: string, key: string, extra = '') =>
     `<button type="button" class="lk-deck-btn" data-deck="${name}"${extra}>${label} <span class="lk-deck-key" aria-hidden="true">${key}</span></button>`;
   // each footnote's first slide, for the "slide 4" links on the Notes slide
@@ -346,12 +378,12 @@ ${styles.bridge}
 ${styles.components}
 ${usesUi(doc.blocks) ? uiStageCss(styles.tokens, styles.bridge) : ''}
 ${styles.deck}
-</style>
+${logoCss(options.logo, false)}</style>
 </head>
 <body>
 <div class="lk-deck" data-mode="slides" data-notes="closed">
 <main class="lk-deck-viewport" aria-label="${L.slides}">
-${list.map((s, i) => slideHtml(s, i + 1, list.length, L, ctx, s.kind === 'title' ? meta.subtitle : undefined, s.kind === 'title' ? titleStatus : undefined, noteSlides)).join('\n')}
+${list.map((s, i) => slideHtml(s, i + 1, list.length, L, ctx, s.kind === 'title' ? meta.subtitle : undefined, s.kind === 'title' ? titleStatus : undefined, noteSlides, s.kind === 'title' ? logoHtml(options.logo, '    ') : '')).join('\n')}
 </main>
 <aside class="lk-deck-next" aria-labelledby="lk-deck-next-title" hidden>
   <h2 class="lk-deck-panel-title" id="lk-deck-next-title">${L.nextSlide}</h2>

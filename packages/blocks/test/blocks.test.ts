@@ -91,7 +91,7 @@ describe('block registry', () => {
       for (const [child, attrs] of Object.entries(b.children ?? {})) expect(Object.values(attrs).some((a) => a.quick), `${b.name}.${child}`).toBe(false);
       return marked.map(([k]) => `${b.name}@${k}`);
     });
-    expect(quick.sort()).toEqual(['callout@variant', 'chart@type', 'cta@variant', 'decision@status', 'flow@shape', 'matrix@type', 'references@style', 'section@break', 'summary@source', 'toc@depth', 'ui@layout']);
+    expect(quick.sort()).toEqual(['agenda@once', 'callout@variant', 'chart@type', 'cta@variant', 'decision@status', 'flow@shape', 'matrix@type', 'references@style', 'section@break', 'summary@source', 'toc@depth', 'ui@layout']);
   });
 
   it('has a Czech example and Czech "when to use" for every block, and nothing more', () => {

@@ -29,8 +29,24 @@ describe('LibKa MCP server over stdio', () => {
 
   it('offers the tools, resources and prompt', async () => {
     expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(['libka_build', 'libka_check', 'libka_get_block', 'libka_list_blocks']);
-    expect((await client.listResources()).resources.map((r) => r.uri).sort()).toEqual(['libka://guide', 'libka://reference', 'libka://schema/document']);
+    expect((await client.listResources()).resources.map((r) => r.uri).sort()).toEqual(['libka://guide', 'libka://reference', 'libka://schema/document',
+      ...['decision-record', 'manual', 'policy', 'report', 'talk'].flatMap((id) => [`libka://template/${id}/cs`, `libka://template/${id}/en`]), 'libka://templates']);
     expect((await client.listPrompts()).prompts.map((p) => p.name)).toEqual(['convert-to-libka']);
+    expect(client.getInstructions()).toMatch(/libka:\/\/templates[\s\S]*_brand\.yml[\s\S]*"Brand file"/);
+  });
+
+  it('offers the templates: the list with names, theme and outputs, and each one\'s text in English and Czech', async () => {
+    const list = JSON.parse(((await client.readResource({ uri: 'libka://templates' })) as { contents: { text: string }[] }).contents[0]!.text);
+    expect(list.map((t: { id: string }) => t.id)).toEqual(['decision-record', 'manual', 'policy', 'report', 'talk']);
+    expect(list.find((t: { id: string }) => t.id === 'report')).toMatchObject({ name: { en: 'Report', cs: 'Zpráva' }, theme: 'classic', outputs: ['web', 'pdf', 'docx'], text: { en: 'libka://template/report/en' } });
+    const talk = (await client.readResource({ uri: 'libka://template/talk/cs' })) as { contents: { text: string }[] };
+    expect(talk.contents[0]!.text).toMatch(/^---\ntitle:[\s\S]*lang: cs[\s\S]*:::agenda/);
+    await expect(client.readResource({ uri: 'libka://template/memo/en' })).rejects.toThrow(/No template memo in en/);
+  });
+
+  it('documents the brand file in the reference', async () => {
+    const ref = ((await client.readResource({ uri: 'libka://reference' })) as { contents: { text: string }[] }).contents[0]!.text;
+    expect(ref).toMatch(/## Brand file[\s\S]*typography:[\s\S]*link:[\s\S]*defaults:\n {2}libka:/);
   });
 
   it('lists blocks with what they fit, and what to write for content without a block', async () => {
@@ -55,6 +71,14 @@ describe('LibKa MCP server over stdio', () => {
     expect(data.ok).toBe(false);
     expect(data.problems.map((p: { line: number }) => p.line)).toEqual([7, 13, 13]);
     expect(data.slides).toBe(2);
+  });
+
+  it('says the design a document is built with, and checks a brand file when it knows where the document is', async () => {
+    const themed = await call('libka_check', { markdown: '---\ntitle: T\ntheme: modern\n---\n\nText.\n' });
+    expect(themed.data.design).toEqual({ brand: 'libka', theme: 'modern', notes: [] });
+    const missing = await call('libka_check', { markdown: '---\ntitle: T\nbrand: _brand.yml\n---\n\nText.\n', path: join(tmpdir(), 'libka-mcp-no-brand', 'doc.md') });
+    expect(missing.data.ok).toBe(false);
+    expect(missing.data.problems[0]).toMatchObject({ code: 'brand-unknown', line: 1 });
   });
 
   it('serves the guide, the generated reference and the document schema', async () => {
@@ -84,6 +108,9 @@ describe('LibKa MCP server over stdio', () => {
     expect(data.ok).toBe(true);
     expect(data.files.map((f: string) => f.split(/[\\/]/).pop())).toEqual(['release.html', 'release.manifest.json', 'release.conformance.md', 'release.deck.html', 'release.deck.manifest.json', 'release.deck.conformance.md']);
     expect(data.guard.slides.every((c: { violations: number }) => c.violations === 0)).toBe(true);
+    // the page's checks only under web; no PDF or Word file was asked for
+    expect(data.guard.web.map((c: { check: string }) => c.check.split('/')[0])).not.toContain('pdfua');
+    expect(data.guard).not.toHaveProperty('pdf');
   }, 120000);
 });
 

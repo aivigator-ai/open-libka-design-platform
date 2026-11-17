@@ -16,11 +16,11 @@ It needs Node.js 22.18 or newer. Building needs Google Chrome (or a Chrome or Ch
 - `libka_list_blocks` and `libka_get_block`: the blocks a document can use, with their syntax and an example.
 - `libka_check`: the problems in a LibKa document, each on its line, with fixes where they are safe.
 - `libka_build`: the outputs the document asks for, each checked and, when it passes, signed.
-- The resources `libka://guide`, `libka://reference` and `libka://schema/document` (how to write LibKa, the block reference, the document model), and the prompt `convert-to-libka`.
+- The resources `libka://guide`, `libka://reference`, `libka://schema/document`, `libka://templates` and `libka://template/{id}/{lang}` (how to write LibKa, the block reference, the document model, the five templates and one of them in English or Czech), and the prompt `convert-to-libka`.
 
 ## What the plugin runs, fetches, reads and writes
 
-- **Runs:** `launch.mjs` starts `npx -y @libka/mcp@2.0.3`, the MCP server at exactly this plugin's version. On Windows it goes through the command shell, because `npx` is a `.cmd` file there; the command is fixed.
+- **Runs:** `launch.mjs` starts `npx -y @libka/mcp@2.0.4`, the MCP server at exactly this plugin's version. On Windows it goes through the command shell, because `npx` is a `.cmd` file there; the command is fixed.
 - **Fetches:** the first start downloads that version of [`@libka/mcp`](https://www.npmjs.com/package/@libka/mcp) and its dependencies from the npm registry into npm's cache; later starts use the cache. Nothing else is fetched: a page's Content Security Policy blocks anything a document links by web address, and Guard reports it as a finding.
 - **Starts on this computer:** Chrome without a window, to render and check each output; veraPDF (with Java), when it is installed, to validate PDFs.
 - **Reads:** the documents Claude asks it to check or build, the images they reference and the files their `:::download` blocks name; the project's signing key and trusted keys in `.libka/` (or `LIBKA_SIGNING_KEY`); the settings `LIBKA_OUT`, `LIBKA_BROWSER`, `LIBKA_VERAPDF`, `LIBKA_JAVA` and `LIBKA_REQUIRE_VERAPDF` when they are set.

@@ -1,6 +1,6 @@
 # LibKa block reference
 
-Generated from the block registry (LibKa 2.0.3). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
+Generated from the block registry (LibKa 2.0.4). Do not edit by hand: `node packages/blocks/src/build-skill.ts`.
 
 ## Front matter
 
@@ -31,6 +31,8 @@ references:                 # optional: sources cited as [@id]
     year: 2024
 lang: en            # en or cs; sets the language of the page text
 outputs: [web, pdf, docx]   # optional: what the build makes: web, pdf, deck, docx (default: web and pdf)
+theme: modern               # optional: classic (the default) or modern, or a .theme.json file in the project
+brand: ../_brand.yml        # optional: a brand file, the path relative to this document, or libka for LibKa's own (see "Brand file")
 ai:                         # optional: how AI took part; leave it out when it did not
   use: ai-generated         # ai-generated (AI wrote it) or ai-assisted (AI helped with a person's text); alone: ai: ai-generated
   reviewed-by: Ann Novak    # optional: who checked it and holds editorial responsibility
@@ -39,6 +41,51 @@ ai:                         # optional: how AI took part; leave it out when it d
 ```
 
 `ai` records how AI took part, in the signed manifest; it is the author's declaration. Its optional fields are `reviewed-by`, `approved-by`, `tool`, `date` (YYYY-MM-DD), `checked` (a list, such as `[facts, figures]`) and `label`. The label is shown only with `label: true`: "Created with AI tools." under the title (on the title slide of a deck), with "Reviewed and approved by …" when it names someone, and an "AI-generated" badge before each block marked `ai=generated` that nobody is named as having reviewed. Any block except `toc`, `references`, `byline` and `doc-status` takes `ai=generated` or `ai=assisted` for the parts AI wrote; `:::summary{source=ai}` counts as `ai=generated`. `lint` reminds you when AI-generated content names nobody who reviewed it and shows no label: AI-generated text that informs the public on matters of public interest needs a person's review with editorial responsibility, or a label (EU AI Act, Article 50(4)); whether a document does is the author's call.
+
+`theme` and `brand` choose the design: a theme sets the type, the heading weight, the corners and the density (`classic`: Fraunces headings over Inter, headings semi-bold, medium corners; `modern`: Space Grotesk headings over Inter, headings bold, small corners); a brand sets the colours, fonts from LibKa's list and a logo ("Brand file" below). Without them the build takes the project's `_brand.yml` (next to the document or in a folder above it, up to the project's root) and the theme it names (`defaults.libka.theme`), else LibKa's brand and Classic; a document's `theme:` wins over the brand's. A brand's colours never fail: LibKa moves a colour that would fail a contrast check to a passing shade of the same hue, in every mode, and the build says what it did. Leave both out unless the user names a brand, a theme or a look; never write colours or fonts into the document. In a Marp deck (`marp: true`) `theme` is Marp's.
+
+## Brand file
+
+A brand is a `_brand.yml` file in the project (Posit's brand.yml format, of which LibKa reads the subset below). Put it at the project's root, so every document finds it without `brand:`; the logo files go next to it or in a folder below it. LibKa reports every other key: one brand.yml does not have is an error (with the nearest key), one LibKa does not use is a warning saying why, another tool's `defaults` a note. `libka lint` checks the brand file with the document.
+
+```yaml
+meta:
+  name:
+    full: Tern Bay Literacy Trust     # the logo's alt text when its image gives none
+    short: Tern Bay
+logo:
+  images:
+    mark: { path: brand/mark.svg, alt: Tern Bay Literacy Trust }   # SVG or PNG, next to the brand file or below it
+    mark-light: { path: brand/mark-on-dark.svg, alt: Tern Bay Literacy Trust }
+  medium:                    # LibKa uses medium, else small, else large
+    light: mark
+    dark: mark-light         # optional: the variant for the dark modes
+color:
+  palette:                   # names for hex colours, used below
+    harbour: "#0B6E4F"
+    sunrise: "#FFA62B"
+    teal: "#7FD1C7"
+  primary: harbour           # bars, borders, charts, the accent button, links and accent text
+  secondary: sunrise         # the AI marks and the AI button; chart series 2 without a list
+typography:
+  headings: Bitter           # a family from LibKa's list (below)
+  base: Public Sans          # the body text
+  link:
+    color: harbour           # optional: links and accent text from this colour instead of the primary
+defaults:
+  libka:
+    id: tern-bay             # optional: names the lock file and the brand in the signed manifest
+    theme: classic           # the project's theme; a document's theme: wins
+    charts: [harbour, sunrise, teal]   # optional: 1 to 6 chart colours in order; LibKa's fill the rest
+    neutral: tinted          # optional: the greys take a little of the primary colour's hue
+```
+
+- **Colours are seeds.** Each role gets the brand colour if it passes, else the nearest shade of its hue that does, in each mode (light, dark and both high-contrast modes), and the build says so in words: "the primary colour #F2C500: bars, borders and charts use #A88800 to reach 3:1; links and accent text use #7D6400 to reach 4.5:1". A light primary colour (a yellow, a pale coral) keeps its look on bars and the button but turns dark and dull as text; when the brand has a darker colour, name it in `typography.link.color` and tell the user. Status colours (success, warning, error, info), text colours and backgrounds stay LibKa's, so `color.foreground`, `background`, `tertiary`, `success`, `warning`, `danger`, `info`, `light` and `dark` are not used.
+- **Fonts:** LibKa ships its fonts and never fetches any. Headings: Fraunces, Inter, Literata, Bitter, Space Grotesk, Atkinson Hyperlegible Next, Public Sans. Body text: Inter, Literata, Bitter, Atkinson Hyperlegible Next, Public Sans. Code is always JetBrains Mono. A brand's font outside the list (Helvetica, Myriad, Calibri, a system font) cannot be used: choose the nearest from the list (a neutral sans: Inter or Public Sans; a serif: Literata or Bitter) and tell the user. The theme sets the weights and sizes; `typography.fonts` may list the families, but its `source` is not used. A Word file carries no fonts: it uses Georgia for Fraunces, Literata and Bitter, and Arial for the sans families.
+- **The logo** goes above the title of the web page and the PDF's first page, on the title slide and above the title in Word, with its alt text; the dark variant in the dark modes. It is not repeated on later pages.
+- **Charts:** `defaults.libka.charts`, else the primary and secondary colours, then LibKa's series; each is moved to 3:1 against the page if needed, and the build names the series that moved and those LibKa filled.
+- **The lock:** the first build writes `<id>.<theme>.design.lock.json` (`brand.<theme>…` without an `id`) next to the brand file, the solved design; commit it with the brand file. It is written again when the brand, the theme or LibKa's solver changes.
+- **Not carried:** the logo's clear space or a logo on every page, the secondary colour beyond the AI marks and charts, heading weights, link decoration (links stay underlined), backgrounds. Say so to the user when their brand guide asks for these.
 
 Quote `version` and `date` (YAML would read 1.10 as a number), and any value that contains a colon (`title: "Payments: onboarding"`); `reviewed` and `next-review` work quoted or not. `date` is the publication date as free text ("2026-10-03" or "October 2026"); leave it out when it would only repeat `reviewed`. Write every date in the source as YYYY-MM-DD (the front matter, a decision's or a release's `date`, the revision history, a timeline's days and months); the outputs write it in the document's language: `long` "28 October 2026" / "28. října 2026" (the default), `short` "28/10/2026" / "28. 10. 2026", `iso` "2026-10-28". Set `date-format` only when the user asks for a format; the machine-readable date stays ISO. A reference entry has only the fields shown: `id`, `title`, `author`, `year`, `publisher`, `url`.
 
@@ -73,7 +120,9 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 | Policies, procedures, specifications and any page readers must trust: who owns it, when it was last reviewed, when the next review is due, and whether it is still valid. | Document status (`doc-status`) |
 | Articles, reports, policies and proposals where readers want to know who wrote them. The front matter key author shows the authors under the title by itself; place :::byline only to show them elsewhere, such as at the end of an article. | Byline (`byline`) |
 | Policies, procedures, manuals and proposals that change over time and must show what changed in each version, when, and who approved it. | Revision history (`revisions`) |
-| Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep. | Table of contents (`toc`) |
+| Long documents where readers jump to a section. Manuals already get contents by themselves; place :::toc to choose where they go and how deep. For the agenda of a talk, use :::agenda. | Table of contents (`toc`) |
+| A talk, training or workshop deck with three or more sections, where the audience should see the plan and where in it they are. | Agenda (`agenda`) |
+| The end of a talk, training or proposal: a thank-you, the points to remember and how to get in touch. | Closing (`closing`) |
 | A report, proposal or study that cites sources with `[@id]`; place the list where it belongs and choose its style. Without the block the list is added at the end. | References (`references`) |
 | Release notes or a changelog: what changed in each version, grouped as added, changed, deprecated, removed, fixed and security (Keep a Changelog). | Release notes (`release`) |
 | A decision readers must be able to trace: an architecture or policy decision, a choice between suppliers or tools, a board resolution. Why it was needed, what was considered, what was decided, when and by whom, and what follows from it. | Decision record (`decision`) |
@@ -105,14 +154,15 @@ Quote `version` and `date` (YAML would read 1.10 as a number), and any value tha
 | Data with rows and columns that readers look up or compare: versions, prices, specifications. | Table (`table`) |
 | Dated events or phases in order: a roadmap, a project plan, a history, CV experience. Mark where things stand now with current=. | Timeline (`timeline`) |
 | Options, plans or products compared feature by feature, often with one recommended: pricing plans, tool choices, vendor offers. | Comparison table (`comparison`) |
-| Numbers whose pattern matters: comparisons between categories (bar), change over time (line), parts of a whole (donut). | Chart (`chart`) |
+| Numbers whose pattern matters: comparisons between categories (bar, or hbar for long category names), change over time (line), parts of a whole (donut, or stacked bars for parts of several totals). | Chart (`chart`) |
+| A figure that is tracked over time, with how it changed and its recent trend: revenue, response time, satisfaction on a dashboard or a review slide. | KPI (`kpi`) |
 | Documenting or specifying an interface: which button, field, message or dialog the reader will see. | UI specimen (`ui`) |
 | What a presenter should say that does not belong on the slide. | Speaker notes (`notes`) |
 
 ## Inside text
 
 - **Key**: Keys and key combinations as key caps; + separates the keys. Example: `Press :kbd[Ctrl+Shift+P].`
-- **Badge**: A short status label inside text: neutral, info, success, warning, error or ai. Example: `Export to PowerPoint :badge[Beta]{variant=info}`
+- **Badge**: A short status label inside text: neutral, info, success, warning, error or ai. Example: `The page checks :badge[Passed]{variant=success}`
 - **Footnote**: An aside or a source without breaking the sentence: `[^name]` in the text and `[^name]: the note` on its own line at the top level (the end of the document is best). Notes are numbered by first use and collected under Notes at the end; decks get a Notes slide. Every note must be used and every reference defined. Example:
 
   ```markdown
@@ -290,9 +340,9 @@ Avoid:
 
 ### Table of contents (`toc`)
 
-The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.
+The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it lists the sections once.
 
-Use it when: Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep.
+Use it when: Long documents where readers jump to a section. Manuals already get contents by themselves; place :::toc to choose where they go and how deep. For the agenda of a talk, use :::agenda.
 
 ```markdown
 :::toc[Contents]{depth=3}
@@ -302,11 +352,58 @@ Use it when: Long documents where readers jump to a section, or a deck that open
 Attributes:
   - `depth`: 2 lists ## sections and parts, 3 adds ### subsections. One of: 2, 3.
 
-Slides: An agenda of the ## sections and parts; its own slide when it comes before the first ##.
+Slides: A list of the ## sections and parts; its own slide when it comes before the first ##.
 
 Avoid:
 - Contents in a short document with two or three sections.
 - Depth 3 on slides: the agenda shows sections only.
+
+### Agenda (`agenda`)
+
+The agenda of a talk, built from the ## sections and parts where it stands. On slides it has a slide of its own and comes back before each ## after it, with the current section marked in words and bold; once keeps only the first. On the web page, in the PDF and in Word it is a short contents list that replaces the automatic one.
+
+Use it when: A talk, training or workshop deck with three or more sections, where the audience should see the plan and where in it they are.
+
+```markdown
+:::agenda[Agenda]
+:::
+```
+
+Attributes:
+  - `once`: Show the agenda once, without repeating it before each section.
+
+Slides: A slide of its own, then again before each ## after it with the current section in bold and the word "Now"; a long agenda continues on the next slide.
+
+Avoid:
+- An agenda in a short deck with two sections.
+- An agenda right next to a :::toc: on slides both list the same sections (a :::toc{depth=3} for the web page and an agenda for the slides is fine).
+- An agenda inside another block (reported).
+
+### Closing (`closing`)
+
+The last section: a thank-you as its title, an optional sentence, an optional recap list of up to five points, and the contacts as real links written out in full. On slides it is the closing slide.
+
+Use it when: The end of a talk, training or proposal: a thank-you, the points to remember and how to get in touch.
+
+```markdown
+:::closing[Thank you]{email=team@example.org url=https://example.org/contact}
+Questions are welcome, now or later.
+
+- Check every image for a text alternative.
+- Run the build before you share a file.
+:::
+```
+
+Attributes:
+  - `email`: An e-mail address for questions, shown in full as a mailto: link (checked).
+  - `url`: A web address for more, shown in full as a link (checked); the link reads the address without https:// and a trailing slash, and https:// is added when it is missing. Say in the sentence what the page is ("the dashboard").
+
+Slides: The closing slide: the title large, the sentence, the recap and the contacts.
+
+Avoid:
+- Anything after the closing except speaker notes and :::references (reported, with a fix that moves it to the end).
+- A long recap: more than five points do not fit one slide (reported).
+- A closing inside another block (reported).
 
 ### References (`references`)
 
@@ -631,7 +728,7 @@ Avoid:
 
 ### Diagram (`diagram`)
 
-A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast themes.
+A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast modes.
 
 Use it when: A process, a sequence of messages, states and transitions, a class model or a data model that a picture explains better than a list: flowcharts, sequence, state, class and entity-relationship diagrams.
 
@@ -802,7 +899,7 @@ Use it when: Pointers to related pages, products, options or next steps, each wi
 File names, highlighted lines and a copy button.
 :::
 :::card[Charts]{href="#chart" badge="New"}
-Bar, line and donut charts drawn from a table.
+Bar, line and donut charts, and horizontal and stacked bars, drawn from a table.
 :::
 ::::
 ```
@@ -1064,9 +1161,9 @@ Avoid:
 
 ### Chart (`chart`)
 
-A bar, line or donut chart drawn from a Markdown table; the table stays available as the accessible version.
+A bar, horizontal bar, line or donut chart drawn from a Markdown table; stacked bars split each total into its parts. The table stays available as the accessible version.
 
-Use it when: Numbers whose pattern matters: comparisons between categories (bar), change over time (line), parts of a whole (donut).
+Use it when: Numbers whose pattern matters: comparisons between categories (bar, or hbar for long category names), change over time (line), parts of a whole (donut, or stacked bars for parts of several totals).
 
 ```markdown
 :::chart{type=bar caption="Staff who find the handbook easy to use" unit="%"}
@@ -1079,9 +1176,10 @@ Use it when: Numbers whose pattern matters: comparisons between categories (bar)
 ```
 
 Attributes:
-  - `type` (required): Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: bar, line, donut.
+  - `type` (required): Bar for comparison, hbar (horizontal bars) when the category names are long or many, line for trends, donut for parts of a whole (one series, at most 5 parts). One of: bar, hbar, line, donut.
   - `caption` (required): What the chart shows.
   - `unit`: Unit of the values, such as % or €.
+  - `stacked`: Bars only: stack the series into one bar per category, its parts with the total at the end.
 
 Slides: Chart on the slide.
 
@@ -1089,6 +1187,36 @@ Avoid:
 - 3D, decorative gradients and animation on load.
 - Donuts with more than 5 parts.
 - More than 6 series.
+- Vertical bars whose category names overlap: use type=hbar.
+
+### KPI (`kpi`)
+
+One figure with its change in words and an arrow, a small trend line and an optional sentence. Two to four kpi blocks in a row sit side by side and share one slide; one alone stands large.
+
+Use it when: A figure that is tracked over time, with how it changed and its recent trend: revenue, response time, satisfaction on a dashboard or a review slide.
+
+```markdown
+:::kpi[Requests answered within a day]{value="94%" change="+6 pp" since="Q2" trend="81,85,88,94"}
+:::
+
+:::kpi[Median waiting time]{value="3.2 h" change="-1.1 h" since="Q2" good=down trend="5.1,4.6,4.3,3.2"}
+The new triage rules took effect in August.
+:::
+```
+
+Attributes:
+  - `value` (required): The figure as it should read, with its unit: value="94%", value="€1.2M".
+  - `change`: The change with its sign, as it should read: change=+12%, change="-1.1 h", change=0; a change of a percentage is in points (change="+6 pp"). When the source gives only the values, it is the difference to the period named in since.
+  - `since`: What the change is measured against; the output puts "since" before it in English ("up 6 pp since Q2") and "oproti" in Czech, so a Czech value follows that word (since="roku 2025").
+  - `good`: Which way is better: up (the default) or down, for costs, errors and waiting times. One of: up, down.
+  - `trend`: 3 to 24 recent values, oldest first (with only two, leave the trend out: the change says it), separated by commas (trend="81,85,88,94") or, with decimal commas, by semicolons (trend="3,5; 4,1"). The line has no labels and the values are written out under "Show the data": name the periods in a sentence, or give a table when each period matters.
+
+Slides: The row on one slide; a single figure large.
+
+Avoid:
+- More than four figures in a row.
+- A change without what it is measured against.
+- A trend line as the only way to tell the direction.
 
 ## UI specimens
 
@@ -1108,7 +1236,7 @@ Use it when: Documenting or specifying an interface: which button, field, messag
 
 Attributes:
   - `caption` (required): What the specimen shows.
-  - `theme`: Show it in the light theme, the dark theme or both side by side. One of: light, dark, both.
+  - `theme`: Show it in light mode, dark mode or both side by side. One of: light, dark, both.
   - `layout`: Components in a row (default) or stacked. One of: row, stack.
   - `button: label` (required): Button text, a verb: ::button[Save draft].
   - `button: variant`: Manual 10.1. One of: primary, accent, iris, secondary, destructive, ghost.
@@ -1122,7 +1250,7 @@ Attributes:
   - `field: options`: Choices for select and radio, separated by |.
   - `field: state`: Manual 10.2 states. One of: default, hover, focus, disabled, readonly.
   - `field: required`: Marks the field as required.
-  - `badge: label` (required): Short status: ::badge[Beta].
+  - `badge: label` (required): Short status: ::badge[Passed].
   - `badge: variant`: Meaning. One of: neutral, info, success, warning, error, ai.
   - `toast: label` (required): The message title: ::toast[Draft saved].
   - `toast: variant`: Meaning. One of: info, success, warning, error.
@@ -1162,9 +1290,6 @@ LibKa has no block for these kinds of content. Never invent block syntax for the
 | Terminal session: shell commands with prompt and output told apart. | A code block with title="Terminal", commands only. |
 | API endpoint: method, path, parameters and responses. | ### POST /v1/users with a :::table of parameters and code examples. |
 | File tree: a project or folder structure. | A nested list, or a code block of the tree. |
-| Agenda slide: the talk outline, highlighting the current section. | :::toc[Agenda] before the first ## gives an agenda slide (without highlighting the current section). |
-| Closing / contact slide: thank you, recap and contact at the end of a deck. | A final ## section with a statement and links. |
-| KPI with trend: a number with its change and a word-sized trend line. | :::metrics with the change written out ("up 12% on Q2"). |
 | Org chart: reporting lines or a decision tree. | A nested list. |
 | Map: a location or regional data. | A figure of the map plus the address as text. |
 | Pull quote: a line from the text repeated large, magazine style. | :::statement. |

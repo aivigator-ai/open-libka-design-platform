@@ -94,9 +94,35 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
   },
   toc: {
     title: 'Obsah',
-    summary: 'Obsah na místě, kde stojí: oddíly ## a části (depth=2, výchozí) nebo i pododdíly ### (depth=3). Nahradí automatický obsah; v prezentaci je to program.',
+    summary: 'Obsah na místě, kde stojí: oddíly ## a části (depth=2, výchozí) nebo i pododdíly ### (depth=3). Nahradí automatický obsah; v prezentaci vypíše oddíly jednou.',
     attributes: {
       depth: { help: '2 vypíše oddíly ## a části, 3 přidá pododdíly ###.', values: { 2: 'Oddíly', 3: 'Oddíly a pododdíly' } },
+    },
+  },
+  agenda: {
+    title: 'Program',
+    summary: 'Program přednášky z oddílů ## a částí v místě, kde stojí. Ve snímcích má vlastní snímek, vrací se před každým dalším oddílem ## a aktuální oddíl označí slovem „Nyní“ a tučným písmem; once ponechá jen první. Na webové stránce, v PDF a ve Wordu je to krátký obsah, který nahradí automatický.',
+    attributes: {
+      once: { help: 'Zobrazí program jen jednou, bez opakování před každým oddílem.' },
+    },
+  },
+  closing: {
+    title: 'Závěr',
+    summary: 'Poslední oddíl: poděkování jako nadpis, volitelná věta, volitelné shrnutí nejvýš v pěti bodech a kontakty jako skutečné odkazy vypsané celé. Ve snímcích je to závěrečný snímek.',
+    attributes: {
+      email: { help: 'E-mailová adresa pro dotazy, zobrazená celá jako odkaz mailto: (kontroluje se).' },
+      url: { help: 'Webová adresa, kde se dozvědět víc, zobrazená celá jako odkaz (kontroluje se); text odkazu je adresa bez https:// a koncového lomítka a chybějící https:// se doplní. Co na stránce je, řekněte ve větě („přehled“).' },
+    },
+  },
+  kpi: {
+    title: 'Ukazatel (KPI)',
+    summary: 'Jedno číslo se změnou vyjádřenou slovy a šipkou, malou čárou vývoje a volitelnou větou. Dva až čtyři bloky kpi za sebou stojí vedle sebe a sdílejí jeden snímek; jeden samotný je velký.',
+    attributes: {
+      value: { help: 'Číslo tak, jak se má číst, i s jednotkou: value="94 %", value="1,2 mil. Kč".' },
+      change: { help: 'Změna se znaménkem, jak se má číst: change="+12 %", change="-1,1 h", change=0; změna procentního údaje je v procentních bodech (change="+6 p. b."). Když podklady dávají jen hodnoty, je to rozdíl oproti období v since.' },
+      since: { help: 'Oproti čemu se změna měří; výstup před hodnotu píše „oproti“, takže hodnota je ve 3. pádě: since="roku 2025", since="2. čtvrtletí".' },
+      good: { help: 'Který směr je lepší: up (výchozí) nebo down, u nákladů, chyb a čekání.', values: { up: 'Nahoru', down: 'Dolů' } },
+      trend: { help: '3 až 24 posledních hodnot od nejstarší (jen se dvěma trend vynechte, řekne to změna), oddělené čárkami (trend="81,85,88,94"), nebo při desetinných čárkách středníky (trend="3,5; 4,1"). Čára nemá popisky a hodnoty se vypíší pod „Zobrazit data“: období uveďte ve větě, nebo v tabulce, když záleží na každém z nich.' },
     },
   },
   references: {
@@ -177,7 +203,7 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
   },
   diagram: {
     title: 'Diagram',
-    summary: 'Diagram Mermaid zapsaný jako text v bloku ```mermaid, při sestavení dokumentu nakreslený jako SVG. accTitle (titulek) a accDescr (popis pro čtenáře, kteří ho nevidí) jsou povinné. Barvy a písma nastavuje LibKa, takže se řídí světlým, tmavým i vysoce kontrastním motivem.',
+    summary: 'Diagram Mermaid zapsaný jako text v bloku ```mermaid, při sestavení dokumentu nakreslený jako SVG. accTitle (titulek) a accDescr (popis pro čtenáře, kteří ho nevidí) jsou povinné. Barvy a písma nastavuje LibKa, takže se řídí světlým, tmavým i vysoce kontrastním režimem.',
   },
   compare: {
     title: 'Dělejte a nedělejte',
@@ -315,14 +341,15 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
   },
   chart: {
     title: 'Graf',
-    summary: 'Sloupcový, spojnicový nebo prstencový graf nakreslený z tabulky Markdownu; tabulka zůstává dostupná jako přístupná verze.',
+    summary: 'Sloupcový, pruhový, spojnicový nebo prstencový graf nakreslený z tabulky Markdownu; skládané sloupce rozdělí každý součet na části. Tabulka zůstává dostupná jako přístupná verze.',
     attributes: {
       type: {
-        help: 'Sloupcový pro srovnání, spojnicový pro vývoj, prstencový pro části celku (jedna řada, nejvýše 5 částí).',
-        values: { bar: 'Sloupcový', line: 'Spojnicový', donut: 'Prstencový' },
+        help: 'Sloupcový pro srovnání, pruhový (vodorovné pruhy), když jsou názvy kategorií dlouhé nebo jich je hodně, spojnicový pro vývoj, prstencový pro části celku (jedna řada, nejvýše 5 částí).',
+        values: { bar: 'Sloupcový', hbar: 'Pruhový', line: 'Spojnicový', donut: 'Prstencový' },
       },
       caption: { help: 'Co graf ukazuje.' },
       unit: { help: 'Jednotka hodnot, například % nebo €.' },
+      stacked: { help: 'Jen u sloupců a pruhů: řady se poskládají do jednoho sloupce na kategorii, s částmi a součtem na konci.' },
     },
   },
   ui: {
@@ -330,7 +357,7 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
     summary: 'Skutečné komponenty LibKa tak, jak vypadají (světlé, tmavé nebo obojí), pro manuály, produktovou dokumentaci a specifikace. Jsou neaktivní: ilustrují, nic nedělají.',
     attributes: {
       caption: { help: 'Co ukázka předvádí.' },
-      theme: { help: 'Zobrazit ve světlém motivu, v tmavém, nebo obojí vedle sebe.', values: { light: 'Světlý', dark: 'Tmavý', both: 'Oba' } },
+      theme: { help: 'Zobrazit ve světlém režimu, v tmavém, nebo obojí vedle sebe.', values: { light: 'Světlý', dark: 'Tmavý', both: 'Oba' } },
       layout: { help: 'Komponenty v řadě (výchozí) nebo pod sebou.', values: { row: 'V řadě', stack: 'Pod sebou' } },
     },
     children: {
@@ -371,7 +398,7 @@ export const BLOCKS_CS: Readonly<Record<string, CzechBlock>> = {
       },
       badge: {
         attributes: {
-          label: { help: 'Krátký stav: ::badge[Beta].' },
+          label: { help: 'Krátký stav: ::badge[Splněno].' },
           variant: { help: 'Význam.', values: { neutral: 'Neutrální', ...status, ai: 'AI' } },
         },
       },
@@ -451,8 +478,20 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
     example: ':::byline\n:::',
   },
   toc: {
-    useWhen: 'Dlouhé dokumenty, ve kterých čtenář přeskakuje na oddíly, nebo prezentace, která začíná programem. Manuál dostane obsah sám; :::toc určí, kde bude a jak podrobný.',
+    useWhen: 'Dlouhé dokumenty, ve kterých čtenář přeskakuje na oddíly. Manuál dostane obsah sám; :::toc určí, kde bude a jak podrobný. Pro program přednášky použijte :::agenda.',
     example: ':::toc[Obsah]{depth=3}\n:::',
+  },
+  agenda: {
+    useWhen: 'Prezentace k přednášce, školení nebo workshopu se třemi a více oddíly, kde má publikum vidět plán a to, kde v něm právě je.',
+    example: ':::agenda[Program]\n:::',
+  },
+  closing: {
+    useWhen: 'Konec přednášky, školení nebo nabídky: poděkování, body k zapamatování a kontakt.',
+    example: ':::closing[Děkujeme]{email=tym@example.org url=https://example.org/kontakt}\nDotazy rádi zodpovíme hned nebo později.\n\n- U každého obrázku zkontrolujte textovou alternativu.\n- Než soubor sdílíte, spusťte sestavení.\n:::',
+  },
+  kpi: {
+    useWhen: 'Číslo, které se sleduje v čase, s tím, jak se změnilo, a s posledním vývojem: tržby, doba odezvy, spokojenost na přehledu nebo snímku s výsledky.',
+    example: ':::kpi[Požadavky vyřízené do druhého dne]{value="94 %" change="+6 p. b." since="2. čtvrtletí" trend="81,85,88,94"}\n:::\n\n:::kpi[Medián čekání]{value="3,2 h" change="-1,1 h" since="2. čtvrtletí" good=down trend="5,1; 4,6; 4,3; 3,2"}\nNová pravidla třídění platí od srpna.\n:::',
   },
   references: {
     useWhen: 'Zpráva, návrh nebo studie, která cituje zdroje pomocí `[@id]`; seznam umístíte, kam patří, a zvolíte jeho styl. Bez bloku se seznam přidá na konec.',
@@ -528,7 +567,7 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
   },
   cards: {
     useWhen: 'Odkazy na související stránky, produkty, možnosti nebo další kroky, každý s názvem a jednou větou.',
-    example: '::::cards\n:::card[Kód]{href="#code"}\nNázvy souborů, zvýrazněné řádky a tlačítko pro kopírování.\n:::\n:::card[Grafy]{href="#chart" badge="Nové"}\nSloupcové, spojnicové a prstencové grafy nakreslené z tabulky.\n:::\n::::',
+    example: '::::cards\n:::card[Kód]{href="#code"}\nNázvy souborů, zvýrazněné řádky a tlačítko pro kopírování.\n:::\n:::card[Grafy]{href="#chart" badge="Nové"}\nSloupcové, spojnicové a prstencové grafy i vodorovné a skládané pruhy, nakreslené z tabulky.\n:::\n::::',
   },
   statement: {
     useWhen: 'Jediné nejdůležitější sdělení oddílu nebo snímku, v jedné větě.',
@@ -583,7 +622,7 @@ export const EXAMPLES_CS: Readonly<Record<string, { useWhen: string; example: st
     example: ':::comparison[Notebooky pro tým]{highlight=Standard}\n| Vlastnost | Základní | Standard | Pro |\n|---|---|---|---|\n| Paměť 16 GB | ano | ano | ano |\n| Druhý monitor | ne | ano | ano |\n| Oprava na místě | ne | částečně | ano |\n| Cena | 17 000 Kč | 27 000 Kč | 39 000 Kč |\n:::',
   },
   chart: {
-    useWhen: 'Čísla, u kterých je důležitý celkový obraz: srovnání kategorií (sloupcový), vývoj v čase (spojnicový), části celku (prstencový).',
+    useWhen: 'Čísla, u kterých je důležitý celkový obraz: srovnání kategorií (sloupcový, při dlouhých názvech pruhový), vývoj v čase (spojnicový), části celku (prstencový, nebo skládané sloupce pro části několika součtů).',
     example: ':::chart{type=bar caption="Zaměstnanci, kterým se příručka snadno používá" unit="%"}\n| Čtvrtletí | 2025 | 2026 |\n|---|---|---|\n| Q1 | 62 | 71 |\n| Q2 | 64 | 75 |\n| Q3 | 66 | 78 |\n:::',
   },
   ui: {

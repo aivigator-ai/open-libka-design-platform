@@ -152,6 +152,23 @@ describe.skipIf(!wanted)('LibKa Studio with NVDA', () => {
       await page.click('#tab-properties');
       await focusSays(page, say(lang, 'panel.properties'));
 
+      // the Design tab by its name; the brand editor opens at its heading, Tab reaches the close button beside it
+      // (named), then its name and colour fields
+      await page.click('#tab-design');
+      await focusSays(page, say(lang, 'panel.design'));
+      await page.click('#design-edit-brand');
+      await page.waitForSelector('#brand-primary', { timeout: 20000 });
+      await focusSays(page, say(lang, 'brand.title'));
+      await nvda.press('Tab');
+      await focusSays(page, say(lang, 'dialog.close'));
+      await nvda.press('Tab');
+      await focusSays(page, say(lang, 'brand.name'));
+      await nvda.press('Tab');
+      await focusSays(page, say(lang, 'brand.primary'));
+      // (Escape sent to the page: in a text field NVDA takes its own Escape to leave focus mode)
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.st-dialog--brand', { state: 'detached' });
+
       // the command palette: its search field is named; its results are counted as they change
       await nvda.press('F1');
       await page.waitForSelector('.st-cmdk-input');

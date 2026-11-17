@@ -56,6 +56,8 @@ export function catalogMarkdown(version: string): string {
       if (b.frontMatter) out.push('In the front matter:', '', '```yaml', b.frontMatter, '```', '', 'In the text:', '');
       out.push(`${f}markdown`, b.example, f, '');
       if (b.name === 'heading') out.push('*The result is the headings of this page.*');
+      else if (b.name === 'agenda') out.push('*Not shown here, so this page keeps its contents at the top: the result is a list of the ## sections where the block stands, and on slides an agenda slide before each section.*');
+      else if (b.name === 'closing') out.push('*Not shown here, since a closing ends its document: the result is the last ## section, with the recap and the contacts as links, and on slides the closing slide.*');
       else if (b.name === 'toc') out.push('*Not shown here, so this page keeps its contents at the top: the result looks like that list, placed where the block stands.*');
       else if (b.name === 'notes') out.push('*Speaker notes are not shown here: they appear only in the deck.*');
       else if (b.name === 'section') out.push('*Not shown here, so it does not split this page: the result is a rule and a large heading that also opens a part in the contents.*');

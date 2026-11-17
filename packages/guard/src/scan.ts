@@ -121,6 +121,17 @@ export function scanContrast({ normal, large }: ContrastArgs): ScanResult {
     checkedEls.add(el);
     const fg = inSvg ? (cs.fill.startsWith('url(') ? null : parse(cs.fill)) : parse(cs.color);
     const bg = inSvg ? svgBackground(el) : background(el);
+    // text over an image or a gradient cannot be measured; in a document's content (a LibKa block, a slide) it is a
+    // finding, since LibKa keeps text on a plain colour, and only around it (a site's own frame) it is skipped
+    if (!inSvg && !bg && el.closest('.lk-manual-content, .lk-doc-header, .lk-slide')) {
+      let image = false;
+      for (let node: Element | null = el; node && !image; node = node.parentElement) image = getComputedStyle(node).backgroundImage !== 'none';
+      if (image) {
+        violations.push({ rule: 'contrast', target: describe(el),
+          message: `text over an image or a gradient: its contrast cannot be measured, and text in a LibKa document stays on a plain colour ("${t.textContent.trim().slice(0, 40)}")`, ...at(el) });
+        continue;
+      }
+    }
     if (!fg || !bg) { skipped++; continue; }
     const size = parseFloat(cs.fontSize);
     const bold = parseInt(cs.fontWeight, 10) >= 700;

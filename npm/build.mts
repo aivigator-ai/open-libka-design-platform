@@ -53,7 +53,7 @@ const THIRD_PARTY: Record<string, string> = {
   cli: [
     'This package also contains third-party material under its own licence:',
     '',
-    '- assets/fonts/: Fraunces, Inter and JetBrains Mono, under the SIL Open Font License 1.1',
+    '- assets/fonts/: Fraunces, Inter, JetBrains Mono, Literata, Bitter, Space Grotesk, Atkinson Hyperlegible Next and Public Sans, under the SIL Open Font License 1.1',
     '  (the licence texts are in assets/fonts/licenses/).',
     '- assets/vendor/mermaid/: Mermaid\'s browser script, under the MIT License (assets/vendor/mermaid/LICENSE).',
     '- assets/studio/: LibKa Studio, a web app whose files include open-source packages; each is listed with',
@@ -201,6 +201,8 @@ const mcp = join(out, 'mcp');
 const mcpDeps = await bundle(join(root, 'packages', 'mcp', 'src', 'server.ts'), join(mcp, 'dist', 'server.js'), ['@libka/cli']);
 mkdirSync(join(mcp, 'assets'), { recursive: true });
 cpSync(join(root, '.claude', 'skills', 'libka-author', 'SKILL.md'), join(mcp, 'assets', 'SKILL.md'));
+// the templates (libka://templates): their text and description, not their pictures
+cpSync(join(root, 'packages', 'create-libka', 'gallery'), join(mcp, 'assets', 'templates'), { recursive: true, filter: (p) => !p.endsWith('.png') && !p.endsWith('pictures.json') });
 writeFileSync(join(mcp, 'package.json'), JSON.stringify({
   name: '@libka/mcp', ...common('The LibKa MCP server: AI tools list LibKa blocks, check LibKa Markdown and build it into checked, signed web pages, PDFs, slides and Word files.', ['mcp', 'model-context-protocol', 'ai', 'accessibility']),
   // the official MCP Registry checks that the npm package names the server it lists
@@ -231,7 +233,7 @@ mkdirSync(join(tokens, 'tokens'), { recursive: true });
 for (const f of ['libka-tokens.css', 'libka-tokens.scss', 'libka.tailwind.css', 'libka.tailwind.config.js', 'libka.resolver.json']) cpSync(join(root, f), join(tokens, f));
 for (const f of readdirSync(join(root, 'tokens')).filter((f) => f.endsWith('.tokens.json'))) cpSync(join(root, 'tokens', f), join(tokens, 'tokens', f));
 writeFileSync(join(tokens, 'package.json'), JSON.stringify({
-  name: '@libka/tokens', ...common('The LibKa design tokens (W3C DTCG) with light, dark and high-contrast themes, as CSS custom properties, SCSS and Tailwind themes, with WCAG contrast gates.', ['design-tokens', 'dtcg', 'css', 'tailwind', 'scss', 'accessibility']),
+  name: '@libka/tokens', ...common('The LibKa design tokens (W3C DTCG) with light, dark and high-contrast modes, as CSS custom properties, SCSS and Tailwind themes, with WCAG contrast gates.', ['design-tokens', 'dtcg', 'css', 'tailwind', 'scss', 'accessibility']),
   exports: {
     './css': './libka-tokens.css', './scss': './libka-tokens.scss', './tailwind.css': './libka.tailwind.css', './tailwind.config': './libka.tailwind.config.js',
     './libka.resolver.json': './libka.resolver.json', './tokens/*': './tokens/*', './package.json': './package.json',
@@ -246,9 +248,11 @@ legalFiles(tokens, 'tokens');
 const create = join(out, 'create-libka');
 cpSync(join(root, 'packages', 'create-libka', 'index.mjs'), join(create, 'index.mjs'));
 cpSync(join(root, 'packages', 'create-libka', 'templates'), join(create, 'templates'), { recursive: true });
+// the gallery's templates, without their pictures (the Studio shows those; a project needs only the text)
+cpSync(join(root, 'packages', 'create-libka', 'gallery'), join(create, 'gallery'), { recursive: true, filter: (p) => !p.endsWith('.png') });
 writeFileSync(join(create, 'package.json'), JSON.stringify({
-  name: 'create-libka', ...common('Starts a LibKa project: npm create libka@latest. An example document in English or Czech, npm scripts, a CI workflow, a .gitignore and next steps.', ['create', 'starter', 'template']),
-  type: 'module', bin: { 'create-libka': 'index.mjs' }, files: ['index.mjs', 'templates', 'README.md', 'LICENSE', 'NOTICE'],
+  name: 'create-libka', ...common('Starts a LibKa project: npm create libka@latest. An example document or a template (a report, a talk, a manual, a policy, decision records) in English or Czech, npm scripts, a CI workflow, a .gitignore and next steps.', ['create', 'starter', 'template']),
+  type: 'module', bin: { 'create-libka': 'index.mjs' }, files: ['index.mjs', 'templates', 'gallery', 'README.md', 'LICENSE', 'NOTICE'],
 }, null, 2) + '\n');
 readme('create-libka', create);
 legalFiles(create, 'create-libka');

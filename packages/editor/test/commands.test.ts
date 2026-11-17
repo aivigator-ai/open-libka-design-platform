@@ -166,7 +166,7 @@ describe('changing, wrapping, inserting', () => {
 
   it('inserts any registry block from its example; it parses without problems', () => {
     expect(INSERTABLE.length).toBeGreaterThan(30);
-    for (const b of INSERTABLE.filter((x) => !['references', 'notes', 'byline'].includes(x.name))) {
+    for (const b of INSERTABLE.filter((x) => !['references', 'notes', 'byline', 'closing'].includes(x.name))) {
       const { state, loaded } = at(md, 'Para A');
       const next = run(state, insertBlock(b.name));
       const out = save(next.doc, loaded);
@@ -176,6 +176,9 @@ describe('changing, wrapping, inserting', () => {
     const { state, loaded } = at(md, 'Para A');
     const byline = parse(save(run(state, insertBlock('byline')).doc, loaded)).problems;
     expect(byline.map((p) => [p.code, p.fixes])).toEqual([['byline-empty', [{ kind: 'field', target: 'document:author' }]]]);
+    // a closing inserted mid-document is reported, with the fix that moves it to the end
+    const closing = parse(save(run(at(md, 'Para A').state, insertBlock('closing')).doc, at(md, 'Para A').loaded)).problems;
+    expect(closing.map((p) => [p.code, p.fixes])).toEqual([['closing-not-last', [{ kind: 'move-to-end' }]]]);
   });
 
   it('an empty paragraph is replaced by the inserted block; inside a list item, blocks go into the item', () => {

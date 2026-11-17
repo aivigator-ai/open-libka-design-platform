@@ -1,5 +1,5 @@
 import { generateKeyPairSync, createPublicKey } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -134,6 +134,31 @@ describe.skipIf(!chrome)('guardHtml', () => {
         + '<rect x="0" y="70" width="140" height="40" fill="#FFFFFF"/><text x="20" y="95" fill="#1A2130">Readable</text>')));
     const found = r.checks.find((c) => c.id === 'contrast' && c.mode === 'standard')!.violations.map((v) => v.message);
     expect(found).toEqual([expect.stringMatching(/"Dark on dark"/), expect.stringMatching(/"Pale on page"/)]);
+  }, 60000);
+
+  it('measures a deck in its dark mode too, in both contrast levels', async () => {
+    const deck = (name: string, css: string) => {
+      const path = page(name, `[data-theme="dark"] body{background:#111723;color:#F6F7F9}${css}`, '<h1>Deck</h1><p class="x">Slide text</p>');
+      writeFileSync(path, readFileSync(path, 'utf8').replace('<head>', '<head><meta name="libka-target" content="deck">'));
+      return path;
+    };
+    const good = await guardHtml(deck('deck-dark-good.html', ''));
+    expect(good.checks.filter((c) => c.id === 'contrast').map((c) => c.mode)).toEqual(['standard', 'more-contrast', 'dark', 'dark-more-contrast']);
+    expect(good.passed).toBe(true);
+    const bad = await guardHtml(deck('deck-dark-bad.html', '[data-theme="dark"] .x{color:#3A4256}'));
+    expect(rules(bad, 'contrast', 'dark')).toEqual(['contrast']);
+    expect(rules(bad, 'contrast', 'standard')).toEqual([]);
+    // a page that is not a deck keeps its two
+    expect((await guardHtml(page('page-only.html', '', GOOD_BODY))).checks.filter((c) => c.id === 'contrast').map((c) => c.mode)).toEqual(['standard', 'more-contrast']);
+  }, 120000);
+
+  it('fails text over an image or a gradient in a LibKa document, and skips it only around one (a site\'s frame)', async () => {
+    const css = '.hero{background:linear-gradient(#0F8FA1,#FFFFFF);padding:8px}';
+    const r = await guardHtml(page('over-image.html', css,
+      '<h1>Page</h1><div class="lk-manual-content"><div class="hero"><p>In the document</p></div></div><div class="hero"><p>Around it</p></div>'));
+    const found = r.checks.find((c) => c.id === 'contrast' && c.mode === 'standard')!;
+    expect(found.violations.map((v) => v.message)).toEqual([expect.stringMatching(/^text over an image or a gradient: .*\("In the document"\)$/)]);
+    expect(found.skipped).toBeGreaterThanOrEqual(1);
   }, 60000);
 });
 

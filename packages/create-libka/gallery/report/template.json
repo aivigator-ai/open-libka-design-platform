@@ -1,0 +1,12 @@
+{
+  "id": "report",
+  "name": { "en": "Report", "cs": "Zpráva" },
+  "description": {
+    "en": "A report with a summary, key figures, a chart, a decision and next steps, for the web, a PDF and Word.",
+    "cs": "Zpráva se shrnutím, klíčovými čísly, grafem, rozhodnutím a dalšími kroky, pro web, PDF a Word."
+  },
+  "file": "report",
+  "theme": "classic",
+  "outputs": ["web", "pdf", "docx"],
+  "picture": "page"
+}

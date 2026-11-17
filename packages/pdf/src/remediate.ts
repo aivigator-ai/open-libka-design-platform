@@ -6,6 +6,8 @@
  * - 7.1-5: a role map for structure types PDF 1.7 does not know (Chrome writes Em and Strong);
  * - 7.3-1: Chrome tags an HTML <figure> as a Figure without Alt around the image's own Figure: it becomes a Div;
  * - 7.2-20: a list item holds only Lbl and LBody, so its other children are wrapped in an LBody;
+ * - 7.2-42, 7.2-43: an empty table cell, which Chrome leaves out, goes back into its row (an empty corner as a TH, a data
+ *   cell as a TD under its column's header);
  * - 7.18.1-2, 7.18.5-2: every link annotation has a description (the link's text from the page, else its address);
  * - 7.1-3: drawing outside any tag (backgrounds, borders, icons) is marked as an artifact.
  */
@@ -28,6 +30,8 @@ export interface RemediateReport {
   roleMapped: string[];
   figuresRegrouped: number;
   listBodies: number;
+  /** Empty table cells Chrome left out, put back as empty TD elements (7.2-43). */
+  cellsAdded: number;
   linksDescribed: number;
   artifacts: number;
 }
@@ -160,7 +164,88 @@ function structure(doc: PDFDocument, report: RemediateReport): void {
       el.set(N('K'), ctx.obj([...label, ...kids.filter((k) => typeOf(ctx, k) === 'Lbl' || typeOf(ctx, k) === 'LBody'), ...body]));
       report.listBodies++;
     }
+    if (s === '/Table') report.cellsAdded += emptyCells(ctx, el);
   }
+}
+
+/** A table cell's attribute value (Chrome writes the attributes as an array of dictionaries owned by Table). */
+function cellAttribute(ctx: PDFContext, cell: PDFDict, key: string): PDFObject | undefined {
+  const a = cell.get(N('A'));
+  const o = a instanceof PDFRef ? ctx.lookup(a) : a;
+  for (const d of o instanceof PDFArray ? o.asArray() : o ? [o] : []) {
+    const dict = d instanceof PDFRef ? ctx.lookup(d) : d;
+    if (dict instanceof PDFDict && dict.get(N(key)) !== undefined) return dict.get(N(key));
+  }
+  return undefined;
+}
+
+/**
+ * 7.2-43: Chrome leaves an empty cell (a table cell with nothing painted in it) out of the structure tree, so its row
+ * is a column short. Each data cell names its column's header (Headers), so the missing column is known: an empty TD
+ * with that header goes in its place. A row whose cells cannot all be placed so (spans, cells without a header) is
+ * left as it is.
+ */
+function emptyCells(ctx: PDFContext, table: PDFDict): number {
+  const asDict = (k: PDFObject) => { const o = k instanceof PDFRef ? ctx.lookup(k) : k; return o instanceof PDFDict ? o : undefined; };
+  const rows: { ref: PDFRef; el: PDFDict }[] = [];
+  const collect = (el: PDFDict) => {
+    for (const k of kidsOf(ctx, el)) {
+      const d = asDict(k);
+      if (!d) continue;
+      const t = typeOf(ctx, k);
+      if (t === 'TR' && k instanceof PDFRef) rows.push({ ref: k, el: d });
+      else if (t === 'THead' || t === 'TBody' || t === 'TFoot') collect(d);
+    }
+  };
+  collect(table);
+  const cellsOf = (row: PDFDict) => kidsOf(ctx, row).filter((k) => ['TH', 'TD'].includes(typeOf(ctx, k) ?? ''));
+  // 7.2-42: an empty corner (the header row's first cell, above the row headers) is left out too: the header row is a
+  // column short where every other row starts with its header cell; an empty TH goes back at its start
+  let added = 0;
+  if (rows.length > 1) {
+    const counts = rows.map((r) => cellsOf(r.el).length);
+    const rest = counts.slice(1);
+    if (rest.every((n) => n === rest[0]) && counts[0] === rest[0]! - 1 && rows.slice(1).every((r) => typeOf(ctx, cellsOf(r.el)[0]!) === 'TH')) {
+      const { ref, el } = rows[0]!;
+      const th = ctx.obj({ Type: 'StructElem', S: 'TH', P: ref, K: [] });
+      th.set(N('A'), ctx.obj([ctx.obj({ O: 'Table', Scope: 'Column' })]));
+      const pg = el.get(N('Pg'));
+      if (pg) th.set(N('Pg'), pg);
+      el.set(N('K'), ctx.obj([ctx.register(th), ...kidsOf(ctx, el)]));
+      added++;
+    }
+  }
+  // the column headers: the first row's TH cells, each with its ID
+  const head = rows[0] ? cellsOf(rows[0].el) : [];
+  const ids = head.map((k) => text(asDict(k)?.get(N('ID'))));
+  if (!head.length || head.some((k) => typeOf(ctx, k) !== 'TH') || ids.some((id) => !id)) return added;
+  for (const { ref, el } of rows.slice(1)) {
+    const cells = cellsOf(el);
+    if (cells.length >= ids.length) continue;
+    const spans = cells.some((k) => { const c = cellAttribute(ctx, asDict(k)!, 'ColSpan'); return c instanceof PDFNumber && c.asNumber() !== 1; });
+    if (spans) continue;
+    // each cell's column, by the header it names
+    const columns = cells.map((k) => {
+      const h = cellAttribute(ctx, asDict(k)!, 'Headers');
+      const names = (h instanceof PDFArray ? h.asArray() : []).map((x) => text(x));
+      return ids.findIndex((id) => names.includes(id));
+    });
+    if (columns.some((c) => c < 0) || columns.some((c, i) => i > 0 && c <= columns[i - 1]!)) continue;
+    const kids: PDFObject[] = [];
+    let at = 0;
+    ids.forEach((id, col) => {
+      if (columns[at] === col) { kids.push(cells[at]!); at++; return; }
+      const td = ctx.obj({ Type: 'StructElem', S: 'TD', P: ref, K: [] });
+      td.set(N('A'), ctx.obj([ctx.obj({ O: 'Table', Headers: [PDFString.of(id!)] })]));
+      const pg = el.get(N('Pg'));
+      if (pg) td.set(N('Pg'), pg);
+      kids.push(ctx.register(td));
+      added++;
+    });
+    const others = kidsOf(ctx, el).filter((k) => !cells.includes(k));
+    el.set(N('K'), ctx.obj([...kids, ...others]));
+  }
+  return added;
 }
 
 /** The parent-tree array of a page (marked content id → structure element), from the number tree in StructTreeRoot. */
@@ -316,7 +401,7 @@ function artifacts(doc: PDFDocument, report: RemediateReport): void {
 /** The PDF made to meet PDF/UA-1, and what was repaired. */
 export async function remediate(pdf: Uint8Array, options: RemediateOptions): Promise<{ pdf: Uint8Array; report: RemediateReport }> {
   const doc = await PDFDocument.load(pdf, { updateMetadata: false });
-  const report: RemediateReport = { roleMapped: [], figuresRegrouped: 0, listBodies: 0, linksDescribed: 0, artifacts: 0 };
+  const report: RemediateReport = { roleMapped: [], figuresRegrouped: 0, listBodies: 0, cellsAdded: 0, linksDescribed: 0, artifacts: 0 };
   frame(doc, options);
   structure(doc, report);
   links(doc, options, report);

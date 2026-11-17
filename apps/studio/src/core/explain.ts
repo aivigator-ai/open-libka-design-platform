@@ -37,8 +37,8 @@ export const EXPLAIN: Table = {
     cs: { why: 'Popisky grafu musí být čitelné celé.', fix: 'Zkraťte popisky v tabulce grafu (první sloupec), nebo použijte méně řádků.' },
   },
   'no-inline-style': {
-    en: { why: 'Colours and spacing come from the LibKa tokens so every theme, high contrast and print work; a style attribute overrides them.', fix: 'Remove the style="…" from raw HTML in the document, and use a LibKa block for the effect.' },
-    cs: { why: 'Barvy a rozestupy pocházejí z tokenů LibKa, aby fungovaly všechny motivy, vysoký kontrast i tisk; atribut style je přebíjí.', fix: 'Odstraňte style="…" z HTML v dokumentu a pro požadovaný vzhled použijte blok LibKa.' },
+    en: { why: 'Colours and spacing come from the LibKa tokens so every mode, high contrast and print work; a style attribute overrides them.', fix: 'Remove the style="…" from raw HTML in the document, and use a LibKa block for the effect.' },
+    cs: { why: 'Barvy a rozestupy pocházejí z tokenů LibKa, aby fungovaly všechny režimy, vysoký kontrast i tisk; atribut style je přebíjí.', fix: 'Odstraňte style="…" z HTML v dokumentu a pro požadovaný vzhled použijte blok LibKa.' },
   },
   reflow: {
     en: { why: 'On a phone, a page that scrolls sideways makes readers scroll back and forth on every line.', fix: 'Break a long address or command into a code block (```), where it scrolls on its own, or shorten it; wide pictures and raw HTML need a width that fits.' },
@@ -78,8 +78,12 @@ export const EXPLAIN: Table = {
     cs: { why: 'Odkazy se často čtou mimo souvislosti, proto musí jejich text říct, kam vedou.', fix: 'Napište text odkazu, který cíl pojmenuje, ne „zde“ nebo „klikněte“: [Návod k instalaci](install.md).' },
   },
   'docx-contrast': {
-    en: { why: 'Text in the Word file must stand out from its background, as on the web page.', fix: 'This follows the LibKa theme: report it if it appears, with the document attached.' },
-    cs: { why: 'Text v souboru Word se musí odlišovat od pozadí stejně jako na webové stránce.', fix: 'Řídí se motivem LibKa: pokud se objeví, nahlaste ho i s dokumentem.' },
+    en: { why: 'Text in the Word file must stand out from its background, as on the web page.', fix: 'LibKa\'s own Word styles set this colour, not your text: if this finding appears, report it with the document attached.' },
+    cs: { why: 'Text v souboru Word se musí odlišovat od pozadí stejně jako na webové stránce.', fix: 'Tuto barvu určují styly, které LibKa zapisuje do souboru Word, ne váš text. Pokud se tento nález objeví, nahlaste ho a přiložte dokument.' },
+  },
+  'docx-theme-color': {
+    en: { why: 'Word shows a colour taken from its theme, not the colour written next to it, so the colour LibKa checked would not be the one shown.', fix: 'LibKa\'s own Word styles set this colour, not your text: if this finding appears, report it with the document attached.' },
+    cs: { why: 'Word ukáže barvu převzatou ze svého motivu, ne barvu zapsanou vedle ní, takže by se ukázala jiná barva, než jakou LibKa zkontroloval.', fix: 'Tuto barvu určují styly, které LibKa zapisuje do souboru Word, ne váš text. Pokud se tento nález objeví, nahlaste ho a přiložte dokument.' },
   },
   /* ---- axe-core rules an author's text can cause ---- */
   'image-alt': {

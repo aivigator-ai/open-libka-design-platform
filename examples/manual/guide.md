@@ -59,7 +59,7 @@ A missing caption, alt text or callout title stops the build with the file name 
 Add `deck` to the outputs and the same file becomes 16:9 slides: the title slide comes from the front matter, every `##` starts a section slide and every `###` a slide of its own.
 
 :::callout[Keys in the deck]{variant=info}
-Arrows or Space move between slides. N shows your notes, P opens the presenter view with the next slide and a timer, O shows all slides, F goes full screen, D switches to the dark theme and C to high contrast. The Letter shortcuts button turns the letter keys off, for example for speech input.
+Arrows or Space move between slides. N shows your notes, P opens the presenter view with the next slide and a timer, O shows all slides, F goes full screen, D switches to dark mode and C to high contrast. The Letter shortcuts button turns the letter keys off, for example for speech input.
 :::
 
 :::notes

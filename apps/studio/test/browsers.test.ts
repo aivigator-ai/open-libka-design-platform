@@ -43,7 +43,7 @@ describe.skipIf(engines.every(([, b]) => !installed(b)))('LibKa Studio in other 
         await page.keyboard.press('Escape');
         expect(await page.locator('#st-tour').count()).toBe(0);
         const checks = await page.evaluate(() => (window as unknown as { libkaStudio: { checks: { id: string; checked: number }[] } }).libkaStudio.checks);
-        expect(checks.map((c) => c.id)).toEqual(['axe', 'contrast', 'structure', 'contrast', 'axe', 'contrast', 'structure', 'contrast', 'docx']);
+        expect(checks.map((c) => c.id)).toEqual(['axe', 'contrast', 'structure', 'contrast', 'axe', 'contrast', 'structure', 'contrast', 'contrast', 'contrast', 'docx']);
         expect(checks.every((c) => c.checked > 0)).toBe(true);
         expect(await page.evaluate(() => (document.querySelector('#preview') as HTMLIFrameElement).contentDocument?.querySelector('h1')?.textContent)).toBe('Writing a LibKa manual');
 

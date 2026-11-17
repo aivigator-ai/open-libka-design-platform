@@ -19,7 +19,7 @@ import { parse } from '@libka/model';
 import { withField } from '../core/frontmatter.ts';
 
 let db: StudioDb | null = null;
-const store = (): StudioDb => { if (!db) throw new Error('storage is not open'); return db; };
+export const store = (): StudioDb => { if (!db) throw new Error('storage is not open'); return db; };
 
 /** The editor in use (source or visual), once the interface has made it. */
 export const bridge: { editor: ActiveEditor | null } = { editor: null };
@@ -206,7 +206,18 @@ async function create(p: Parameters<typeof createProject>[1]): Promise<void> {
   await openProject(record.id);
 }
 
-export const newProject = () => create({ name: 'untitled.md', source: BLANK, origin: 'new' });
+/**
+ * New document: blank or one of create-libka's templates, chosen in a dialog. Blank comes first and is chosen, so Enter
+ * makes a blank document as before; a template opens in the interface's language.
+ */
+export async function newProject(): Promise<void> {
+  const { templates } = await import('studio:templates');
+  const choice = await new Promise<string | null>((resolve) => { s.dialog.value = { kind: 'new', templates, resolve }; });
+  if (!choice) return;
+  const template = templates.find((x) => x.id === choice);
+  if (!template) { await create({ name: 'untitled.md', source: BLANK, origin: 'new' }); return; }
+  await create({ name: `${template.file}.md`, source: template.sources[s.lang.value], origin: 'template' });
+}
 
 export async function openExample(): Promise<void> {
   const example = await import('studio:example');
@@ -353,10 +364,10 @@ export async function exportProjectZip(p?: ProjectRecord): Promise<void> {
     await flushSave();
     const project = s.project.value;
     if (!project) return;
-    download(`${baseName()}.zip`, 'application/zip', exportZip({ name: project.name, source: s.source.value, files: currentFiles() }));
+    download(`${baseName()}.zip`, 'application/zip', await exportZip({ name: project.name, source: s.source.value, files: currentFiles() }));
     return;
   }
-  download(`${p.name.replace(/\.(md|markdown)$/i, '')}.zip`, 'application/zip', exportZip({ name: p.name, source: p.source, files: await filesOf(store(), p.id) }));
+  download(`${p.name.replace(/\.(md|markdown)$/i, '')}.zip`, 'application/zip', await exportZip({ name: p.name, source: p.source, files: await filesOf(store(), p.id) }));
 }
 
 /** Picks the Markdown file to open when a folder or zip has several. */

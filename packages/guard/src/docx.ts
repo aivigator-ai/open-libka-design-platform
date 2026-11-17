@@ -4,7 +4,8 @@
  *   docx-title          the document has a title in its properties                          (WCAG 2.4.2)
  *   docx-language       a language on the text (styles) and in the properties                (3.1.1)
  *   docx-heading-order  headings start at level 1 and never skip a level                      (1.3.1, 2.4.6)
- *   docx-alt-text       every picture has alternative text                                    (1.1.1)
+ *   docx-alt-text       every picture has alternative text, in the headers and footers too    (1.1.1)
+ *   docx-theme-color    no colour comes from Word's theme (Word would show it, not w:val)     (1.4.3)
  *   docx-table-header   every table has a header row that repeats, and alternative text       (1.3.1)
  *   docx-link-text      every link has text                                                   (2.4.4)
  *   docx-contrast       every run of text against its shading: 4.5:1, large text 3:1           (1.4.3)
@@ -161,9 +162,20 @@ export function checkDocx(docx: Uint8Array): CheckResult {
     last = level;
   }
 
-  for (const d of all(doc, 'wp:docPr')) {
+  // pictures in the body, the notes and the headers and footers (a logo in a header is read on every page)
+  const textParts = Object.keys(files).filter((n) => /^word\/(document|footnotes|endnotes|header\d*|footer\d*)\.xml$/.test(n)).sort();
+  const trees = new Map(textParts.map((n) => [n, n === 'word/document.xml' ? doc : parseXml(part(n)!)]));
+  for (const [name, tree] of trees) for (const d of all(tree, 'wp:docPr')) {
     checked++;
-    if (!(d.attrs['descr'] ?? '').trim()) add('docx-alt-text', `picture "${d.attrs['name'] ?? '?'}" has no alternative text`, d.attrs['name'] ?? 'picture');
+    const where = name === 'word/document.xml' ? '' : ` (${name.replace('word/', '')})`;
+    if (!(d.attrs['descr'] ?? '').trim()) add('docx-alt-text', `picture "${d.attrs['name'] ?? '?'}"${where} has no alternative text`, d.attrs['name'] ?? 'picture');
+  }
+
+  // a colour from Word's theme: Word shows the theme's colour and ignores w:val, so the colour checked is not the one shown
+  for (const name of [...textParts, 'word/styles.xml', 'word/numbering.xml'].filter((n) => files[n])) {
+    checked++;
+    const hit = /\bw:theme(Color|Fill)="([^"]+)"/.exec(part(name)!);
+    if (hit) add('docx-theme-color', `${name.replace('word/', '')} takes a colour from Word's theme (w:theme${hit[1]}="${hit[2]}"): give the colour itself, so the colour checked is the one shown`, name.replace('word/', ''));
   }
 
   for (const [i, t] of all(doc, 'w:tbl').entries()) {
@@ -183,9 +195,7 @@ export function checkDocx(docx: Uint8Array): CheckResult {
 
   // contrast of every run with text, in the body, the notes and the headers and footers
   const seen = new Set<string>();
-  const parts = Object.keys(files).filter((n) => /^word\/(document|footnotes|endnotes|header\d*|footer\d*)\.xml$/.test(n));
-  for (const name of parts) {
-    const tree = name === 'word/document.xml' ? doc : parseXml(part(name)!);
+  for (const [name, tree] of trees) {
     const walk = (e: XElement, cellFill?: string): void => {
       for (const c of kids(e)) {
         if (c.name === 'w:tc') {

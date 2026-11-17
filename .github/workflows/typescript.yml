@@ -1,5 +1,10 @@
-# The TypeScript job: strict type check and every package's tests, with Chrome, Java and veraPDF,
-# LibreOffice, Firefox and WebKit. Called by check.yml (pinned runner) and ubuntu-next.yml (the next image).
+# The TypeScript jobs, in parts that each stay within 30 minutes:
+#   packages  the strict type check and every package's tests but the Studio's, with Chrome, Java and veraPDF,
+#             LibreOffice, Firefox (the design locks in three engines); one combination of the design matrix
+#   studio    the Studio's tests (quality, performance, audit, layout; Chrome, Firefox and WebKit)
+#   designs   the full design matrix (every built-in theme under every example brand, built and checked) and the
+#             solver's property tests at full size (LIBKA_DESIGN_FULL); weekly and on release tags
+# Called by check.yml (pinned runner), weekly.yml and ubuntu-next.yml (the next image).
 name: typescript
 
 on:
@@ -9,16 +14,26 @@ on:
         description: The runner image
         type: string
         required: true
+      part:
+        description: packages, studio or designs
+        type: string
+        default: packages
 
 permissions:
   contents: read
 
 jobs:
   typescript:
-    name: typescript (packages/)
+    # the packages part keeps its earlier name, which the repository's required status check uses
+    name: typescript (${{ inputs.part == 'packages' && 'packages/' || inputs.part }}${{ inputs.part == 'designs' && format(' {0}/3', matrix.shard) || '' }})
     runs-on: ${{ inputs.runs-on }}
-    # the tests alone take about 17 to 18 minutes since 2.0.3 (the Studio's quality, performance and audit tests in
-    # Chrome, and those of its 2.0.3 layout); 20 minutes cut two runs short in the release, so the limit leaves room
+    # the designs part runs in three shards side by side; the other parts once
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.part == 'designs' && '[1, 2, 3]' || '[1]') }}
+    # all the tests in one job took 17 to 18 minutes in 2.0.3; the parts split them so each stays well inside the
+    # limit, which is never raised (2.0.4 plan, 4b)
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,13 +48,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # PDF/UA validation (docs/admin/verapdf.md): Java 21 and veraPDF in /opt/verapdf, required by the tests
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - if: inputs.part != 'studio'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
 
       # pinned to one version and its checksum (docs/admin/verapdf.md, "Updating" says how to move it)
       - name: Install veraPDF
+        if: inputs.part != 'studio'
         env:
           VERAPDF_URL: https://software.verapdf.org/releases/1.30/verapdf-greenfield-1.30.2-installer.zip
           VERAPDF_SHA256: 6cc6341cb1af644044054b81f00a6590a7918abb18f762243de115258bcad838
@@ -68,6 +85,7 @@ jobs:
 
       # Word files must open in a second office suite (docs/admin/word-and-libreoffice.md): LibreOffice Writer, headless
       - name: Install LibreOffice
+        if: inputs.part != 'studio'
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends libreoffice-writer
@@ -78,13 +96,37 @@ jobs:
         run: pnpm --filter @libka/studio exec playwright-core install --with-deps firefox webkit
 
       - name: Type check
+        if: inputs.part == 'packages'
         run: pnpm typecheck
 
-      - name: Tests
-        run: pnpm test
+      - name: Tests (packages)
+        if: inputs.part == 'packages'
+        run: pnpm -r --filter '!@libka/studio' test
         env:
           LIBKA_REQUIRE_VERAPDF: '1'
           LIBKA_REQUIRE_LIBREOFFICE: '1'
           LIBKA_REQUIRE_BROWSERS: '1'
+
+      - name: Tests (the Studio)
+        if: inputs.part == 'studio'
+        run: pnpm --filter @libka/studio test
+        env:
+          LIBKA_REQUIRE_BROWSERS: '1'
           # the Studio's time budgets hold on a developer machine; shared runners are slower, so they get twice the time
           LIBKA_PERF_SLACK: '2'
+
+      # the solver's property tests at full size in the first shard, the matrix in three (about 24 minutes in all)
+      - name: The solver at full size
+        if: inputs.part == 'designs' && matrix.shard == 1
+        run: pnpm --filter @libka/design test
+        env:
+          LIBKA_DESIGN_FULL: '1'
+
+      - name: The design matrix, shard ${{ matrix.shard }} of 3
+        if: inputs.part == 'designs'
+        run: pnpm --filter @libka/cli exec vitest run test/designs.test.ts
+        env:
+          LIBKA_DESIGN_MATRIX: full
+          LIBKA_DESIGN_SHARD: ${{ matrix.shard }}/3
+          LIBKA_REQUIRE_VERAPDF: '1'
+          LIBKA_REQUIRE_BROWSERS: '1'

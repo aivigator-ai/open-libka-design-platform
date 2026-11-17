@@ -4,6 +4,53 @@ import { toggleOutput } from '../src/core/outputs.ts';
 import { aiFields, authorText, authorValue, frontMatter, withAiField, withField } from '../src/core/frontmatter.ts';
 import { Registry } from '../src/state/commands.ts';
 import { blockLead } from '../src/editor/source.ts';
+import { chooseDesign } from '../src/core/design.ts';
+import { readForm, writeForm } from '../src/core/brand-form.ts';
+import { parse } from '@libka/model';
+
+describe('a document\'s design in the Studio, chosen as the build chooses it', () => {
+  const enc = (t: string) => ({ data: new TextEncoder().encode(t), type: 'text/plain' });
+  const SVG = { data: new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4"/></svg>'), type: 'image/svg+xml' };
+  const BRAND = 'meta:\n  name: Sunny Lane\ncolor:\n  primary: "#FFD400"\nlogo: logo.svg\ndefaults:\n  libka:\n    theme: modern\n';
+  const choose = (fm: string, files: Record<string, { data: Uint8Array; type: string }>) => {
+    const text = `---\ntitle: T\n${fm}---\n\nText.\n`;
+    return chooseDesign(parse(text).document, text, (p) => files[p]);
+  };
+  it('is LibKa\'s brand and Classic without files or front matter, and a built-in theme by name', () => {
+    const d = choose('', {});
+    expect(d.design).toBeUndefined();
+    expect(d.theme.id).toBe('classic');
+    expect(d.problems).toEqual([]);
+    const modern = choose('theme: modern\n', {});
+    expect(modern.design?.design.theme.id).toBe('modern');
+    expect(modern.themeFrom).toBe('front matter');
+  });
+  it('takes the project\'s _brand.yml beside the document or above it, its theme and its logo, with the solver\'s words', () => {
+    for (const at of ['_brand.yml', '../../_brand.yml']) {
+      const dir = at.slice(0, at.lastIndexOf('/') + 1);
+      const d = choose('', { [at]: enc(BRAND), [`${dir}logo.svg`]: SVG });
+      expect(d.brandPath).toBe(at);
+      expect(d.named).toBe(false);
+      expect(d.problems).toEqual([]);
+      expect(d.theme.id).toBe('modern');
+      expect(d.themeFrom).toBe('brand');
+      expect(d.logo).toMatchObject({ alt: 'Sunny Lane', src: expect.stringMatching(/^data:image\/svg\+xml;base64,/) });
+      expect(d.notes.join('\n')).toMatch(/the primary colour #FFD400: .*links and accent text use #[0-9A-F]{6} to reach 4\.5:1/);
+    }
+  });
+  it('puts a brand file\'s errors and a missing file in Checks, on the front matter\'s line, and previews LibKa\'s design', () => {
+    const missing = choose('brand: house.yml\n', {});
+    expect(missing.problems).toEqual([expect.objectContaining({ line: 3, code: 'brand-unknown' })]);
+    expect(missing.design).toBeUndefined();
+    const bad = choose('brand: house.yml\n', { 'house.yml': enc('color:\n  primary: yellowish\n') });
+    expect(bad.problems[0]).toMatchObject({ line: 3, code: 'brand-color-format' });
+    expect(bad.problems[0]!.message).toMatch(/^house\.yml: color\.primary must be a hex colour/);
+    const noLogo = choose('', { '_brand.yml': enc(BRAND) });
+    expect(noLogo.problems[0]).toMatchObject({ code: 'brand-logo', message: '_brand.yml: the logo logo.svg is not among the document\'s files' });
+    const warned = choose('', { '_brand.yml': enc(`${BRAND}  tertiary: "#123456"\n`.replace('logo: logo.svg\n', '')) });
+    expect(warned.problems).toEqual([]);
+  });
+});
 
 describe('comparison', () => {
   it('pairs changed lines side by side and counts them', () => {
@@ -212,5 +259,47 @@ describe('one Checks list', () => {
     const places = placesOf(r.document);
     expect(forPlace(list, placeAt(places, 9)).flatMap((g) => g.items).map((i) => i.rule)).toEqual(['image-alt']);
     expect(placeAt(places, 3)).toBeNull();   // in the front matter: the document's properties
+  });
+});
+
+describe('the brand editor\'s form and the brand file\'s YAML', () => {
+  const FILE = '# Our brand\nmeta:\n  name:\n    full: Sunny Lane\n    short: Sunny\ncolor:\n  palette:\n    sun: "#F2C500"\n  primary: sun   # the yellow\ntypography:\n  base:\n    family: Inter\nlogo: logo.svg\n';
+  it('reads a brand file into the form', () => {
+    expect(readForm(FILE)).toEqual({ name: 'Sunny Lane', primary: '#F2C500', secondary: '', link: '', charts: [], heading: '', body: 'Inter', tinted: false, logo: { light: 'logo.svg', dark: '', alt: 'Sunny Lane' } });
+    expect(readForm(null, 'Report')).toMatchObject({ name: 'Report', primary: '' });
+  });
+  it('writes only what changed: comments, the palette name, the author\'s own forms and other keys stay', () => {
+    const form = readForm(FILE);
+    expect(writeForm(FILE, form)).toBe(FILE);
+    const next = writeForm(FILE, { ...form, secondary: '#1d4e89', link: '#1D4E89' });
+    expect(next).toContain('# Our brand');
+    expect(next).toContain('primary: sun # the yellow');   // the comment stays (YAML writes one space before it)
+    expect(next).toContain('  base:\n    family: Inter');
+    expect(next).toContain('logo: logo.svg');
+    expect(next).toMatch(/color:[\s\S]*secondary: "?#1D4E89"?/);
+    expect(next).toMatch(/typography:[\s\S]*link:\n\s+color: "?#1D4E89"?/);
+    // choosing the palette's colour writes its name
+    expect(writeForm(FILE, { ...form, primary: '#0B6E4F' })).toMatch(/primary: "?#0B6E4F"?/);
+    expect(writeForm(writeForm(FILE, { ...form, primary: '#0B6E4F' }), { ...form, primary: '#F2C500' })).toMatch(/primary: "?sun"?/);
+  });
+  it('removes a key the form empties, and an empty section with it; a new file from an empty form', () => {
+    const form = readForm(FILE);
+    const plain = writeForm(FILE, { ...form, body: '', logo: { light: '', dark: '', alt: '' } });
+    expect(plain).not.toMatch(/typography|logo/);
+    expect(writeForm(null, { ...readForm(null), name: 'New', primary: '#123456', charts: ['#123456', 'nonsense'], tinted: true, logo: { light: 'brand/l.svg', dark: '', alt: '' } }))
+      .toBe('meta:\n  name: New\ncolor:\n  primary: "#123456"\ndefaults:\n  libka:\n    charts:\n      - "#123456"\n    neutral: tinted\nlogo:\n  images:\n    logo:\n      path: brand/l.svg\n      alt: New\n  medium: logo\n');
+  });
+});
+
+describe('the checking frames load a page as built', () => {
+  it('turn the page\'s more-contrast rules on or off in its styles only, never in its text', async () => {
+    const { forceHighContrast } = await import('../src/core/frames.ts');
+    const page = '<html><head><style>@media (prefers-contrast: more) { :root { --x: 1; } }</style></head>'
+      + '<body><pre><code>@media (prefers-contrast: more) {</code></pre></body></html>';
+    const forced = forceHighContrast(page);
+    expect(forced).toContain('<style>@media all {');
+    expect(forced).toContain('<code>@media (prefers-contrast: more) {</code>');
+    // and the page is told, so the frame agent answers yes to prefers-contrast: more there
+    expect(forced).toContain('<meta name="libka-frame-contrast" content="more">');
   });
 });

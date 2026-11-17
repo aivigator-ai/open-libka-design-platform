@@ -13,6 +13,7 @@
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify, type KeyObject } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { ManifestDesign } from '@libka/design';
 import type { GuardReport } from './index.ts';
 import type { Conformance } from './wcag.ts';
 
@@ -34,6 +35,11 @@ export interface Manifest {
   target?: 'manual' | 'deck';
   source: { name: string; sha256: string };
   tokens: { version: string };
+  /**
+   * The design the outputs were built with: the brand (its id, version and issuer when it names them), the theme,
+   * the solver and the SHA-256 of the design's lock. Absent only in manifests from LibKa 2.0.3 and earlier.
+   */
+  design?: ManifestDesign;
   /** SHA-256 of each output: the HTML without the manifest element, the PDF and the Word file (manual only). */
   outputs: { html: string; pdf?: string; docx?: string };
   checks: { id: string; mode: string; checked: number; skipped: number; violations: number }[];
@@ -101,12 +107,13 @@ export function readManifest(html: string): Manifest | null {
   return JSON.parse(html.slice(start + OPEN.length, html.indexOf(CLOSE, start))) as Manifest;
 }
 
-export function buildManifest(args: { target?: 'manual' | 'deck'; sourceName: string; source: string; tokensVersion: string; html: string; report: GuardReport; axe: string; key: SigningKey; pdf?: Buffer; docx?: Uint8Array; pdfua?: Manifest['pdfua']; conformance?: Conformance; provenance?: AiProvenance; ai?: AiContent[]; author?: Manifest['author']; revisions?: Manifest['revisions'] }): Manifest {
+export function buildManifest(args: { target?: 'manual' | 'deck'; sourceName: string; source: string; tokensVersion: string; design?: ManifestDesign; html: string; report: GuardReport; axe: string; key: SigningKey; pdf?: Buffer; docx?: Uint8Array; pdfua?: Manifest['pdfua']; conformance?: Conformance; provenance?: AiProvenance; ai?: AiContent[]; author?: Manifest['author']; revisions?: Manifest['revisions'] }): Manifest {
   const manifest: Manifest = {
     format: MANIFEST_FORMAT,
     ...(args.target ? { target: args.target } : {}),
     source: { name: args.sourceName, sha256: sha256(args.source) },
     tokens: { version: args.tokensVersion },
+    ...(args.design ? { design: args.design } : {}),
     outputs: { html: sha256(stripManifest(args.html)), ...(args.pdf ? { pdf: sha256(args.pdf) } : {}), ...(args.docx ? { docx: sha256(args.docx) } : {}) },
     checks: args.report.checks.map((c) => ({ id: c.id, mode: c.mode, checked: c.checked, skipped: c.skipped, violations: c.violations.length })),
     guard: { axe: args.axe },

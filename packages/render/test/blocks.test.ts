@@ -43,10 +43,104 @@ describe('core block output', () => {
     expect(out).toMatch(/>0%<\/text>/);   // the axis starts at zero
   });
 
+  it('lays every line and stroked marker on a casing in the text colour, so its shape passes 3:1 in every mode', () => {
+    const md = ':::chart{type=line caption="Six series"}\n| Month | A | B | C | D | E | F |\n|---|---|---|---|---|---|---|\n| Jan | 1 | 2 | 3 | 4 | 5 | 6 |\n| Feb | 2 | 3 | 4 | 5 | 6 | 7 |\n:::';
+    const out = html(md);
+    // each line right after its casing, with the same points
+    const lines = [...out.matchAll(/<polyline points="([^"]+)" class="lk-chart-casing"\/><polyline points="([^"]+)" class="lk-chart-line lk-chart-stroke-(\d)"\/>/g)];
+    expect(lines.map((m) => m[3])).toEqual(['1', '2', '3', '4', '5', '6']);
+    for (const m of lines) expect(m[1]).toBe(m[2]);
+    // the cross (series 5) and the ring (series 6) markers too, and the legend's lines
+    expect(out).toMatch(/<path d="([^"]+)" class="lk-chart-casing"\/><path d="\1" class="lk-chart-marker lk-chart-stroke-5"\/>/);
+    expect(out).toMatch(/<circle cx="[\d.]+" cy="[\d.]+" r="5" class="lk-chart-casing"\/><circle [^>]*class="lk-chart-marker lk-chart-ring lk-chart-stroke-6"\/>/);
+    expect(out.match(/<line x1="0" x2="16" y1="8" y2="8" class="lk-chart-casing"\/>/g)).toHaveLength(6);
+  });
+
+  it('places a line chart\'s value labels clear of every marker, line and other label, or leaves them out', () => {
+    // close series (the talk's sign-ups by channel): labels above every point would sit on other series' markers
+    const md = ':::chart{type=line caption="Sign-ups" unit="thousand"}\n| Month | Search | Referrals | Campus | Paid |\n|---|---|---|---|---|\n| Jul | 38 | 12 | 9 | 15 |\n| Aug | 41 | 14 | 9 | 13 |\n| Sep | 57 | 22 | 18 | 12 |\n:::';
+    const out = html(md);
+    const num = (s: string) => Number(s);
+    // every point carries a marker (at most 6 px from it)
+    const markers = [...out.matchAll(/<polyline points="([^"]+)" class="lk-chart-line/g)]
+      .flatMap((m) => m[1]!.split(' ').map((p) => { const [x, y] = p.split(',').map(num); return { x: x!, y: y! }; }));
+    expect(markers).toHaveLength(12);
+    const labels = [...out.matchAll(/<text x="([\d.]+)" y="([\d.]+)" text-anchor="(middle|start|end)" class="lk-chart-value">([^<]+)<\/text>/g)].map((m) => {
+      const w = m[4]!.length * 8, x = num(m[1]!), y = num(m[2]!);
+      const l = m[3] === 'middle' ? x - w / 2 : m[3] === 'start' ? x : x - w;
+      return { l, r: l + w, t: y - 11, b: y + 3 };
+    });
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.length).toBeLessThan(12);   // some values do not fit: they stay in the table and the summary
+    for (const a of labels) {
+      for (const m of markers) expect(m.x + 7 <= a.l || m.x - 7 >= a.r || m.y + 7 <= a.t || m.y - 7 >= a.b, `a label on a marker at ${m.x},${m.y}`).toBe(true);
+      for (const b of labels) if (a !== b) expect(a.r <= b.l || b.r <= a.l || a.b <= b.t || b.b <= a.t).toBe(true);
+    }
+    // one series keeps every label, beside its points where the line rises or falls through the space above
+    const one = html(':::chart{type=line caption="Emissions" unit="t"}\n| Year | Total |\n|---|---|\n| 2023 | 2410 |\n| 2024 | 2280 |\n| 2025 | 2090 |\n| 2026 | 1840 |\n:::');
+    expect(one.match(/class="lk-chart-value"/g)).toHaveLength(4);
+  });
+
   it('shows donut parts with their share, and formats numbers per language', () => {
     const md = ':::chart{type=donut caption="Time spent" unit="h"}\n| Task | Hours |\n|---|---|\n| Writing | 6.5 |\n| Review | 3.5 |\n:::';
     expect(html(md)).toMatch(/Writing 6\.5 h \(65 %\)/);
     expect(html(md, 'manual', 'cs')).toMatch(/Writing 6,5 h \(65 %\)/);
+  });
+
+  it('lays horizontal bars in rows, the long names broken into lines beside them', () => {
+    const out = html(':::chart{type=hbar caption="Requests by channel" unit="%"}\n| Channel | Share |\n|---|---|\n| E-mail to the support address | 41 |\n| Chat | 27 |\n| Phone | 18 |\n:::');
+    expect(out).toMatch(/<svg class="lk-chart-svg lk-chart-svg--hbar" viewBox="0 0 640 \d+" role="img"/);
+    expect(out).toMatch(/<desc id="lk-chart-1-desc">Horizontal bar chart: Requests by channel\. 3 values in 1 series\. Highest: 41% \(E-mail to the support address\)\./);
+    expect(out).toMatch(/<tspan x="[\d.]+">E-mail to the support<\/tspan><tspan x="[\d.]+" dy="16">address<\/tspan>/);
+    expect(out).toMatch(/class="lk-chart-value">41%<\/text>/);
+    expect(out).not.toMatch(/lk-chart-legend/);   // one series needs no legend
+  });
+
+  it('stacks bars: the total at the end, a part\'s value only where it fits, the totals in the table', () => {
+    const md = ':::chart{type=bar stacked caption="Requests"}\n| Quarter | Questions | Problems | Ideas |\n|---|---|---|---|\n| Q1 | 420 | 180 | 40 |\n| Q2 | 460 | 150 | 60 |\n| Q3 | 380 | 210 | 30 |\n| Q4 | 510 | 120 | 90 |\n:::';
+    const out = html(md);
+    expect(out).toMatch(/<desc id="lk-chart-1-desc">Stacked bar chart: Requests\. 12 values in 3 series\. Highest total: 720 \(Q4\)\. Lowest total: 620 \(Q3\)\.<\/desc>/);
+    expect(out.match(/class="lk-chart-value lk-chart-total">\d+</g)!.map((m) => m.match(/\d+/)![0])).toEqual(['640', '670', '620', '720']);
+    // the small parts (40, 60, 30) are too thin for their value; 90 just fits
+    expect(out.match(/class="lk-chart-chip"/g)).toHaveLength(9);
+    expect(out).not.toMatch(/>40<\/text>/);
+    expect(out).toMatch(/>90<\/text>/);
+    expect(out).toMatch(/<th scope="col">Ideas<\/th><th scope="col">Total<\/th>/);
+    expect(out).toMatch(/<th scope="row">Q1<\/th><td>420<\/td><td>180<\/td><td>40<\/td><td>640<\/td>/);
+    expect(out).toMatch(/lk-chart-legend/);
+  });
+
+  it('writes a KPI\'s change in words with better or worse, its trend for the eye and in a sentence', () => {
+    const out = html(BLOCKS.find((b) => b.name === 'kpi')!.example);
+    expect(out).toMatch(/^<ul class="lk-block lk-kpi" data-count="2" data-fit="[\d.]+">\n  <li class="lk-kpi-item">\n    <p class="lk-kpi-label">Requests answered within a day<\/p>\n    <p class="lk-kpi-value">94%<\/p>/);
+    expect(out).toMatch(/<p class="lk-kpi-change lk-kpi-change--good"><svg class="lk-kpi-arrow"[^>]*aria-hidden="true"[^>]*><path d="M8 13V3[^"]*"\/><\/svg><span>up 6 pp since Q2<\/span> <strong class="lk-kpi-verdict">better<\/strong><\/p>/);
+    // waiting time going down is good (good=down)
+    expect(out).toMatch(/lk-kpi-change--good"><svg[^>]*><path d="M8 3v10[^"]*"\/><\/svg><span>down 1\.1 h since Q2<\/span> <strong class="lk-kpi-verdict">better<\/strong>/);
+    expect(out).toMatch(/<svg class="lk-kpi-spark" viewBox="0 0 120 32" aria-hidden="true" focusable="false"><polyline points="4\.0,28\.0 [^"]+ 116\.0,4\.0"/);
+    expect(out).toMatch(/<p class="lk-visually-hidden">Trend over 4 periods: from 81 to 94, highest 94, lowest 81\.<\/p>/);
+    expect(out).toMatch(/<details class="lk-kpi-data"><summary>Show the data<\/summary><p>81, 85, 88, 94<\/p><\/details>/);
+    expect(out).toMatch(/<p class="lk-kpi-text">The new triage rules took effect in August\.<\/p>/);
+  });
+
+  it('says a KPI got worse, or did not change, in Czech too', () => {
+    const md = ':::kpi[Náklady]{value="9,7 mil. Kč" change="+0,6 mil. Kč" since="roku 2025" good=down trend="8,8; 9,1; 9,7"}\n:::\n\n:::kpi[Spokojenost]{value="4,5" change=0 since="září"}\n:::';
+    const out = html(md, 'manual', 'cs');
+    // the widest figure, "9,7 mil. Kč", measured whole (it never breaks): its card shrinks it to fit
+    expect(out).toMatch(/^<ul class="lk-block lk-kpi" data-count="2" data-fit="5\.5">/);
+    expect(out).toMatch(/lk-kpi-change--bad"><svg[^>]*>.*?<\/svg><span>nárůst o 0,6.mil\. Kč oproti roku 2025<\/span> <strong class="lk-kpi-verdict">horší<\/strong>/);
+    expect(out).toMatch(/Vývoj za 3 období: od 8,8 do 9,7, nejvýše 9,7, nejníže 8,8\./);
+    expect(out).toMatch(/<p>8,8; 9,1; 9,7<\/p>/);
+    expect(out).toMatch(/lk-kpi-change--flat"><svg[^>]*><path d="M3 8h10[^"]*"\/><\/svg><span>beze změny oproti září<\/span><\/p>/);
+    expect(out.match(/class="lk-kpi-spark"/g)).toHaveLength(1);   // the second figure has no trend
+  });
+
+  it('writes the parts without their unit and the totals with it, in Czech', () => {
+    const md = ':::chart{type=hbar stacked caption="Rozpočet" unit="mil. Kč"}\n| Oddělení | Mzdy | Provoz |\n|---|---|---|\n| Vývoj | 18,5 | 3,2 |\n| Obchod | 9,4 | 2,1 |\n:::';
+    const out = html(md, 'manual', 'cs');
+    expect(out).toMatch(/<desc id="lk-chart-1-desc">Skládaný pruhový graf: Rozpočet\. 4 hodnoty ve 2 řadách\. Nejvyšší součet: 21,7.mil\. Kč \(Vývoj\)\./);
+    expect(out).toMatch(/class="lk-chart-value">18,5<\/text>/);
+    expect(out).toMatch(/class="lk-chart-value lk-chart-total">21,7.mil\. Kč<\/text>/);
+    expect(out).toMatch(/<th scope="col">Celkem<\/th>/);
   });
 
   it('marks highlighted code lines in words and keeps the file name as caption', () => {
@@ -127,9 +221,9 @@ describe('UI specimen output', () => {
   it('renders an inert specimen per theme, described in words for screen readers', () => {
     const out = html(ui);
     expect(out.match(/<div class="lk-ui-stage lk-ui-stage--row" data-theme="(light|dark)" inert aria-hidden="true">/g)).toHaveLength(2);
-    expect(out).toMatch(/<p class="lk-visually-hidden">Example \(light and dark theme\): button “Keep” \(secondary\); button “Delete” \(destructive, disabled\)\.<\/p>/);
+    expect(out).toMatch(/<p class="lk-visually-hidden">Example \(light and dark mode\): button “Keep” \(secondary\); button “Delete” \(destructive, disabled\)\.<\/p>/);
     expect(out).toMatch(/class="lk-ui-button lk-ui-button--destructive is-disabled" aria-disabled="true"/);
-    expect(html(ui, 'manual', 'cs')).toMatch(/Ukázka \(světlý a tmavý motiv\): tlačítko „Keep“ \(sekundární\)/);
+    expect(html(ui, 'manual', 'cs')).toMatch(/Ukázka \(světlý a tmavý režim\): tlačítko „Keep“ \(sekundární\)/);
   });
 
   it('re-declares the tokens on each stage only when a document has specimens', () => {
@@ -141,7 +235,7 @@ describe('UI specimen output', () => {
   });
 
   it('renders inline badges with a known variant only', () => {
-    expect(html('Export :badge[Beta]{variant=info} and :badge[Odd]{variant=sparkle}')).toMatch(/<span class="lk-badge lk-badge--info">Beta<\/span> and <span class="lk-badge lk-badge--neutral">Odd<\/span>/);
+    expect(html('Export :badge[New]{variant=info} and :badge[Odd]{variant=sparkle}')).toMatch(/<span class="lk-badge lk-badge--info">New<\/span> and <span class="lk-badge lk-badge--neutral">Odd<\/span>/);
   });
 });
 
@@ -291,12 +385,35 @@ describe('navigation and sources output', () => {
 
   it('cites in the author-date style where :::references stands, sorted by author', () => {
     const out = page('## A\n\nSee [@doe, p. 3], [@wcag22] and [@many].\n\n:::references[Sources]{style=author-date}\n:::\n\n## B\n\nEnd.', REFS);
-    expect(out).toMatch(/See <span class="lk-cite">\(<a href="#lk-ref-doe">Doe and Roe, 2020<\/a>, p\. 3\)<\/span>, <span class="lk-cite">\(<a href="#lk-ref-wcag22">W3C, 2023<\/a>\)<\/span> and <span class="lk-cite">\(<a href="#lk-ref-many">Ann et al\., n\.d\.<\/a>\)<\/span>/);
+    // the year stays with its comma (a no-break space), so a long name may wrap but never strand the year
+    expect(out).toMatch(/See <span class="lk-cite">\(<a href="#lk-ref-doe">Doe and Roe, 2020<\/a>, p\. 3\)<\/span>, <span class="lk-cite">\(<a href="#lk-ref-wcag22">W3C, 2023<\/a>\)<\/span> and <span class="lk-cite">\(<a href="#lk-ref-many">Ann et al\., n\.d\.<\/a>\)<\/span>/);
     const m = main(out);
     expect(m.indexOf('id="lk-references"')).toBeLessThan(m.indexOf('id="b"'));
     expect(m.match(/id="lk-references"/g)).toHaveLength(1);
     expect(m).toMatch(/<h2 id="lk-references" class="lk-manual-h2">Sources<\/h2>\n<ul class="lk-references-list lk-references-list--author-date">\n  <li id="lk-ref-many">.*\n  <li id="lk-ref-doe">.*\n  <li id="lk-ref-wcag22">/);
     expect(page('## A\n\nSee [@doe].', 'references:\n  - id: doe\n    title: X\n    author: Doe\n    year: 2020').replace(/\s+/g, ' ')).not.toMatch(/undefined/);
+  });
+
+  it('places an agenda of the sections where :::agenda stands, instead of the automatic contents', () => {
+    const out = page(':::agenda\n:::\n\n:::section[Part 1]\n:::\n\n## Goals\n\n### Scope\n\nx[^1]\n\n## Plan\n\ny\n\n[^1]: A note.');
+    expect(out).not.toMatch(/<nav class="lk-manual-toc"/);
+    // parts and ## sections only: no ### and no Notes; nothing is current on the page
+    expect(out).toMatch(/<nav class="lk-block lk-toc" aria-labelledby="lk-agenda-1">\n<p class="lk-toc-title" id="lk-agenda-1">Agenda<\/p>\n<ol class="lk-toc-list"><li class="lk-toc-part"><a href="#part-1">Part 1<\/a><\/li><li><a href="#goals">Goals<\/a><\/li><li><a href="#plan">Plan<\/a><\/li><\/ol>\n<\/nav>/);
+    expect(out).not.toMatch(/aria-current="step"|class="lk-agenda-now"/);
+    expect(page(':::agenda[Program dne]\n:::\n\n## A\n\nx', 'lang: cs')).toMatch(/<p class="lk-toc-title" id="lk-agenda-1">Program dne<\/p>/);
+    expect(page(':::agenda\n:::\n\n## A\n\nx', 'lang: cs')).toMatch(/<p class="lk-toc-title" id="lk-agenda-1">Program<\/p>/);
+  });
+
+  it('ends with the closing as a ## section, listed in the contents, with the contacts as links written out', () => {
+    const out = page('## Goals\n\nx\n\n## Plan\n\ny\n\n:::closing[Thanks for reading]{email=team@example.org url=example.org}\n- Keep it short.\n:::');
+    expect(out).toMatch(/<section class="lk-block lk-closing" aria-labelledby="lk-closing">\n<h2 id="lk-closing" class="lk-manual-h2">Thanks for reading<\/h2>\n<ul class="lk-closing-recap"><li>Keep it short.<\/li><\/ul>\n<dl class="lk-closing-contacts"><dt>E-mail<\/dt><dd><a href="mailto:team@example.org">team@example.org<\/a><\/dd><dt>Web<\/dt><dd><a href="https:\/\/example.org">example.org<\/a><\/dd><\/dl>\n<\/section>/);
+    // in the automatic contents, after the sections
+    const contents = out.slice(out.indexOf('<nav class="lk-manual-toc"'), out.indexOf('</nav>', out.indexOf('<nav class="lk-manual-toc"')));
+    expect(contents.indexOf('<a href="#lk-closing">Thanks for reading</a>')).toBeGreaterThan(contents.indexOf('<a href="#plan">Plan</a>'));
+    expect(contents.indexOf('<a href="#plan">Plan</a>')).toBeGreaterThan(0);
+    // an agenda leaves it out
+    expect(page(':::agenda\n:::\n\n## A\n\nx\n\n:::closing\n:::')).not.toMatch(/<a href="#lk-closing">/);
+    expect(page('## A\n\nx\n\n:::closing\n:::', 'lang: cs')).toMatch(/<h2 id="lk-closing" class="lk-manual-h2">Děkujeme<\/h2>\n<\/section>/);
   });
 
   it('places contents where :::toc stands, nested to the chosen depth, instead of the automatic contents', () => {
@@ -372,7 +489,8 @@ describe('key figures', () => {
     expect(out).toMatch(/^<ul class="lk-block lk-metrics" data-fit="5">\n  <li><span class="lk-metric-value">184 000<\/span>/);
     expect(out).toContain('2.4 million');
     expect(html(':::metrics\n- **1,2 mil. Kč** rozpočet\n:::', 'manual', 'cs')).toContain('data-fit="3"');
-    for (let fit = 2.5; fit <= 10; fit += 0.5) expect(css).toContain(`.lk-metrics[data-fit="${fit}"] { --lk-metric-fit: ${fit}; }`);
+    // (the KPI row shares the steps)
+    for (let fit = 2.5; fit <= 10; fit += 0.5) expect(css).toContain(`:is(.lk-metrics, .lk-kpi)[data-fit="${fit}"] { --lk-metric-fit: ${fit}; }`);
   });
 });
 

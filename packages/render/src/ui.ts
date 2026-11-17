@@ -14,7 +14,7 @@ type Ui = Extract<Block, { type: 'ui' }>;
 
 const WORDS = {
   en: {
-    example: 'Example', themes: { light: 'light theme', dark: 'dark theme', both: 'light and dark theme' } as Record<string, string>,
+    example: 'Example', themes: { light: 'light mode', dark: 'dark mode', both: 'light and dark mode' } as Record<string, string>,
     kind: { button: 'button', badge: 'badge', toast: 'notification', modal: 'dialog', empty: 'empty state' } as Record<string, string>,
     input: { text: 'text field', email: 'email field', password: 'password field', number: 'number field', textarea: 'text area', select: 'select list', checkbox: 'checkbox', radio: 'radio buttons', switch: 'switch' } as Record<string, string>,
     word: { primary: 'primary', accent: 'accent', iris: 'iris', secondary: 'secondary', destructive: 'destructive', ghost: 'ghost', neutral: 'neutral', info: 'info', success: 'success', warning: 'warning', error: 'error', ai: 'AI', hover: 'hovered', focus: 'focused', disabled: 'disabled', loading: 'loading', readonly: 'read-only' } as Record<string, string>,
@@ -22,7 +22,7 @@ const WORDS = {
     quote: (s: string) => `“${s}”`,
   },
   cs: {
-    example: 'Ukázka', themes: { light: 'světlý motiv', dark: 'tmavý motiv', both: 'světlý a tmavý motiv' } as Record<string, string>,
+    example: 'Ukázka', themes: { light: 'světlý režim', dark: 'tmavý režim', both: 'světlý a tmavý režim' } as Record<string, string>,
     kind: { button: 'tlačítko', badge: 'štítek', toast: 'oznámení', modal: 'dialog', empty: 'prázdný stav' } as Record<string, string>,
     input: { text: 'textové pole', email: 'pole pro e-mail', password: 'pole pro heslo', number: 'číselné pole', textarea: 'víceřádkové pole', select: 'výběrový seznam', checkbox: 'zaškrtávací pole', radio: 'přepínače', switch: 'vypínač' } as Record<string, string>,
     word: { primary: 'primární', accent: 'akcentové', iris: 'iris', secondary: 'sekundární', destructive: 'destruktivní', ghost: 'průhledné', neutral: 'neutrální', info: 'informace', success: 'úspěch', warning: 'varování', error: 'chyba', ai: 'AI', hover: 'pod kurzorem', focus: 'zaměřené', disabled: 'neaktivní', loading: 'načítá se', readonly: 'jen pro čtení' } as Record<string, string>,

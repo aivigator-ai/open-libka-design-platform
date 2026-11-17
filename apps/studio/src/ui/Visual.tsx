@@ -396,7 +396,14 @@ export function BlockBar({ where }: { where: 'toolbar' | 'dock' | 'phone' }) {
           select();
           openBlockMenu({ left: r.left, top: where === 'toolbar' ? r.bottom : Math.max(8, r.top - 420) });
         }}>⋯</button>
-      <button type="button" class="st-blockbar-btn" id={id('props')} onClick={() => properties()}>{t('block.properties')}</button>
+      {/* (on the phone an icon, named for screen readers and in its title, so a figure's bar fits one row at 390 px) */}
+      {where === 'phone' ? (
+        <button type="button" class="st-blockbar-btn st-blockbar-icon" id={id('props')} aria-label={t('block.properties')} title={t('block.properties')} onClick={() => properties()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h8.5M17.5 6H20M4 12h1.5M10.5 12H20M4 18h6.5M15.5 18H20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /><circle cx="15" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8" /><circle cx="8" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8" /><circle cx="13" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8" /></svg>
+        </button>
+      ) : (
+        <button type="button" class="st-blockbar-btn" id={id('props')} onClick={() => properties()}>{t('block.properties')}</button>
+      )}
     </div>
   );
 }

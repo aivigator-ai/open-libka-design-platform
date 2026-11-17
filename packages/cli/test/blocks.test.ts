@@ -9,6 +9,7 @@ import { PDFDocument } from 'pdf-lib';
 import { build, printPdf, type BuildResult } from '../src/libka.ts';
 
 const dir = mkdtempSync(join(tmpdir(), 'libka-blocks-test-'));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
 const chrome = [process.env.LIBKA_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
   .some((p) => p && existsSync(p));
@@ -54,7 +55,7 @@ An animated short without dialogue.
 :::
 `;
 
-describe.skipIf(!chrome)('core blocks in the browser', () => {
+describe.skipIf(!chrome)('core blocks in the browser', { timeout: 30_000 }, () => {   // each step clicks in Chrome: a loaded machine needs more than 5 s
   let result: BuildResult;
   let browser: Browser;
   let page: Page;
@@ -69,10 +70,11 @@ describe.skipIf(!chrome)('core blocks in the browser', () => {
     page = await context.newPage();
     await page.goto(pathToFileURL(result.html!).href);
   }, 120000);
+  // closing Chrome can take longer than the default 10 s on a loaded machine; the folder is removed once, after every
+  // describe (removing it here, when this hook timed out, deleted the diagrams' outputs while they were being built)
   afterAll(async () => {
     await browser?.close();
-    rmSync(dir, { recursive: true, force: true });
-  });
+  }, 60_000);
 
   it('passes Guard as loaded and with everything shown', () => {
     expect(result.problems).toEqual([]);

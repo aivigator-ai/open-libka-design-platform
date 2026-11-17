@@ -2,10 +2,10 @@
 
 The source of truth is the DTCG token files in tokens/, wired together by
 libka.resolver.json (Design Tokens Resolver Module 2025.10): the sets are merged
-in order and the "theme" modifier adds the dark overrides.
+in order and the "mode" modifier adds the dark overrides.
 
-    resolve({'theme': 'dark'})   merged token tree for one theme (aliases kept)
-    tokens({'theme': 'dark'})    {path: Token} with types, values and aliases
+    resolve({'mode': 'dark'})    merged token tree for one mode (aliases kept)
+    tokens({'mode': 'dark'})     {path: Token} with types, values and aliases
     legacy_view()                the legacy JSON shape the generators read
 
 Values DTCG cannot express exactly (clamp() sizes, em letter-spacing, the 72ch
@@ -336,9 +336,9 @@ def legacy_view(resolver=RESOLVER):
 
     Themed tokens become {"light", "dark"}, aliases {"ref"}, unthemed component
     literals {"fixed"}; every value is CSS text as in the legacy shape."""
-    light, dark = tokens({'theme': 'light'}, resolver), tokens({'theme': 'dark'}, resolver)
-    dark_paths = context_paths('theme', 'dark', resolver)
-    tree_light = resolve({'theme': 'light'}, resolver)
+    light, dark = tokens({'mode': 'light'}, resolver), tokens({'mode': 'dark'}, resolver)
+    dark_paths = context_paths('mode', 'dark', resolver)
+    tree_light = resolve({'mode': 'light'}, resolver)
 
     def node(p):
         t = light[p]

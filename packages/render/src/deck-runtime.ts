@@ -4,7 +4,7 @@
  * no imports, no references outside its body.
  *
  * Keys: → ↓ PageDown Space next · ← ↑ PageUp previous · Home End · N notes · O overview
- *       P presenter view · F full screen · D dark theme · C high contrast · Esc closes
+ *       P presenter view · F full screen · D dark mode · C high contrast · Esc closes
  * Keys are ignored with Ctrl, Cmd or Alt held and while typing; Space is left to a focused control.
  * The letter keys can be turned off with the "Letter shortcuts" button (WCAG 2.1.4: a speech-input user's
  * words must not trigger them); the choice is remembered in this browser.

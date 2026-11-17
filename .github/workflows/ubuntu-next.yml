@@ -14,3 +14,10 @@ jobs:
     uses: ./.github/workflows/typescript.yml
     with:
       runs-on: ubuntu-latest
+      part: packages
+
+  studio:
+    uses: ./.github/workflows/typescript.yml
+    with:
+      runs-on: ubuntu-latest
+      part: studio

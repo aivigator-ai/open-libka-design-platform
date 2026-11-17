@@ -38,7 +38,7 @@ const BY_KEY: Readonly<Record<string, SettingTitle>> = {
   current: { en: 'Current item', cs: 'Aktuální položka' },
   highlight: { en: 'Recommended column', cs: 'Doporučený sloupec' },
   unit: { en: 'Unit', cs: 'Jednotka' },
-  theme: { en: 'Theme', cs: 'Motiv' },
+  theme: { en: 'Light or dark', cs: 'Světlý nebo tmavý' },
   layout: { en: 'Layout', cs: 'Rozvržení' },
   state: { en: 'State', cs: 'Stav' },
   value: { en: 'Value', cs: 'Hodnota' },
@@ -52,6 +52,14 @@ const BY_KEY: Readonly<Record<string, SettingTitle>> = {
   primary: { en: 'Main action', cs: 'Hlavní akce' },
   secondary: { en: 'Way out', cs: 'Cesta zpět' },
   destructive: { en: 'Removes something', cs: 'Něco odstraní' },
+  once: { en: 'Show once', cs: 'Zobrazit jednou' },
+  stacked: { en: 'Stacked', cs: 'Skládaný' },
+  change: { en: 'Change', cs: 'Změna' },
+  since: { en: 'Compared with', cs: 'Oproti' },
+  good: { en: 'Better when', cs: 'Lepší směr' },
+  trend: { en: 'Trend', cs: 'Vývoj' },
+  email: { en: 'E-mail', cs: 'E-mail' },
+  url: { en: 'Web address', cs: 'Webová adresa' },
 };
 
 /** Where a block or a child directive means something else by a key: `block.key` or `block.child.key`. */
@@ -79,7 +87,7 @@ const BY_PLACE: Readonly<Record<string, SettingTitle>> = {
   'ui.toast.variant': { en: 'Meaning', cs: 'Význam' },
   'ui.modal.label': { en: 'Title', cs: 'Nadpis' },
   'ui.empty.label': { en: 'Title', cs: 'Nadpis' },
-  // the inline elements (`badge` in text: ::badge[Beta]{variant=...}, `kbd`)
+  // the inline elements (`badge` in text: ::badge[Passed]{variant=...}, `kbd`)
   'badge.label': { en: 'Text', cs: 'Text' },
   'badge.variant': { en: 'Meaning', cs: 'Význam' },
   'kbd.label': { en: 'Keys', cs: 'Klávesy' },

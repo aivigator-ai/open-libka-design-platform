@@ -8,7 +8,12 @@ import { dataUrl, manualHtml } from './pipeline.ts';
 
 const STAND_IN: DocxPicture = { data: Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0)), type: 'png', width: 640, height: 360 };
 /** For the checks: a picture wherever the build would have one (the alternative text is the document's own). */
-export const standInPictures = (): DocxOptions => ({ picture: (src) => (s.files.value.has(normalize(src) ?? '') ? STAND_IN : undefined), drawing: () => STAND_IN });
+export const standInPictures = (): DocxOptions => ({
+  picture: (src) => (s.files.value.has(normalize(src) ?? '') ? STAND_IN : undefined), drawing: () => STAND_IN, ...wordDesign(),
+  ...(s.design.value?.logo ? { logo: { picture: STAND_IN, alt: s.design.value.logo.alt } } : {}),
+});
+/** The document's design for the Word file (its colours, Office fonts and sizes), as the page's. */
+const wordDesign = (): Pick<DocxOptions, 'design'> => (s.design.value?.design ? { design: s.design.value.design } : {});
 
 function drawingBlocks(value: unknown, out: Block[] = []): Block[] {
   if (Array.isArray(value)) value.forEach((v) => drawingBlocks(v, out));
@@ -77,7 +82,24 @@ async function wordPictures(doc: LibkaDocument): Promise<DocxOptions> {
       figure.classList.remove('lk-draw-now');
     }
   }
-  return { picture: (src) => pictures.get(normalize(src) ?? ''), drawing: (b) => drawings.get(b) };
+  // the brand's logo above the title, as the build makes it: a PNG as it is, an SVG drawn 96 px tall
+  let logo: DocxOptions['logo'];
+  const brandLogo = s.design.value?.logo;
+  if (brandLogo) {
+    try {
+      const bytes = Uint8Array.from(atob(brandLogo.src.slice(brandLogo.src.indexOf(',') + 1)), (c) => c.charCodeAt(0));
+      const known = brandLogo.src.startsWith('data:image/png') ? sniffPicture(bytes) : null;
+      if (known) logo = { picture: { data: bytes, ...known }, alt: brandLogo.alt };
+      else {
+        const img = new Image();
+        img.src = brandLogo.src;
+        await img.decode();
+        const height = 96, width = Math.round((img.naturalWidth / (img.naturalHeight || 1)) * height);
+        logo = { picture: await rasterize(brandLogo.src, width, height), alt: brandLogo.alt };
+      }
+    } catch { /* the Word file goes without the logo */ }
+  }
+  return { picture: (src) => pictures.get(normalize(src) ?? ''), drawing: (b) => drawings.get(b), ...wordDesign(), ...(logo ? { logo } : {}) };
 }
 
 /** The Word file of the current document. */

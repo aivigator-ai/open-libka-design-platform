@@ -76,6 +76,8 @@ export async function runGuard(): Promise<void> {
         guardFrame.classList.remove('st-narrow');
       }
       if (run !== guardRun) return;
+      // more contrast as the CLI asks Chrome for it: the page's own rules applied, and the frame answering yes to
+      // prefers-contrast: more (frame-agent.ts reads forceHighContrast's mark), so a deck's C button shows pressed
       win = await load(guardFrame, forceHighContrast(html));
       if (run !== guardRun) return;
       let m = contrast({ normal: 7, large: 4.5 });
@@ -84,6 +86,30 @@ export async function runGuard(): Promise<void> {
         m = mergeScans(m, contrast({ normal: 7, large: 4.5 }));
       }
       checks.push({ target, id: 'contrast', mode: 'more-contrast', ...m });
+      // a deck's dark mode, which its reader turns on (D), in both contrast levels, as the CLI measures it: first on
+      // the page already loaded with more contrast (switched to dark, so the deck is not loaded again), then on the
+      // standard page; reported in the CLI's order. The page reused is the one the more-contrast pass expanded: a
+      // deck hides nothing when expanded (its tabs are static, a closed <details> keeps its summary), so measuring
+      // it expanded measures all a reader sees; a deck that hides content when expanded would need a fresh load here
+      if (target === 'deck') {
+        const dark = async (args: { normal: number; large: number }) => {
+          win.document.documentElement.dataset.theme = 'dark';
+          await agent(win).settle();
+          let d = contrast(args);
+          if (agent(win).expandPage()) {
+            await agent(win).settle();
+            d = mergeScans(d, contrast(args));
+          }
+          return d;
+        };
+        const darkMore = await dark({ normal: 7, large: 4.5 });
+        if (run !== guardRun) return;
+        win = await load(guardFrame, html);
+        if (run !== guardRun) return;
+        const darkStandard = await dark({ normal: 4.5, large: 3 });
+        checks.push({ target, id: 'contrast', mode: 'dark', ...darkStandard });
+        checks.push({ target, id: 'contrast', mode: 'dark-more-contrast', ...darkMore });
+      }
     }
     const doc = s.doc.value;
     if (want.includes('docx') && doc) {

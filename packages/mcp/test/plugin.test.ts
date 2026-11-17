@@ -32,6 +32,15 @@ describe('the Claude Code plugin', () => {
     for (const tool of Object.keys((createServer() as unknown as { _registeredTools: Record<string, unknown> })._registeredTools)) {
       expect(readme, tool).toContain(`\`${tool}\``);
     }
+    // and every resource, as the npm package's README does
+    const server = createServer() as unknown as { _registeredResources: Record<string, unknown>; _registeredResourceTemplates: Record<string, { resourceTemplate: { uriTemplate: { toString(): string } } }> };
+    const resources = [...Object.keys(server._registeredResources), ...Object.values(server._registeredResourceTemplates).map((t) => t.resourceTemplate.uriTemplate.toString())];
+    expect(resources).toContain('libka://template/{id}/{lang}');
+    const npmReadme = readFileSync(join(root, 'npm', 'readme', 'mcp.md'), 'utf8');
+    for (const uri of resources) {
+      expect(readme, uri).toContain(`\`${uri}\``);
+      expect(npmReadme, uri).toContain(`\`${uri}\``);
+    }
     // the overlay's version is filled in by the export; the public repository's must be this version exactly
     expect(readme).toContain(path!.includes('overlay') ? '`npx -y @libka/mcp@{{facts.version}}`' : `\`npx -y @libka/mcp@${version}\``);
     expect(readme.split(/\s+/).length).toBeGreaterThanOrEqual(40);

@@ -173,14 +173,39 @@ export const BLOCKS: readonly BlockDefinition[] = [
   },
   {
     name: 'toc', title: 'Table of contents', group: 'document',
-    useWhen: 'Long documents where readers jump to a section, or a deck that opens with an agenda. Manuals already get contents by themselves; place :::toc to choose where they go and how deep.',
-    summary: 'The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it is an agenda.',
+    useWhen: 'Long documents where readers jump to a section. Manuals already get contents by themselves; place :::toc to choose where they go and how deep. For the agenda of a talk, use :::agenda.',
+    summary: 'The contents, placed where it stands: ## sections and parts (depth=2, the default) or also ### subsections (depth=3). It replaces the automatic contents; in a deck it lists the sections once.',
     example: ':::toc[Contents]{depth=3}\n:::',
     attributes: { depth: { description: '2 lists ## sections and parts, 3 adds ### subsections.', values: ['2', '3'], quick: true } },
-    targets: { web: 'A navigation list of links to the headings, nested by level; replaces the automatic contents.', pdf: 'Printed contents, without page numbers.', deck: 'An agenda of the ## sections and parts; its own slide when it comes before the first ##.', docx: 'Links to the headings, placed here (no Word field, so Word never asks to update it).' },
+    targets: { web: 'A navigation list of links to the headings, nested by level; replaces the automatic contents.', pdf: 'Printed contents, without page numbers.', deck: 'A list of the ## sections and parts; its own slide when it comes before the first ##.', docx: 'Links to the headings, placed here (no Word field, so Word never asks to update it).' },
     a11y: ['A nav landmark named by its title, with a nested list of real links.'],
     antiPatterns: ['Contents in a short document with two or three sections.', 'Depth 3 on slides: the agenda shows sections only.'],
     schema: typed('toc', { title: str, depth: { enum: [2, 3] } }, ['depth']),
+  },
+  {
+    name: 'agenda', title: 'Agenda', group: 'document',
+    useWhen: 'A talk, training or workshop deck with three or more sections, where the audience should see the plan and where in it they are.',
+    summary: 'The agenda of a talk, built from the ## sections and parts where it stands. On slides it has a slide of its own and comes back before each ## after it, with the current section marked in words and bold; once keeps only the first. On the web page, in the PDF and in Word it is a short contents list that replaces the automatic one.',
+    example: ':::agenda[Agenda]\n:::',
+    attributes: { once: { description: 'Show the agenda once, without repeating it before each section.', kind: 'flag', quick: true } },
+    targets: { web: 'A navigation list of links to the ## sections and parts; replaces the automatic contents.', pdf: 'Printed list of the sections, without page numbers.', deck: 'A slide of its own, then again before each ## after it with the current section in bold and the word "Now"; a long agenda continues on the next slide.', docx: 'Links to the sections, placed here (no Word field).' },
+    a11y: ['A nav landmark named by its title, with a list of real links.', 'The current section is marked by the word "Now", bold type and aria-current, never by color alone; screen readers hear "You are here".'],
+    antiPatterns: ['An agenda in a short deck with two sections.', 'An agenda right next to a :::toc: on slides both list the same sections (a :::toc{depth=3} for the web page and an agenda for the slides is fine).', 'An agenda inside another block (reported).'],
+    schema: typed('agenda', { title: str, once: { type: 'boolean' } }, ['once']),
+  },
+  {
+    name: 'closing', title: 'Closing', group: 'document',
+    useWhen: 'The end of a talk, training or proposal: a thank-you, the points to remember and how to get in touch.',
+    summary: 'The last section: a thank-you as its title, an optional sentence, an optional recap list of up to five points, and the contacts as real links written out in full. On slides it is the closing slide.',
+    example: ':::closing[Thank you]{email=team@example.org url=https://example.org/contact}\nQuestions are welcome, now or later.\n\n- Check every image for a text alternative.\n- Run the build before you share a file.\n:::',
+    attributes: {
+      email: { description: 'An e-mail address for questions, shown in full as a mailto: link (checked).' },
+      url: { description: 'A web address for more, shown in full as a link (checked); the link reads the address without https:// and a trailing slash, and https:// is added when it is missing. Say in the sentence what the page is ("the dashboard").' },
+    },
+    targets: { web: 'A ## section at the end, listed in the contents (not in an agenda), with the contacts as links.', pdf: 'Same, with the addresses printed in full.', deck: 'The closing slide: the title large, the sentence, the recap and the contacts.', docx: 'Heading 1, the text and the list, the contacts as links.' },
+    a11y: ['A section with a real heading, so it is reachable from the contents and by heading navigation.', 'The contacts are real links whose text is the address itself, readable when printed.'],
+    antiPatterns: ['Anything after the closing except speaker notes and :::references (reported, with a fix that moves it to the end).', 'A long recap: more than five points do not fit one slide (reported).', 'A closing inside another block (reported).'],
+    schema: typed('closing', { title: str, text: inline, items: { type: 'array', items: inline }, email: str, url: str }, []),
   },
   {
     name: 'references', title: 'References', group: 'document',
@@ -348,7 +373,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
   {
     name: 'diagram', title: 'Diagram', group: 'explain',
     useWhen: 'A process, a sequence of messages, states and transitions, a class model or a data model that a picture explains better than a list: flowcharts, sequence, state, class and entity-relationship diagrams.',
-    summary: 'A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast themes.',
+    summary: 'A Mermaid diagram written as text in a ```mermaid fence, drawn as SVG when the document is built. accTitle (the caption) and accDescr (the description for readers who cannot see it) are required. LibKa sets the colours and fonts, so they follow the light, dark and high-contrast modes.',
     example: '```mermaid\nflowchart LR\n  accTitle: How a LibKa document is built\n  accDescr: The Markdown is parsed into blocks, Guard checks the rendered page, and outputs that pass are signed.\n  A[Markdown] --> B[Blocks] --> C{Guard}\n  C -->|passes| D[Signed outputs]\n  C -.->|fails| A\n```',
     targets: { web: 'An inline SVG with its caption; "Show the source" reveals the Mermaid text. No script at runtime.', pdf: 'The same SVG.', deck: 'The SVG in the space left under the heading and text (up to 420px high); wide slides suit flowchart LR. Below 200px Guard reports the slide as too full.', docx: 'Picture drawn in Chrome with the description as alternative text; the Mermaid source stays in the LibKa Markdown file.' },
     a11y: ['The SVG is an image named by accTitle and described by accDescr; write the description as the steps a reader would otherwise see.', 'Shapes and dotted or solid lines carry meaning, not colour.'],
@@ -428,7 +453,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     name: 'cards', title: 'Cards', group: 'highlight',
     useWhen: 'Pointers to related pages, products, options or next steps, each with a title and one sentence.',
     summary: 'A grid of related topics or links, each with a title and a short text.',
-    example: '::::cards\n:::card[Code]{href="#code"}\nFile names, highlighted lines and a copy button.\n:::\n:::card[Charts]{href="#chart" badge="New"}\nBar, line and donut charts drawn from a table.\n:::\n::::',
+    example: '::::cards\n:::card[Code]{href="#code"}\nFile names, highlighted lines and a copy button.\n:::\n:::card[Charts]{href="#chart" badge="New"}\nBar, line and donut charts, and horizontal and stacked bars, drawn from a table.\n:::\n::::',
     children: { card: { label: { description: 'Card title.', required: true }, href: { description: 'Where the card leads.', kind: 'link' }, badge: { description: 'A short label, such as "New".' } } },
     targets: { web: 'Grid of cards; a linked card is clickable as a whole, the title is the link.', pdf: 'Grid; links stay links.', deck: 'Grid on the slide.', docx: 'One bordered panel per card: badge, title (a link when the card has one) and text.' },
     a11y: ['A list of cards; one link per card (its title), not a link around everything.'],
@@ -580,22 +605,45 @@ export const BLOCKS: readonly BlockDefinition[] = [
   },
   {
     name: 'chart', title: 'Chart', group: 'data',
-    useWhen: 'Numbers whose pattern matters: comparisons between categories (bar), change over time (line), parts of a whole (donut).',
-    summary: 'A bar, line or donut chart drawn from a Markdown table; the table stays available as the accessible version.',
+    useWhen: 'Numbers whose pattern matters: comparisons between categories (bar, or hbar for long category names), change over time (line), parts of a whole (donut, or stacked bars for parts of several totals).',
+    summary: 'A bar, horizontal bar, line or donut chart drawn from a Markdown table; stacked bars split each total into its parts. The table stays available as the accessible version.',
     example: ':::chart{type=bar caption="Staff who find the handbook easy to use" unit="%"}\n| Quarter | 2025 | 2026 |\n|---|---|---|\n| Q1 | 62 | 71 |\n| Q2 | 64 | 75 |\n| Q3 | 66 | 78 |\n:::',
     attributes: {
-      type: { description: 'Bar for comparison, line for trends, donut for parts of a whole (one series, at most 5 parts).', required: true, values: ['bar', 'line', 'donut'], quick: true },
+      type: { description: 'Bar for comparison, hbar (horizontal bars) when the category names are long or many, line for trends, donut for parts of a whole (one series, at most 5 parts).', required: true, values: ['bar', 'hbar', 'line', 'donut'], quick: true },
       caption: { description: 'What the chart shows.', required: true },
       unit: { description: 'Unit of the values, such as % or €.' },
+      stacked: { description: 'Bars only: stack the series into one bar per category, its parts with the total at the end.', kind: 'flag' },
     },
-    targets: { web: 'SVG chart in the series colors with pattern fills, value labels and a legend; "Show data" opens the table.', pdf: 'Chart and the data table.', deck: 'Chart on the slide.', docx: 'Picture drawn in Chrome with the summary as alternative text, then the data as a Word table.' },
-    a11y: ['Hue is never the only encoding: patterns for bars and slices, marker shapes for lines.', 'The chart has a title and a text summary; the full data is a real table.', 'Axes start at zero.'],
-    antiPatterns: ['3D, decorative gradients and animation on load.', 'Donuts with more than 5 parts.', 'More than 6 series.'],
+    targets: { web: 'SVG chart in the series colors with pattern fills, value labels and a legend; stacked bars show each total and the parts that fit; "Show data" opens the table.', pdf: 'Chart and the data table.', deck: 'Chart on the slide.', docx: 'Picture drawn in Chrome with the summary as alternative text, then the data as a Word table.' },
+    a11y: ['Hue is never the only encoding: patterns for bars and slices, marker shapes for lines.', 'The chart has a title and a text summary; the full data is a real table (with the totals for stacked bars).', 'Axes start at zero.', 'A value written on a bar sits on its own background, so its contrast does not depend on the fill.'],
+    antiPatterns: ['3D, decorative gradients and animation on load.', 'Donuts with more than 5 parts.', 'More than 6 series.', 'Vertical bars whose category names overlap: use type=hbar.'],
     schema: typed('chart', {
-      kind: { enum: ['bar', 'line', 'donut'] }, caption: str, unit: str, category: str,
+      kind: { enum: ['bar', 'hbar', 'line', 'donut'] }, stacked: { type: 'boolean' }, caption: str, unit: str, category: str,
       labels: { type: 'array', minItems: 1, items: str },
       series: { type: 'array', minItems: 1, maxItems: 6, items: obj({ name: str, values: { type: 'array', items: { type: 'number' } } }, ['name', 'values']) },
     }, ['kind', 'caption', 'category', 'labels', 'series']),
+  },
+  {
+    name: 'kpi', title: 'KPI', group: 'data',
+    useWhen: 'A figure that is tracked over time, with how it changed and its recent trend: revenue, response time, satisfaction on a dashboard or a review slide.',
+    summary: 'One figure with its change in words and an arrow, a small trend line and an optional sentence. Two to four kpi blocks in a row sit side by side and share one slide; one alone stands large.',
+    example: ':::kpi[Requests answered within a day]{value="94%" change="+6 pp" since="Q2" trend="81,85,88,94"}\n:::\n\n:::kpi[Median waiting time]{value="3.2 h" change="-1.1 h" since="Q2" good=down trend="5.1,4.6,4.3,3.2"}\nThe new triage rules took effect in August.\n:::',
+    attributes: {
+      value: { description: 'The figure as it should read, with its unit: value="94%", value="€1.2M".', required: true },
+      change: { description: 'The change with its sign, as it should read: change=+12%, change="-1.1 h", change=0; a change of a percentage is in points (change="+6 pp"). When the source gives only the values, it is the difference to the period named in since.' },
+      since: { description: 'What the change is measured against; the output puts "since" before it in English ("up 6 pp since Q2") and "oproti" in Czech, so a Czech value follows that word (since="roku 2025").' },
+      good: { description: 'Which way is better: up (the default) or down, for costs, errors and waiting times.', values: ['up', 'down'] },
+      trend: { description: '3 to 24 recent values, oldest first (with only two, leave the trend out: the change says it), separated by commas (trend="81,85,88,94") or, with decimal commas, by semicolons (trend="3,5; 4,1"). The line has no labels and the values are written out under "Show the data": name the periods in a sentence, or give a table when each period matters.' },
+    },
+    targets: { web: 'The name, the figure in large type, an arrow with the change in words and "better" or "worse", the trend line with its values under "Show the data"; side by side with the kpi blocks next to it.', pdf: 'Same, with the trend values printed.', deck: 'The row on one slide; a single figure large.', docx: 'The name, the figure large and bold, the change and the trend in words.' },
+    a11y: ['The change is written in words ("up 6 pp since Q2") with "better" or "worse"; the arrow and the color only repeat it.', 'The trend line is hidden from screen readers; a sentence gives its first, last, highest and lowest values, and the values are a click away.', 'A row is a list, so a screen reader announces how many figures it holds.'],
+    antiPatterns: ['More than four figures in a row.', 'A change without what it is measured against.', 'A trend line as the only way to tell the direction.'],
+    schema: typed('kpi', {
+      items: { type: 'array', minItems: 1, maxItems: 4, items: obj({
+        label: str, value: str, change: str, direction: { enum: ['up', 'down', 'flat'] }, since: str, good: { enum: ['up', 'down'] },
+        trend: { type: 'array', minItems: 3, maxItems: 24, items: { type: 'number' } }, text: inline,
+      }, ['label', 'value']) },
+    }, ['items']),
   },
   /* ---------------- UI specimens ---------------- */
   {
@@ -605,7 +653,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
     example: ':::ui{caption="Saving a draft: one primary action" theme=both}\n::button[Save draft]{variant=primary}\n::button[Preview]{variant=secondary}\n::button[Delete]{variant=destructive state=disabled}\n:::',
     attributes: {
       caption: { description: 'What the specimen shows.', required: true },
-      theme: { description: 'Show it in the light theme, the dark theme or both side by side.', values: ['light', 'dark', 'both'] },
+      theme: { description: 'Show it in light mode, dark mode or both side by side.', values: ['light', 'dark', 'both'] },
       layout: { description: 'Components in a row (default) or stacked.', values: ['row', 'stack'], quick: true },
     },
     children: {
@@ -626,7 +674,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
         required: { description: 'Marks the field as required.', kind: 'flag' },
       },
       badge: {
-        label: { description: 'Short status: ::badge[Beta].', required: true },
+        label: { description: 'Short status: ::badge[Passed].', required: true },
         variant: { description: 'Meaning.', values: ['neutral', 'info', 'success', 'warning', 'error', 'ai'] },
       },
       toast: {
@@ -648,8 +696,8 @@ export const BLOCKS: readonly BlockDefinition[] = [
         action: { description: 'The one action that fills it.' },
       },
     },
-    targets: { web: 'Components in a framed stage, light and/or dark, with the caption and a text description for screen readers.', pdf: 'Same, in color.', deck: 'Same, on the slide.', docx: 'Picture of the specimen (both themes when asked) with its description as alternative text.' },
-    a11y: ['The stage is inert and hidden from screen readers; a generated text describes every component instead.', 'Components keep their real contrast in both themes and in high contrast (Guard checks the specimen like any text).', 'Disabled specimens are marked as such, so their lower contrast is allowed.'],
+    targets: { web: 'Components in a framed stage, light and/or dark, with the caption and a text description for screen readers.', pdf: 'Same, in color.', deck: 'Same, on the slide.', docx: 'Picture of the specimen (both modes when asked) with its description as alternative text.' },
+    a11y: ['The stage is inert and hidden from screen readers; a generated text describes every component instead.', 'Components keep their real contrast in both modes and in high contrast (Guard checks the specimen like any text).', 'Disabled specimens are marked as such, so their lower contrast is allowed.'],
     antiPatterns: ['Screenshots of UI: they go stale and cannot be checked.', 'More than one primary button for one decision.', 'Placeholder text instead of a label.'],
     schema: typed('ui', {
       caption: str, theme: { enum: ['light', 'dark', 'both'] }, layout: { enum: ['row', 'stack'] },
@@ -679,7 +727,7 @@ export const BLOCKS: readonly BlockDefinition[] = [
 
 export const INLINES: readonly InlineDefinition[] = [
   { name: 'kbd', title: 'Key', example: 'Press :kbd[Ctrl+Shift+P].', summary: 'Keys and key combinations as key caps; + separates the keys.' },
-  { name: 'badge', title: 'Badge', example: 'Export to PowerPoint :badge[Beta]{variant=info}', summary: 'A short status label inside text: neutral, info, success, warning, error or ai.' },
+  { name: 'badge', title: 'Badge', example: 'The page checks :badge[Passed]{variant=success}', summary: 'A short status label inside text: neutral, info, success, warning, error or ai.' },
   { name: 'footnote', title: 'Footnote', example: 'Contrast is measured on the rendered page.[^contrast]\n\n[^contrast]: Guard also measures with high contrast requested.', summary: 'An aside or a source without breaking the sentence: `[^name]` in the text and `[^name]: the note` on its own line at the top level (the end of the document is best). Notes are numbered by first use and collected under Notes at the end; decks get a Notes slide. Every note must be used and every reference defined.' },
   { name: 'citation', title: 'Citation', example: 'Text alternatives are required for images [@wcag22, sec. 1.1.1].', summary: 'A source from the front matter references list: `[@id]`, with a page or section after a comma (`[@id, p. 33]`), several separated by ; (`[@a; @b]`). Shown as [1] or (Author, 2023) by the `:::references` style, linked to the list. Recognised only when the front matter has references.' },
 ];

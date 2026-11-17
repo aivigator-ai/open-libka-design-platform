@@ -1,6 +1,6 @@
 {
   "name": "@libka/cli",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "private": true,
   "license": "Apache-2.0",
   "description": "libka build, check, verify: a LibKa Markdown document in, a checked and signed web page, PDF, slides and Word file out.",
@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@libka/design": "workspace:*",
     "@libka/docx": "workspace:*",
     "@libka/guard": "workspace:*",
     "@libka/model": "workspace:*",

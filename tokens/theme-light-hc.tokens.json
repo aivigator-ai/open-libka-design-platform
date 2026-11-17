@@ -1,5 +1,5 @@
 {
-  "$description": "High-contrast overrides for the light theme: every text role reaches 7:1 (WCAG AAA) on every background and on 12% tints of its own color; UI colors reach 4.5:1. Applied by the light-high-contrast context.",
+  "$description": "High-contrast overrides for the light mode: every text role reaches 7:1 (WCAG AAA) on every background and on 12% tints of its own color; UI colors reach 4.5:1. Applied by the light-high-contrast context.",
   "color": {
     "$type": "color",
     "semantic": {
@@ -44,6 +44,17 @@
         "info": {"$value": {"colorSpace": "srgb", "components": [0.0, 0.2902, 0.3294], "hex": "#004A54"}},
         "ai": {"$value": {"colorSpace": "srgb", "components": [0.2078, 0.1765, 0.6667], "hex": "#352DAA"}}
       }
+    }
+  },
+  "visualization": {
+    "series": {
+      "$type": "color",
+      "1": {"$value": {"colorSpace": "srgb", "components": [0.0863, 0.4588, 0.5804], "hex": "#167594"}},
+      "2": {"$value": {"colorSpace": "srgb", "components": [0.3882, 0.3529, 0.8588], "hex": "#635ADB"}},
+      "3": {"$value": {"colorSpace": "srgb", "components": [0.6353, 0.3529, 0.051], "hex": "#A25A0D"}},
+      "4": {"$value": {"colorSpace": "srgb", "components": [0.1686, 0.3725, 0.1529], "hex": "#2B5F27"}},
+      "5": {"$value": {"colorSpace": "srgb", "components": [0.7843, 0.2, 0.2667], "hex": "#C83344"}},
+      "6": {"$value": {"colorSpace": "srgb", "components": [0.4235, 0.4275, 0.4235], "hex": "#6C6D6C"}}
     }
   }
 }

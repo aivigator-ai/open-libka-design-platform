@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build and check with LibKa Guard
-        uses: {{owner}}/open-libka-guard-action@44484445fde039cea363d0d5703566fca56653af # v2.0.2
+        uses: {{owner}}/open-libka-guard-action@6b0b6a918571bc17b6e8bc16ab6503ff7d3c265e # v2.0.3
         with:
           documents: docs/*.md
           cli: '@libka/cli@{{version}}'

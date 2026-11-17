@@ -15,7 +15,7 @@ export interface ProjectRecord {
   created: number;
   updated: number;
   opened: number;
-  origin: 'new' | 'example' | 'file' | 'zip' | 'folder' | 'draft' | 'copy' | 'tutorial';
+  origin: 'new' | 'template' | 'example' | 'file' | 'zip' | 'folder' | 'draft' | 'copy' | 'tutorial';
   /** The editor it was last edited in (absent in documents saved before the editor was recorded: the source editor). */
   mode?: 'visual' | 'source' | 'split';
 }
@@ -123,6 +123,10 @@ export class StudioDb {
 
   listFiles(project: string): Promise<FileRecord[]> { return this.byProject('files', project); }
   async putFile(f: FileRecord): Promise<void> { await this.put('files', f); }
+  /** Removes one file of a project (a brand file the author removes). */
+  deleteFile(project: string, path: string): Promise<void> {
+    return this.run(['files'], 'readwrite', async (t) => { t.objectStore('files').delete([project, path]); });
+  }
   /** Stores a project and all its files at once, so a new or imported project is never half there. */
   putProjectWithFiles(p: ProjectRecord, files: FileRecord[]): Promise<void> {
     return this.run(['projects', 'files'], 'readwrite', async (t) => {

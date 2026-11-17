@@ -1,0 +1,12 @@
+{
+  "id": "decision-record",
+  "name": { "en": "Decision record", "cs": "Záznam rozhodnutí" },
+  "description": {
+    "en": "Decision records: each decision with its context, the options in a comparison and the consequences, and a proposal still to decide; for the web, a PDF and Word.",
+    "cs": "Záznamy rozhodnutí: každé rozhodnutí s kontextem, porovnáním možností a důsledky a k tomu návrh, o kterém se teprve rozhodne; pro web, PDF a Word."
+  },
+  "file": "decisions",
+  "theme": "classic",
+  "outputs": ["web", "pdf", "docx"],
+  "picture": "page"
+}

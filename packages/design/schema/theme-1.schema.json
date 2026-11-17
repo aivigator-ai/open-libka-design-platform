@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "theme-1.schema.json",
+  "title": "LibKa theme, format 1",
+  "description": "A LibKa theme selects a design style: the type pairing, the type scale, the heading weight, density and corner radius. Every choice is an id or an enum whose CSS LibKa ships; colours come from the brand. LibKa's validator (@libka/design, validateTheme) is the authority; this schema gives editors completion and the same rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "id", "name", "fonts", "scale", "headings", "density", "radius"],
+  "properties": {
+    "$schema": { "type": "string", "pattern": "(^|/)theme-1\\.schema\\.json$" },
+    "id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+    "name": { "$ref": "#/$defs/words" },
+    "description": { "$ref": "#/$defs/words" },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["heading", "body"],
+      "properties": {
+        "heading": { "enum": ["fraunces", "inter", "literata", "bitter", "space-grotesk", "atkinson-hyperlegible-next", "public-sans"] },
+        "body": { "enum": ["inter", "literata", "bitter", "atkinson-hyperlegible-next", "public-sans"] }
+      }
+    },
+    "scale": { "enum": ["standard", "large"] },
+    "headings": { "enum": ["standard", "bold"] },
+    "density": { "enum": ["comfortable", "compact"] },
+    "radius": { "enum": ["none", "small", "medium", "large"] }
+  },
+  "$defs": {
+    "words": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "cs"],
+      "properties": {
+        "en": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "cs": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      }
+    }
+  }
+}

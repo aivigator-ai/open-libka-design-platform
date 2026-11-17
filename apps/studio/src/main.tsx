@@ -23,6 +23,13 @@ Object.defineProperty(window, 'libkaStudio', {
     get problems() { return s.problems.value; },
     get project() { return s.project.value && { id: s.project.value.id, name: s.project.value.name }; },
     get files() { return [...s.files.value.keys()]; },
+    /** The design the document is shown in: its theme, brand file, whether it is solved, its logo, its words. */
+    get design() {
+      const d = s.design.value;
+      return d && { theme: d.theme.id, brandPath: d.brandPath ?? null, named: d.named, resolved: Boolean(d.design), logo: Boolean(d.logo), problems: d.problems.length, notes: d.notes };
+    },
+    /** The page as the preview shows it. */
+    get html() { return s.html.value; },
     get selection() { return bridge.editor?.selection() ?? ''; },
     get mode() { return s.mode.value; },
     /** Split: the text on each side. */

@@ -54,6 +54,17 @@ describe('applying fixes', () => {
     expect(applyFix(md, line, fix)).toBe('# Title\n\nText.\n\n## Another\n\nMore.\n');
   });
 
+  it('moves a closing, with its speaker notes, to the end, before a reference list that ends the document', () => {
+    const md = '# T\n\nIntro.\n\n:::closing[Thank you]{email=team@example.org}\nBye.\n:::\n\n:::notes\nSay   bye.\n:::\n\n## A\n\nText   of A.\n\n:::references\n:::\n';
+    const { line, fix } = problem(md, 'closing-not-last');
+    expect(fix).toEqual({ kind: 'move-to-end' });
+    const out = applyFix(md, line, fix)!;
+    expect(out).toBe('# T\n\nIntro.\n\n## A\n\nText   of A.\n\n:::closing[Thank you]{email=team@example.org}\nBye.\n:::\n\n:::notes\nSay   bye.\n:::\n\n:::references\n:::\n');
+    expect(parse(out).problems.map((p) => p.code)).not.toContain('closing-not-last');
+    // already at the end: nothing to do
+    expect(applyFix(out, out.split('\n').indexOf(':::closing[Thank you]{email=team@example.org}') + 1, fix)).toBeNull();
+  });
+
   it('does nothing for fixes that are not about the text, or on the wrong line', () => {
     expect(applyFix(doc('x'), 1, { kind: 'field', target: 'alt' })).toBeNull();
     expect(applyFix(doc('x'), 1, { kind: 'set-front-matter', key: 'outputs', value: ['web'] })).toBeNull();

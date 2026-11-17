@@ -27,7 +27,8 @@ export interface Violation {
 
 export interface CheckResult {
   id: 'axe' | 'contrast' | 'structure' | 'pdfua' | 'docx';
-  mode: 'standard' | 'more-contrast';
+  /** The colours measured: standard, with more contrast requested, and (a deck) its dark mode in both. */
+  mode: 'standard' | 'more-contrast' | 'dark' | 'dark-more-contrast';
   title: string;
   checked: number;
   skipped: number;
@@ -134,6 +135,19 @@ export async function guardHtml(htmlPath: string, browser?: Browser): Promise<Gu
     await open(page, url, 'more');
     const more = await bothStates({ normal: 7, large: 4.5 }, false);
     checks.push({ id: 'contrast', mode: 'more-contrast', title: 'Text contrast with "more contrast" requested (7:1, large 4.5:1)', ...more.contrast });
+    // a deck has a dark mode its reader turns on (D): measured in both contrast levels too
+    if (await page.evaluate(() => document.querySelector('meta[name="libka-target"][content="deck"]') !== null)) {
+      for (const [contrast, mode, args, title] of [
+        ['no-preference', 'dark', { normal: 4.5, large: 3 }, 'Text contrast in dark mode, AA (4.5:1, large 3:1)'],
+        ['more', 'dark-more-contrast', { normal: 7, large: 4.5 }, 'Text contrast in dark mode with "more contrast" requested (7:1, large 4.5:1)'],
+      ] as const) {
+        await open(page, url, contrast);
+        await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        await page.evaluate(settle);
+        checks.push({ id: 'contrast', mode, title, ...(await bothStates(args, false)).contrast });
+      }
+    }
     await page.close();
     // reflow: the page loaded on its own 320 CSS pixels wide, as on a small phone (WCAG 1.4.10)
     const narrow = await b.newPage({ viewport: { width: 320, height: 640 } });

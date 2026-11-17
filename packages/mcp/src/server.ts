@@ -10,16 +10,18 @@
  *   resources  libka://guide        the authoring guide (the libka-author skill)
  *              libka://reference    the block reference, generated from the registry
  *              libka://schema/document  the document model as JSON Schema
+ *              libka://templates    the templates (a report, a talk, a manual, a policy, decision records): names, descriptions, theme, outputs
+ *              libka://template/{id}/{lang}  a template's LibKa Markdown, in English or Czech
  *   prompts    convert-to-libka     turn the given content into a LibKa document
  *
  * Run over stdio: node packages/mcp/src/server.ts (the repository's .mcp.json does this for Claude Code), or
  * npx -y @libka/mcp from the npm package.
  * libka_build writes files: by default into LIBKA_OUT, or ./libka-out under the server's working directory.
  */
-import { readFileSync, existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { BLOCKS, FALLBACKS, INLINES, block, documentSchema } from '@libka/blocks';
@@ -33,11 +35,20 @@ const SKILL = existsSync(join(HERE, '..', 'assets', 'SKILL.md')) ? join(HERE, '.
   : resolve(HERE, '..', '..', '..', '.claude', 'skills', 'libka-author', 'SKILL.md');
 const json = (value: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] });
 const guide = () => readFileSync(SKILL, 'utf8').replace(/^---[\s\S]*?---\n/, '').trimStart();
+// the templates: create-libka's gallery in the repository, or its copy in the npm package
+const GALLERY = existsSync(join(HERE, '..', 'assets', 'templates')) ? join(HERE, '..', 'assets', 'templates')
+  : resolve(HERE, '..', '..', 'create-libka', 'gallery');
+interface Template { id: string; name: Record<string, string>; description: Record<string, string>; file: string; theme: string; outputs: string[] }
+const templates = (): Template[] => readdirSync(GALLERY, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()
+  .map((id) => JSON.parse(readFileSync(join(GALLERY, id, 'template.json'), 'utf8')) as Template);
+const LANGS = ['en', 'cs'];
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: 'libka', version: VERSION }, {
     instructions: 'LibKa turns one LibKa Markdown file (Markdown with LibKa blocks) into a web page, an A4 PDF, 16:9 slides and a Word file, each checked for accessibility. To write a LibKa document: read libka://guide, '
-      + 'pick blocks with libka_list_blocks and libka_get_block, write the LibKa Markdown, then call libka_check until it has no problems and libka_build until Guard passes.',
+      + 'pick blocks with libka_list_blocks and libka_get_block, write the LibKa Markdown, then call libka_check (with the path the document is or will be saved at) until it has no problems and libka_build until Guard passes. '
+      + 'For a report, a talk, a manual, a policy or decision records, start from a template: libka://templates lists them, libka://template/{id}/{lang} gives one. '
+      + 'A brand (colours, fonts, a logo) is a _brand.yml file next to the document or above it; its format is in libka://reference, "Brand file".',
   });
 
   server.registerTool('libka_list_blocks', {
@@ -65,9 +76,12 @@ export function createServer(): McpServer {
 
   server.registerTool('libka_check', {
     title: 'Check LibKa Markdown',
-    description: 'Parse LibKa Markdown without building: problems with line numbers (fix all of them), the outline, block counts and how many slides the deck will have. Fast; call it after every change.',
-    inputSchema: { markdown: z.string().describe('The complete LibKa Markdown document, including front matter') },
-  }, async ({ markdown }) => json(lint(markdown)));
+    description: 'Parse LibKa Markdown without building: problems with line numbers (fix all of them), the outline, block counts, how many slides the deck will have and the design it is built with. Fast; call it after every change.',
+    inputSchema: {
+      markdown: z.string().describe('The complete LibKa Markdown document, including front matter'),
+      path: z.string().optional().describe('Where the document is or will be saved (.md), so its brand and theme files (brand:, theme:, the project\'s _brand.yml) are found and checked too'),
+    },
+  }, async ({ markdown, path }) => json(lint(markdown, undefined, path ? resolve(path) : undefined)));
 
   server.registerTool('libka_build', {
     title: 'Build a LibKa document',
@@ -95,13 +109,23 @@ export function createServer(): McpServer {
     }
     source = resolve(source);
     const r = await build(source, { out, ...(outputs ? { outputs } : {}) });
-    const summary = (report?: { checks: { id: string; mode: string; checked: number; violations: unknown[] }[] }) =>
-      report?.checks.map((c) => ({ check: `${c.id}/${c.mode}`, checked: c.checked, violations: c.violations.length }));
+    type Report = { checks: { id: string; mode: string; checked: number; violations: unknown[] }[] };
+    // each output's own checks: the PDF's (veraPDF) and the Word file's apart from the page's
+    const of = (report: Report | undefined, keep: (id: string) => boolean) => {
+      const checks = report?.checks.filter((c) => keep(c.id)) ?? [];
+      return checks.length ? checks.map((c) => ({ check: `${c.id}/${c.mode}`, checked: c.checked, violations: c.violations.length })) : undefined;
+    };
+    const page = (id: string) => id !== 'pdfua' && id !== 'docx';
     return json({
       ok: r.ok, problems: r.problems,
       files: [r.html, r.pdf, r.docx, r.manifest, r.conformance, r.deck?.html, r.deck?.pdf, r.deck?.manifest, r.deck?.conformance].filter(Boolean),
       ...(r.removed ? { removed: r.removed } : {}),
-      guard: { web: summary(r.report), slides: summary(r.deck?.report) },
+      guard: {
+        web: of(r.report, page), pdf: of(r.report, (id) => id === 'pdfua'), docx: of(r.report, (id) => id === 'docx'),
+        slides: of(r.deck?.report, page), slidesPdf: of(r.deck?.report, (id) => id === 'pdfua'),
+      },
+      // the design in words (what the brand's colours became, the theme, the logo), a signing key made, a PDF not validated
+      ...(r.notes?.length ? { notes: r.notes } : {}),
       source: basename(source),
     });
   });
@@ -112,6 +136,17 @@ export function createServer(): McpServer {
     async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'text/markdown', text: skillReference(VERSION) }] }));
   server.registerResource('document-schema', 'libka://schema/document', { title: 'LibKa document model (JSON Schema)', mimeType: 'application/schema+json' },
     async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'application/schema+json', text: JSON.stringify(documentSchema(), null, 2) }] }));
+
+  server.registerResource('templates', 'libka://templates', { title: 'LibKa templates', description: 'The templates a document can start from, with their names and descriptions in English and Czech, theme and outputs.', mimeType: 'application/json' },
+    async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(templates().map((t) => ({ ...t, text: Object.fromEntries(LANGS.map((l) => [l, `libka://template/${t.id}/${l}`])) })), null, 2) }] }));
+  server.registerResource('template', new ResourceTemplate('libka://template/{id}/{lang}', {
+    list: async () => ({ resources: templates().flatMap((t) => LANGS.map((l) => ({ uri: `libka://template/${t.id}/${l}`, name: `${t.name.en} (${l})`, mimeType: 'text/markdown' }))) }),
+  }), { title: 'A LibKa template', description: 'A template\'s LibKa Markdown: replace its content with yours, keep its order.', mimeType: 'text/markdown' },
+    async (uri, { id, lang }) => {
+      const t = templates().find((x) => x.id === id);
+      if (!t || !LANGS.includes(String(lang))) throw new Error(`No template ${id} in ${lang}. libka://templates lists them (languages: ${LANGS.join(', ')}).`);
+      return { contents: [{ uri: uri.href, mimeType: 'text/markdown', text: readFileSync(join(GALLERY, t.id, `${lang}.md`), 'utf8') }] };
+    });
 
   server.registerPrompt('convert-to-libka', {
     title: 'Convert content to LibKa',

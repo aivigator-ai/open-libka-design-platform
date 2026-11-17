@@ -19,7 +19,12 @@ export function czechText(text: string): string {
     .replace(/(?<=^|[\s(\[„"'“‚«>])([ksvzouaiKSVZOUAI]) (?=\S|$)/g, `$1${NBSP}`)
     // a number keeps its unit and its digit groups together
     .replace(unit, `$1${NBSP}$2`)
-    .replace(/(\d) (?=\d{3}(?!\d))/g, `$1${NBSP}`);
+    .replace(/(\d) (?=\d{3}(?!\d))/g, `$1${NBSP}`)
+    // a date stays on one line: "31. 12. 2025", "31. 12."
+    .replace(/\b(\d{1,2}\.) (\d{1,2}\.)(?: (\d{4})\b)?/g, (_, d: string, m: string, y?: string) => `${d}${NBSP}${m}${y ? `${NBSP}${y}` : ''}`)
+    // percentage points stay whole and with their figure: "6 p. b."
+    .replace(/(\d) (?=p\. b\.)/g, `$1${NBSP}`)
+    .replace(/\bp\. b\./g, `p.${NBSP}b.`);
 }
 
 /** A finished page with the typography of its language applied to every text run outside verbatim elements. */

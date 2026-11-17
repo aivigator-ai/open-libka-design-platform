@@ -1,0 +1,12 @@
+{
+  "id": "manual",
+  "name": { "en": "Manual", "cs": "Manuál" },
+  "description": {
+    "en": "A manual: steps, warnings, do and don't, a glossary and a checklist, with slides for training, a PDF and Word.",
+    "cs": "Manuál: kroky, upozornění, co dělat a co ne, slovníček a kontrolní seznam, k tomu snímky pro školení, PDF a Word."
+  },
+  "file": "manual",
+  "theme": "classic",
+  "outputs": ["web", "pdf", "deck", "docx"],
+  "picture": "page"
+}

@@ -432,37 +432,37 @@
     }
   },
   "visualization": {
-    "$description": "Series colors and ordering verified: worst-case CIE76 deltaE = 17.1 across deuteranopia, protanopia and tritanopia (threshold 15). Pattern fills are mandatory for print and for charts with 4+ series.",
+    "$description": "Series colors and ordering, the light values here and one set per mode in the theme files; generate.py verifies 3:1 (4.5:1 in high contrast) on every background and worst-case CIE76 deltaE 15 or more across deuteranopia, protanopia and tritanopia in every mode. Pattern fills are mandatory for print and for charts with 4+ series.",
     "series": {
       "$type": "color",
       "1": {
-        "$value": {"colorSpace": "srgb", "components": [0.0588, 0.5608, 0.6314], "hex": "#0F8FA1"},
-        "$description": "Deep Aqua",
+        "$value": {"colorSpace": "srgb", "components": [0.0745, 0.5529, 0.6784], "hex": "#138DAD"},
+        "$description": "Aqua",
         "$extensions": {"org.libka": {"pattern": "solid"}}
       },
       "2": {
-        "$value": {"colorSpace": "srgb", "components": [0.4784, 0.4863, 1.0], "hex": "#7A7CFF"},
-        "$description": "Soft Iris",
+        "$value": {"colorSpace": "srgb", "components": [0.5059, 0.4784, 0.9961], "hex": "#817AFE"},
+        "$description": "Iris",
         "$extensions": {"org.libka": {"pattern": "diagonal-lines"}}
       },
       "3": {
-        "$value": {"colorSpace": "srgb", "components": [0.9412, 0.702, 0.3686], "hex": "#F0B35E"},
-        "$description": "Soft Apricot",
+        "$value": {"colorSpace": "srgb", "components": [0.7765, 0.4784, 0.1137], "hex": "#C67A1D"},
+        "$description": "Apricot",
         "$extensions": {"org.libka": {"pattern": "dots"}}
       },
       "4": {
-        "$value": {"colorSpace": "srgb", "components": [0.0863, 0.3882, 0.2471], "hex": "#16633F"},
-        "$description": "Forest Mint",
+        "$value": {"colorSpace": "srgb", "components": [0.1255, 0.3922, 0.1412], "hex": "#206424"},
+        "$description": "Forest",
         "$extensions": {"org.libka": {"pattern": "cross-hatch"}}
       },
       "5": {
-        "$value": {"colorSpace": "srgb", "components": [0.8471, 0.3412, 0.4196], "hex": "#D8576B"},
-        "$description": "Calm Coral",
+        "$value": {"colorSpace": "srgb", "components": [0.8549, 0.3255, 0.3255], "hex": "#DA5353"},
+        "$description": "Coral",
         "$extensions": {"org.libka": {"pattern": "horizontal-lines"}}
       },
       "6": {
-        "$value": {"colorSpace": "srgb", "components": [0.7216, 0.7529, 0.8], "hex": "#B8C0CC"},
-        "$description": "Light Slate",
+        "$value": {"colorSpace": "srgb", "components": [0.5451, 0.549, 0.549], "hex": "#8B8C8C"},
+        "$description": "Slate",
         "$extensions": {"org.libka": {"pattern": "vertical-lines"}}
       }
     },

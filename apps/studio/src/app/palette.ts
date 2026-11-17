@@ -81,7 +81,7 @@ const settings: PaletteSource = {
     const other = s.lang.value === 'en' ? 'cs' : 'en';
     out.push({ id: 'set:lang', label: t('cmdk.language', { name: other === 'cs' ? 'Čeština' : 'English' }), words: 'language jazyk english čeština', run: () => { s.lang.value = other; s.prefs.set('lang', other); } });
     const theme = s.theme.value === 'dark' ? 'light' : 'dark';
-    out.push({ id: 'set:theme', label: t('cmdk.theme', { name: t(theme === 'dark' ? 'cmdk.dark' : 'cmdk.light') }), words: 'theme motiv dark light tmavý světlý', run: () => { s.theme.value = theme; s.prefs.set('theme', theme); } });
+    out.push({ id: 'set:theme', label: t('cmdk.theme', { name: t(theme === 'dark' ? 'cmdk.dark' : 'cmdk.light') }), words: 'theme motiv mode režim dark light tmavý světlý', run: () => { s.theme.value = theme; s.prefs.set('theme', theme); } });
     out.push({
       id: 'set:contrast', label: t(s.highContrast.value ? 'cmdk.contrastOff' : 'cmdk.contrastOn'), words: 'contrast kontrast',
       run: () => { s.highContrast.value = !s.highContrast.value; s.prefs.set('contrast', s.highContrast.value ? 'high' : 'standard'); },

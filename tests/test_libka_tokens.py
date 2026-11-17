@@ -1,4 +1,4 @@
-"""Tests for libka_tokens: the DTCG source validates, resolves per theme, and
+"""Tests for libka_tokens: the DTCG source validates, resolves per mode, and
 every rule the loader enforces fails the build when it is broken."""
 import json, os, shutil, sys, tempfile, unittest
 
@@ -30,35 +30,35 @@ class Workspace:
 
 
 class SourceIsValid(unittest.TestCase):
-    def test_every_theme_validates(self):
+    def test_every_mode_validates(self):
         counts = lt.validate()
-        self.assertEqual(counts['theme=light'], counts['theme=dark'])
-        self.assertGreater(counts['theme=light'], 200)
+        self.assertEqual(counts['mode=light'], counts['mode=dark'])
+        self.assertGreater(counts['mode=light'], 200)
 
-    def test_theme_modifier_applies_dark_overrides(self):
-        light, dark = lt.tokens({'theme': 'light'}), lt.tokens({'theme': 'dark'})
+    def test_mode_modifier_applies_dark_overrides(self):
+        light, dark = lt.tokens({'mode': 'light'}), lt.tokens({'mode': 'dark'})
         self.assertEqual(light['color.semantic.bg.canvas'].value['hex'], '#F6F7F9')
         self.assertEqual(dark['color.semantic.bg.canvas'].value['hex'], '#111723')
         self.assertEqual(lt.tokens({})['color.semantic.bg.canvas'].value['hex'], '#F6F7F9')  # default = light
 
     def test_high_contrast_contexts(self):
-        lhc = lt.tokens({'theme': 'light-high-contrast'})
-        dhc = lt.tokens({'theme': 'dark-high-contrast'})
-        dark = lt.tokens({'theme': 'dark'})
+        lhc = lt.tokens({'mode': 'light-high-contrast'})
+        dhc = lt.tokens({'mode': 'dark-high-contrast'})
+        dark = lt.tokens({'mode': 'dark'})
         self.assertEqual(lt.css(lhc['color.semantic.bg.canvas'], lhc), '#FFFFFF')
         self.assertEqual(lt.css(dhc['color.semantic.bg.canvas'], dhc), '#000000')
-        # dark high contrast stacks on the dark theme: non-color dark values carry over
+        # dark high contrast stacks on the dark mode: non-color dark values carry over
         self.assertEqual(lt.css(dhc['shadow.2'], dhc), lt.css(dark['shadow.2'], dark))
         # component aliases follow the high-contrast semantic values
         self.assertEqual(lt.css(lhc['color.component.button.accent.background'], lhc),
                          lt.css(lhc['color.semantic.action.accent-strong'], lhc))
 
-    def test_aliases_follow_the_theme(self):
-        dark = lt.tokens({'theme': 'dark'})
+    def test_aliases_follow_the_mode(self):
+        dark = lt.tokens({'mode': 'dark'})
         self.assertEqual(lt.css(dark['color.component.button.accent.background'], dark), '#20C7D9')
 
     def test_css_text_matches_v13(self):
-        light, dark = lt.tokens({'theme': 'light'}), lt.tokens({'theme': 'dark'})
+        light, dark = lt.tokens({'mode': 'light'}), lt.tokens({'mode': 'dark'})
         self.assertEqual(lt.css(light['shadow.2'], light),
                          '0 4px 16px rgb(17 23 35 / .07), 0 1px 3px rgb(17 23 35 / .05)')
         self.assertEqual(lt.css(dark['shadow.2'], dark), '0 4px 16px rgb(0 0 0 / .40), 0 1px 3px rgb(0 0 0 / .30)')
@@ -132,10 +132,10 @@ class RulesAreEnforced(unittest.TestCase):
     def test_resolver_version(self):
         self.assertRejected('libka.resolver.json', lambda d: d.update({'version': '2024.01'}), "version must be '2025.10'")
 
-    def test_unknown_theme_context(self):
+    def test_unknown_mode_context(self):
         with Workspace() as ws:
             with self.assertRaises(lt.TokenError) as ctx:
-                lt.tokens({'theme': 'sepia'}, ws.resolver)
+                lt.tokens({'mode': 'sepia'}, ws.resolver)
             self.assertIn('unknown context', str(ctx.exception))
 
 

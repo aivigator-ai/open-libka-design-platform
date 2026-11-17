@@ -2,7 +2,7 @@
  * Mermaid diagrams. They are drawn to SVG in a browser (Chrome during the build, the author's browser in the
  * Studio) with the same settings, then cleaned: Mermaid's geometry and accessible title and description stay,
  * its colours, embedded stylesheet and inline styles go, so components.css can colour every diagram with the
- * LibKa tokens in each theme.
+ * LibKa tokens in each mode.
  */
 
 /** Mermaid settings shared by the build and the Studio. Labels are measured in the LibKa UI font. */

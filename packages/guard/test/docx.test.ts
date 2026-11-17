@@ -6,7 +6,7 @@ import { conformance, DOCX_CRITERIA } from '../src/wcag.ts';
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 
 /** A minimal Word file: the body XML, and what the styles and properties say. */
-function docx(body: string, o: { title?: string; lang?: string; coreLang?: string; styles?: string } = {}): Uint8Array {
+function docx(body: string, o: { title?: string; lang?: string; coreLang?: string; styles?: string; parts?: Record<string, string> } = {}): Uint8Array {
   const lang = o.lang === undefined ? 'en-GB' : o.lang;
   const coreLang = o.coreLang ?? lang;
   return zipSync({
@@ -19,6 +19,7 @@ function docx(body: string, o: { title?: string; lang?: string; coreLang?: strin
       + `${o.styles ?? ''}</w:styles>`),
     'docProps/core.xml': strToU8(`<cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/">${o.title === undefined ? '<dc:title>Guide</dc:title>' : o.title ? `<dc:title>${o.title}</dc:title>` : ''}`
       + `${coreLang ? `<dc:language>${coreLang}</dc:language>` : ''}</cp:coreProperties>`),
+    ...Object.fromEntries(Object.entries(o.parts ?? {}).map(([n, x]) => [n, strToU8(x)])),
   });
 }
 const p = (text: string, style?: string, rPr = '') => `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t>${text}</w:t></w:r></w:p>`;
@@ -48,6 +49,15 @@ describe('checkDocx', () => {
     const pic = (descr: string) => `<w:p><w:r><w:drawing><wp:inline><wp:docPr id="1" name="Picture 1"${descr}/></wp:inline></w:drawing></w:r></w:p>`;
     expect(messages(docx(pic('')))).toMatch(/picture "Picture 1" has no alternative text/);
     expect(rules(docx(pic(' descr="A chart"')))).toEqual([]);
+    // a logo in a header is read on every page: it needs alternative text too
+    const header = `<w:hdr ${W}>${pic('')}</w:hdr>`;
+    expect(messages(docx(p('Text'), { parts: { 'word/header1.xml': header } }))).toMatch(/picture "Picture 1" \(header1\.xml\) has no alternative text/);
+  });
+
+  it('finds a colour taken from Word\'s theme, which Word would show instead of the checked one', () => {
+    expect(rules(docx(p('Text', undefined, '<w:color w:val="1A2130" w:themeColor="accent1"/>')))).toEqual(['docx-theme-color']);
+    expect(messages(docx(p('Text'), { styles: '<w:style w:type="paragraph" w:styleId="X"><w:pPr><w:shd w:val="clear" w:fill="FFFFFF" w:themeFill="accent2"/></w:pPr></w:style>' })))
+      .toMatch(/styles\.xml takes a colour from Word's theme \(w:themeFill="accent2"\)/);
   });
 
   it('finds tables without a repeating header row or alternative text', () => {
@@ -83,7 +93,7 @@ describe('checkDocx', () => {
     const c = conformance(report, { media: false, forms: false });
     expect(c.failed).toEqual(['1.3.1', '2.4.6']);
     expect(c.checked).toEqual(expect.arrayContaining(['1.1.1', '1.4.3', '2.4.2', '2.4.4', '3.1.1']));
-    expect(Object.keys(DOCX_CRITERIA)).toEqual(expect.arrayContaining(['docx-title', 'docx-language', 'docx-heading-order', 'docx-alt-text', 'docx-table-header', 'docx-link-text', 'docx-contrast']));
+    expect(Object.keys(DOCX_CRITERIA)).toEqual(expect.arrayContaining(['docx-title', 'docx-language', 'docx-heading-order', 'docx-alt-text', 'docx-table-header', 'docx-link-text', 'docx-contrast', 'docx-theme-color']));
   });
 });
 

@@ -41,3 +41,8 @@ declare module 'studio:example' {
   export const source: string;
   export const files: Record<string, Uint8Array>;
 }
+
+declare module 'studio:templates' {
+  /** The templates of create-libka's gallery: names, descriptions, text in English and Czech, pictures' paths. */
+  export const templates: readonly import('./state/store.ts').StudioTemplate[];
+}

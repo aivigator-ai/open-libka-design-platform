@@ -24,7 +24,7 @@ const chrome = [process.env.LIBKA_BROWSER, 'C:/Program Files/Google/Chrome/Appli
 
 let browser: Browser;
 let served: Served;
-type Studio = { source: string; selection: string; checks: { violations: unknown[] }[] | null; placeCaret(text: string, where?: string): boolean };
+type Studio = { source: string; selection: string; checks: { target: string; id: string; mode: string; checked: number; violations: unknown[] }[] | null; placeCaret(text: string, where?: string): boolean };
 
 async function open(options: BrowserContextOptions = {}): Promise<Page> {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, acceptDownloads: true, ...options });
@@ -70,8 +70,12 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
     const page = await open();
     // the checks ran in their frames (the frame agent and axe are the Studio's own files)
     const checks = (await studio(page)).checks!;
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(11);   // the deck's dark mode in both contrast levels too
     expect(checks.every((c) => c.violations.length === 0)).toBe(true);
+    // in the CLI's order, each one measuring the deck's text (the dark passes reuse the page loaded with more contrast)
+    const deck = checks.filter((c) => c.target === 'deck' && c.id === 'contrast');
+    expect(deck.map((c) => c.mode)).toEqual(['standard', 'more-contrast', 'dark', 'dark-more-contrast']);
+    for (const c of deck) expect(c.checked, c.mode).toBeGreaterThan(deck[0]!.checked * 0.9);
     // slides, a Word file, a diagram typed in, Split, the palette, the tutorial (a picture), Czech
     await page.click('[data-device="slides"]');
     await page.waitForTimeout(1000);
@@ -97,6 +101,77 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => (window as unknown as { violations?: string[] }).violations ?? [])).toEqual([]);
     await page.context().close();
+  }, 180000);
+
+  it('checks a deck as built, whatever a reader chose in a deck before (D, C), as the CLI does', async () => {
+    // a reader's choices in Present are stored by the deck under the Studio's origin, which the checking frames share
+    // (and whatever the Studio's own system asks for: more contrast and forced colours here, which the CLI's Chrome
+    // never has)
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, contrast: 'more', forcedColors: 'active' });
+    await ctx.addInitScript(() => {
+      localStorage.setItem('libka-studio:toured', '1');
+      localStorage.setItem('libka-deck:contrast', 'standard');
+      localStorage.setItem('libka-deck:theme', 'dark');
+      localStorage.setItem('libka-deck:letters', 'off');
+      sessionStorage.setItem('libka:tab', 'x');
+    });
+    const page = await ctx.newPage();
+    await page.goto(served.url);
+    await page.waitForSelector('html[data-guard="done"]', { timeout: 60000 });
+    const checks = (await studio(page)).checks!;
+    const deck = checks.filter((c) => c.target === 'deck' && c.id === 'contrast');
+    expect(deck.map((c) => c.mode)).toEqual(['standard', 'more-contrast', 'dark', 'dark-more-contrast']);
+    // with the stored "standard" contrast, the more-contrast passes measured the standard colours against 7:1
+    expect(checks.flatMap((c) => c.violations)).toEqual([]);
+    // the checking frame's page saw none of the stored choices: its deck's toggles are as built
+    const guardFrame = await (await page.$('#guard-frame'))!.contentFrame();
+    expect(await guardFrame!.evaluate(() => ({
+      stored: [localStorage.getItem('libka-deck:contrast'), localStorage.getItem('libka-deck:letters'), sessionStorage.getItem('libka:tab')],
+      contrast: document.documentElement.dataset.contrast ?? null,
+      letters: document.querySelector('.lk-deck')?.getAttribute('data-letters') ?? null,
+      pressed: [...document.querySelectorAll('[data-deck="theme"], [data-deck="contrast"]')].map((b) => b.getAttribute('aria-pressed')),
+      system: matchMedia('(prefers-contrast: more)').matches,
+      rules: document.documentElement.outerHTML.includes('@media (prefers-contrast: more)'),
+      forced: getComputedStyle(document.body).forcedColorAdjust,
+    }))).toEqual({ stored: [null, null, null], contrast: null, letters: 'on', pressed: ['false', 'false'], system: false, rules: false, forced: 'none' });
+    // the frame answers the media queries as the CLI's Chrome does: more contrast only where forceHighContrast marked
+    // the page (a deck's C button pressed there), no forced colours
+    expect(await guardFrame!.evaluate(() => {
+      const ask = () => ['(prefers-contrast: more)', '(prefers-contrast:more)', '(forced-colors: active)'].map((q) => matchMedia(q).matches);
+      const unmarked = ask();
+      const mark = document.createElement('meta');
+      mark.name = 'libka-frame-contrast';
+      document.head.append(mark);
+      const marked = ask();
+      mark.remove();
+      return { unmarked, marked };
+    })).toEqual({ unmarked: [false, false, false], marked: [true, true, false] });
+    // and keeps the page's own colours under forced colours, also where a page rule asks otherwise and in a picture
+    // drawn as the Word file's pictures are (the page serialised into an SVG)
+    expect(await guardFrame!.evaluate(async () => {
+      const style = document.createElement('style');
+      style.textContent = '.probe { position: fixed; left: 0; top: 0; width: 40px; height: 40px; background: rgb(255, 0, 0); forced-color-adjust: auto; }';
+      document.head.append(style);
+      const probe = document.createElement('div');
+      probe.className = 'probe';
+      document.body.append(probe);
+      const inFrame = getComputedStyle(probe).backgroundColor;
+      const root = document.documentElement;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><foreignObject width="${root.clientWidth}" height="${root.clientHeight}">${new XMLSerializer().serializeToString(root)}</foreignObject></svg>`;
+      const img = new Image();
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = 40; canvas.height = 40;
+      const c = canvas.getContext('2d')!;
+      c.drawImage(img, 0, 0);
+      const drawn = [...c.getImageData(20, 20, 1, 1).data.slice(0, 3)].join(',');
+      probe.remove(); style.remove();
+      return { inFrame, drawn };
+    })).toEqual({ inFrame: 'rgb(255, 0, 0)', drawn: '255,0,0' });
+    // the Studio itself still has them (only the frames start empty)
+    expect(await page.evaluate(() => localStorage.getItem('libka-deck:letters'))).toBe('off');
+    await ctx.close();
   }, 180000);
 
   it('keeps every state visible in forced colours, and passes Guard there (light and dark)', async () => {
@@ -171,14 +246,17 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
   }, 240000);
 
   it('shows the accessibility statement from Help, in both languages, and it passes Guard', async () => {
-    const page = await open();
+    const page = await open({ viewport: { width: 1366, height: 700 } });   // a laptop: the statement is longer than the window
     for (const lang of ['en', 'cs'] as const) {
       await chooseLang(page, lang);
       await page.click('#help-menu summary');
       await page.click('[data-command="a11y.open"]');
       await page.waitForSelector('.st-dialog--accessibility[open]');
-      // it opens at its top, on its heading, not scrolled to Close at the end
-      expect(await page.evaluate(() => [document.activeElement?.id, document.querySelector('.st-dialog--accessibility .st-dialog-body')!.scrollTop])).toEqual(['dialog-title', 0]);
+      // it opens at its top, on its text (a region named by its heading), which scrolls with the keyboard
+      expect(await page.evaluate(() => [document.activeElement?.className, document.activeElement?.getAttribute('aria-labelledby'), document.querySelector('.st-dialog--accessibility .st-dialog-content')!.scrollTop])).toEqual(['st-dialog-content', 'dialog-title', 0]);
+      await page.keyboard.press('PageDown');
+      await page.waitForTimeout(600);   // (the browser scrolls smoothly)
+      expect(await page.evaluate(() => document.querySelector('.st-dialog--accessibility .st-dialog-content')!.scrollTop)).toBeGreaterThan(0);
       const text = await page.textContent('.st-a11y');
       expect(text).toMatch(lang === 'en' ? /found 45 of the 45 criteria that apply met; 10 do not apply/ : /splněných 45 z 45 kritérií/);
       expect(findings(await guardPage(page)).map((v) => `${lang}: ${v.rule} ${v.target} ${v.message}`)).toEqual([]);
@@ -201,6 +279,8 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
       // the privacy note and the versions inside, for developers (moved here from the status bar)
       expect(await page.locator('.st-about h3').count()).toBe(2);
       expect(await page.textContent('#about-axe')).toMatch(/^axe-core \d/);
+      // the build's version, written into the chunk About loads from (not its placeholder)
+      expect(await page.textContent('#about-build')).toMatch(/ [0-9a-f]{10}$/);
       const notices = await page.getAttribute('.st-about a[href="THIRD-PARTY-NOTICES.txt"]', 'href');
       const response = await page.request.get(new URL(notices!, served.url).href);
       expect(response.status()).toBe(200);
@@ -259,7 +339,49 @@ describe.skipIf(!chrome)('LibKa Studio: policy, forced colours, touch', () => {
     await page.waitForSelector('#library-title');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     await page.context().close();
-  }, 90000);
+    // and the long dialogs: Preferences (its command keys put Change under the keys where a row is narrow), the brand
+    // editor and Keyboard shortcuts
+    const wide = await open();
+    const sideways = () => wide.evaluate(() => {
+      const content = document.querySelector('dialog[open] .st-dialog-content')!;
+      return [content.scrollWidth - content.clientWidth, document.querySelector('dialog[open]')!.scrollWidth - document.querySelector('dialog[open]')!.clientWidth];
+    });
+    await wide.click('#view-menu summary');
+    await wide.click('[data-command="prefs.open"]');
+    await wide.waitForSelector('.st-dialog--prefs[open]');
+    await wide.setViewportSize({ width: 320, height: 640 });
+    await wide.waitForTimeout(300);
+    expect(await sideways(), 'Preferences').toEqual([0, 0]);
+    // and every command key's row keeps its name and its Change button inside the dialog, side by side or one under
+    // the other
+    expect(await wide.evaluate(() => {
+      const box = document.querySelector('dialog[open] .st-dialog-content')!.getBoundingClientRect();
+      const inside = (e: Element) => { const r = e.getBoundingClientRect(); return r.left >= box.left - 0.5 && r.right <= box.right + 0.5; };
+      return [...document.querySelectorAll<HTMLTableRowElement>('.st-keys-edit tbody tr')].filter((tr) => !inside(tr.cells[0]!) || !inside(tr.querySelector('button')!)).map((tr) => tr.getAttribute('data-command'));
+    }), 'rows cut off').toEqual([]);
+    await wide.keyboard.press('Escape');
+    await wide.setViewportSize({ width: 1366, height: 768 });
+    await wide.click('#tab-design');
+    await wide.click('#design-edit-brand');
+    await wide.waitForSelector('#brand-primary', { timeout: 20000 });
+    await wide.setViewportSize({ width: 320, height: 640 });
+    await wide.waitForTimeout(300);
+    expect(await sideways(), 'the brand editor').toEqual([0, 0]);
+    await wide.keyboard.press('Escape');
+    await wide.setViewportSize({ width: 1366, height: 768 });
+    await wide.click('#help-menu summary');
+    await wide.click('[data-command="keys.open"]');
+    await wide.waitForSelector('.st-dialog--shortcuts[open]');
+    await wide.setViewportSize({ width: 320, height: 640 });
+    await wide.waitForTimeout(300);
+    expect(await wide.evaluate(() => { const k = document.querySelector('dialog[open] .st-keys')!; return k.scrollWidth - k.clientWidth; }), 'Keyboard shortcuts').toBe(0);
+    // a key combination breaks after a "+" or a "/" only, never inside a key's name ("Ent" / "er")
+    expect(await wide.evaluate(() => [...document.querySelectorAll('dialog[open] .st-keys kbd')].flatMap((kbd) => [...kbd.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim())
+      .filter((n) => { const r = document.createRange(); r.selectNodeContents(n); return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size > 1; })
+      .map((n) => n.textContent))), 'keys broken inside a name').toEqual([]);
+    await wide.context().close();
+  }, 120000);
 
   it('keeps every label whole with more text spacing (WCAG 1.4.12)', async () => {
     const page = await open();

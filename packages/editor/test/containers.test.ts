@@ -68,7 +68,9 @@ describe('an edit inside a container block rewrites only the block that changed'
     expect(out.endsWith(md.slice(child.to)), 'the text after the block is kept').toBe(true);
     // and it reads back as what the editor holds
     expect(canonical(out)).toBe(save(doc, null));
-  });
+    // each case loads and saves its whole document three times (docs/blocks.md: about 0.9 s alone), so a loaded
+    // machine (the public export's verify runs every package at once) needs more than the default 5 s
+  }, 30_000);
 });
 
 describe('container blocks keep their writing', () => {

@@ -614,12 +614,12 @@
   list-style: none; margin: 0; padding: 0; display: grid; gap: var(--lk-space-4);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, max(10rem, calc(var(--lk-metric-fit) * 1.75rem + 2 * var(--lk-space-5) + 2px))), 1fr));
 }
-.lk-metrics[data-fit="2.5"] { --lk-metric-fit: 2.5; } .lk-metrics[data-fit="3"] { --lk-metric-fit: 3; } .lk-metrics[data-fit="3.5"] { --lk-metric-fit: 3.5; }
-.lk-metrics[data-fit="4"] { --lk-metric-fit: 4; } .lk-metrics[data-fit="4.5"] { --lk-metric-fit: 4.5; } .lk-metrics[data-fit="5"] { --lk-metric-fit: 5; }
-.lk-metrics[data-fit="5.5"] { --lk-metric-fit: 5.5; } .lk-metrics[data-fit="6"] { --lk-metric-fit: 6; } .lk-metrics[data-fit="6.5"] { --lk-metric-fit: 6.5; }
-.lk-metrics[data-fit="7"] { --lk-metric-fit: 7; } .lk-metrics[data-fit="7.5"] { --lk-metric-fit: 7.5; } .lk-metrics[data-fit="8"] { --lk-metric-fit: 8; }
-.lk-metrics[data-fit="8.5"] { --lk-metric-fit: 8.5; } .lk-metrics[data-fit="9"] { --lk-metric-fit: 9; } .lk-metrics[data-fit="9.5"] { --lk-metric-fit: 9.5; }
-.lk-metrics[data-fit="10"] { --lk-metric-fit: 10; }
+:is(.lk-metrics, .lk-kpi)[data-fit="2.5"] { --lk-metric-fit: 2.5; } :is(.lk-metrics, .lk-kpi)[data-fit="3"] { --lk-metric-fit: 3; } :is(.lk-metrics, .lk-kpi)[data-fit="3.5"] { --lk-metric-fit: 3.5; }
+:is(.lk-metrics, .lk-kpi)[data-fit="4"] { --lk-metric-fit: 4; } :is(.lk-metrics, .lk-kpi)[data-fit="4.5"] { --lk-metric-fit: 4.5; } :is(.lk-metrics, .lk-kpi)[data-fit="5"] { --lk-metric-fit: 5; }
+:is(.lk-metrics, .lk-kpi)[data-fit="5.5"] { --lk-metric-fit: 5.5; } :is(.lk-metrics, .lk-kpi)[data-fit="6"] { --lk-metric-fit: 6; } :is(.lk-metrics, .lk-kpi)[data-fit="6.5"] { --lk-metric-fit: 6.5; }
+:is(.lk-metrics, .lk-kpi)[data-fit="7"] { --lk-metric-fit: 7; } :is(.lk-metrics, .lk-kpi)[data-fit="7.5"] { --lk-metric-fit: 7.5; } :is(.lk-metrics, .lk-kpi)[data-fit="8"] { --lk-metric-fit: 8; }
+:is(.lk-metrics, .lk-kpi)[data-fit="8.5"] { --lk-metric-fit: 8.5; } :is(.lk-metrics, .lk-kpi)[data-fit="9"] { --lk-metric-fit: 9; } :is(.lk-metrics, .lk-kpi)[data-fit="9.5"] { --lk-metric-fit: 9.5; }
+:is(.lk-metrics, .lk-kpi)[data-fit="10"] { --lk-metric-fit: 10; }
 .lk-metrics > li {
   container-type: inline-size;
   display: flex; flex-direction: column; gap: var(--lk-space-1);
@@ -628,6 +628,37 @@
 }
 .lk-metric-value { font-family: var(--lk-font-brand); font-size: min(var(--lk-metric-size), 100cqi / var(--lk-metric-fit)); font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--lk-text-heading); }
 .lk-metric-label { color: var(--lk-text-secondary); }
+
+/* ── KPI ────────────────────────────────────────────────────────── */
+/* one to four figures side by side; the change is written in words, and its arrow and color only repeat them.
+   A figure stays on one line ("521 tis. Kč"): data-fit (from the renderer, as for key figures) is its width in em,
+   and it shrinks from its size to fit its card. */
+.lk-kpi { --lk-kpi-size: 2.25rem; --lk-metric-fit: 2; list-style: none; margin: 0; padding: 0; display: grid; gap: var(--lk-space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.lk-kpi-item {
+  container-type: inline-size;
+  display: flex; flex-direction: column; gap: var(--lk-space-2);
+  padding: var(--lk-space-4) var(--lk-space-5); background: var(--lk-bg-surface);
+  border: 1px solid var(--lk-border-default); border-radius: var(--lk-radius-md);
+}
+.lk-kpi-item > p { margin: 0; }
+.lk-kpi-label { color: var(--lk-text-secondary); font-weight: 600; }
+.lk-kpi-value { font-family: var(--lk-font-brand); font-size: min(var(--lk-kpi-size), 100cqi / var(--lk-metric-fit)); white-space: nowrap; font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--lk-text-heading); }
+.lk-kpi[data-count="1"] { --lk-kpi-size: 3rem; }
+/* a row of three or four never leaves one card alone: four side by side where cards of 11.5rem fit, else two by two,
+   else one under another; three side by side, else one under another (the slides lay out their own row) */
+.lk-kpi[data-count="3"]:not(.lk-slide .lk-kpi) { grid-template-columns: repeat(auto-fit, minmax(clamp((100% - 2 * var(--lk-space-4)) / 3 - .5px, (36.5rem - 100%) * 999, 100%), 1fr)); }
+.lk-kpi[data-count="4"]:not(.lk-slide .lk-kpi) { grid-template-columns: repeat(auto-fit, minmax(clamp((100% - 3 * var(--lk-space-4)) / 4 - .5px, (49rem - 100%) * 999, clamp((100% - var(--lk-space-4)) / 2 - .5px, (24rem - 100%) * 999, 100%)), 1fr)); }
+.lk-kpi-change { color: var(--lk-text-secondary); }
+.lk-kpi-change--good { color: var(--lk-text-success); }
+.lk-kpi-change--bad { color: var(--lk-text-error); }
+.lk-kpi-arrow { display: inline-block; width: 1em; height: 1em; margin-right: .35em; vertical-align: -.15em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lk-kpi-verdict { font-weight: 700; }
+.lk-kpi-spark { display: block; width: 100%; max-width: 12rem; height: 2.5rem; overflow: visible; }
+.lk-kpi-spark-line { fill: none; stroke: var(--lk-text-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.lk-kpi-spark-end { fill: var(--lk-text-accent); }
+.lk-kpi-text { color: var(--lk-text-secondary); font-size: var(--lk-type-body-sm-size); }
+.lk-kpi-data > summary { cursor: pointer; font-weight: 600; color: var(--lk-text-accent); font-size: var(--lk-type-body-sm-size); }
+.lk-kpi-data > p { margin: var(--lk-space-1) 0 0; font-variant-numeric: tabular-nums; }
 
 /* ── gallery ────────────────────────────────────────────────────── */
 .lk-gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--lk-space-4); }
@@ -667,12 +698,13 @@
 .lk-chart-fill-4 { fill: var(--lk-viz-series-4); }
 .lk-chart-fill-5 { fill: var(--lk-viz-series-5); }
 .lk-chart-fill-6 { fill: var(--lk-viz-series-6); }
-/* pattern per series (manual 11.1): light lines on the dark colors, dark lines on the light ones */
+/* pattern per series (manual 11.1), drawn in the surface colour: every series is a mid colour in its mode (2.0.4) */
 .lk-chart-hatch { stroke-width: 1.4; }
-.lk-chart-pattern-1 .lk-chart-hatch, .lk-chart-pattern-2 .lk-chart-hatch, .lk-chart-pattern-4 .lk-chart-hatch, .lk-chart-pattern-5 .lk-chart-hatch { fill: var(--lk-bg-surface); stroke: var(--lk-bg-surface); opacity: .7; }
-.lk-chart-pattern-3 .lk-chart-hatch, .lk-chart-pattern-6 .lk-chart-hatch { fill: var(--lk-text-primary); stroke: var(--lk-text-primary); opacity: .5; }
+.lk-chart-pattern-1 .lk-chart-hatch, .lk-chart-pattern-2 .lk-chart-hatch, .lk-chart-pattern-3 .lk-chart-hatch, .lk-chart-pattern-4 .lk-chart-hatch, .lk-chart-pattern-5 .lk-chart-hatch, .lk-chart-pattern-6 .lk-chart-hatch { fill: var(--lk-bg-surface); stroke: var(--lk-bg-surface); opacity: .7; }
 .lk-chart-shape { stroke: var(--lk-text-primary); stroke-width: 1; }
 .lk-chart-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+/* under every line and stroked marker: 1 px of the text colour on each side, so the shape passes 3:1 in every mode */
+.lk-chart-casing { fill: none; stroke: var(--lk-text-primary); stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
 .lk-chart-marker { stroke: var(--lk-text-primary); stroke-width: 1.2; }
 .lk-chart-marker.lk-chart-ring, .lk-chart-marker[class*="lk-chart-stroke-"] { fill: none; stroke-width: 3; }
 .lk-chart-stroke-1 { stroke: var(--lk-viz-series-1); }
@@ -686,6 +718,9 @@
 .lk-chart-tick { fill: currentColor; color: var(--lk-viz-label); font-size: 13px; }
 .lk-chart-category { color: var(--lk-text-secondary); font-weight: 600; }
 .lk-chart-value { fill: currentColor; color: var(--lk-text-primary); font-size: 13px; font-weight: 600; }
+.lk-chart-total { font-weight: 700; }
+/* a part's value inside a stacked bar sits on the surface color, so its contrast never depends on the fill */
+.lk-chart-chip { fill: var(--lk-bg-surface); stroke: var(--lk-text-primary); stroke-width: .75; }
 .lk-chart-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--lk-space-2) var(--lk-space-5); color: var(--lk-text-secondary); font-size: var(--lk-type-body-sm-size); }
 .lk-chart-legend > li { display: flex; align-items: center; gap: var(--lk-space-2); }
 .lk-chart-key { width: 16px; height: 16px; flex: none; overflow: visible; }
@@ -701,7 +736,7 @@
   .lk-tabs-panel[hidden] { display: flex !important; }
   .lk-video video, .lk-video-play { display: none; }
   .lk-video-print { display: block; }
-  .lk-code, .lk-compare-item, .lk-pros-cons, .lk-process, .lk-matrix, .lk-metrics > li, .lk-chart, .lk-accordion-item, .lk-glossary > div, .lk-card { break-inside: avoid; }
+  .lk-code, .lk-compare-item, .lk-pros-cons, .lk-process, .lk-matrix, .lk-metrics > li, .lk-kpi-item, .lk-chart, .lk-accordion-item, .lk-glossary > div, .lk-card { break-inside: avoid; }
 }
 
 /* ══ UI specimens (manual section 10) ═════════════════════════════
@@ -955,12 +990,27 @@ textarea.lk-ui-input { resize: vertical; }
 /* a part is not a list item, so the section numbers run on across parts */
 .lk-toc-list > li.lk-toc-part { display: block; margin: var(--lk-space-2) 0 0 calc(-1 * var(--lk-space-6)); font-weight: 700; }
 .lk-toc-list > li.lk-toc-part:first-child { margin-top: 0; }
+/* a repeated agenda marks the current section in words and weight, never by color alone */
+.lk-agenda-current > a { font-weight: 700; }
+.lk-agenda-now {
+  margin-left: var(--lk-space-2); padding: 0 var(--lk-space-2); border: 1px solid currentColor; border-radius: var(--lk-radius-sm);
+  font-size: var(--lk-type-overline-size); font-weight: var(--lk-type-overline-weight); letter-spacing: var(--lk-type-overline-tracking);
+  text-transform: uppercase; color: var(--lk-text-primary); vertical-align: middle;
+}
+/* the closing: a sentence, a short recap and the contacts, each address written out so it reads printed too */
+.lk-closing { display: flex; flex-direction: column; gap: var(--lk-space-4); }
+.lk-closing > * { margin: 0; }
+.lk-closing-text { font-size: var(--lk-type-body-lg-size); color: var(--lk-text-secondary); }
+.lk-closing-recap { padding-left: 1.4em; display: grid; gap: var(--lk-space-2); }
+.lk-closing-contacts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--lk-space-1) var(--lk-space-4); }
+.lk-closing-contacts dt { font-weight: 600; color: var(--lk-text-secondary); }
+.lk-closing-contacts dd { margin: 0; overflow-wrap: anywhere; }
 
 /* ── footnotes and citations ────────────────────────────────────── */
 .lk-fn-ref { font-size: .75em; line-height: 0; vertical-align: super; }
 /* a 24px target (WCAG 2.5.8) even next to another link; the negative margins keep the line spacing */
 .lk-fn-ref a { display: inline-block; box-sizing: border-box; min-width: 24px; min-height: 24px; padding: 6px 2px 6px 1px; margin: -6px 0; line-height: 12px; text-align: left; text-decoration-thickness: 1px; }
-.lk-cite { white-space: nowrap; }
+.lk-cite { overflow-wrap: break-word; }
 .lk-notes, .lk-references, .lk-revisions-section { display: flex; flex-direction: column; gap: var(--lk-space-3); }
 .lk-notes-list, .lk-references-list {
   margin: 0; padding-left: var(--lk-space-6); display: grid; gap: var(--lk-space-2);

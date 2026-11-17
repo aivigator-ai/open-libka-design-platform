@@ -1,5 +1,5 @@
 {
-  "_about": "The repository address, the author and the MCP Registry name written into the npm packages by npm/build.mts; filled in by the export.",
+  "_about": "The repository address, the author and the MCP Registry name written into the npm packages by npm/build.mts.",
   "repository": "https://github.com/aivigator-ai/open-libka-design-platform",
   "author": "Libor Klimeš (aivigator.ai)",
   "mcpName": "io.github.aivigator-ai/libka"

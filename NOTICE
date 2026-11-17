@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (see LICENSE).
 
 This repository also contains third-party material under its own licence:
 
-- fonts/: Fraunces, Inter and JetBrains Mono, under the SIL Open Font License 1.1
+- fonts/: Fraunces, Inter, JetBrains Mono, Literata, Bitter, Space Grotesk, Atkinson Hyperlegible Next and Public Sans, under the SIL Open Font License 1.1
   (the licence texts are in fonts/licenses/).
 - examples/open-source-guide/guide.md: text from GitHub's Open Source Guides
   (https://opensource.guide), under the Creative Commons Attribution 4.0 International

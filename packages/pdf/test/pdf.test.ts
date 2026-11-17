@@ -47,7 +47,13 @@ describe.skipIf(!chrome || !vera)('PDF/UA-1 end to end (Chrome + veraPDF)', () =
     const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Repair test</title><style>body{font:16px sans-serif;background:#fff}.box{border:2px solid #333;padding:8px}</style></head>'
       + '<body><main><h1>Repair test</h1><p>Some <em>emphasis</em> and <strong>strong</strong> text with <a href="https://example.org/">a link</a>.</p>'
       + '<ul><li><a href="#more">More</a></li><li><strong>Bold</strong> item</li></ul><ol><li><p>First paragraph.</p><p>Second paragraph.</p></li></ol><figure><svg role="img" aria-label="A square" width="40" height="40"><rect width="40" height="40"/></svg><figcaption>A square</figcaption></figure>'
-      + '<div class="box"><h2 id="more">More</h2><p>Boxed text.</p></div></main></body></html>';
+      + '<div class="box"><h2 id="more">More</h2><p>Boxed text.</p></div>'
+      // empty cells, which Chrome leaves out of the structure (7.2-43): in the middle of a row and at its end
+      + '<table><caption>Costs</caption><thead><tr><th scope="col">Item</th><th scope="col">Cost</th><th scope="col">Done</th></tr></thead>'
+      + '<tbody><tr><td>Desk</td><td></td><td>June</td></tr><tr><td>Door</td><td>0.9</td><td></td></tr></tbody></table>'
+      // an empty corner above row headers (7.2-42), as a comparison table may have
+      + '<table><caption>Tools</caption><thead><tr><th scope="col"></th><th scope="col">One</th><th scope="col">Two</th></tr></thead>'
+      + '<tbody><tr><th scope="row">Price</th><td>9</td><td>11</td></tr><tr><th scope="row">Ready</th><td>yes</td><td>no</td></tr></tbody></table></main></body></html>';
     const htmlPath = join(dir, 'test.html');
     writeFileSync(htmlPath, html);
     const browser = await chromium.launch({ executablePath: chrome! });
@@ -69,6 +75,7 @@ describe.skipIf(!chrome || !vera)('PDF/UA-1 end to end (Chrome + veraPDF)', () =
     expect(r1!.compliant).toBe(true);
     expect(report.roleMapped).toEqual(['Em', 'Strong']);
     expect(report.linksDescribed).toBeGreaterThanOrEqual(2);
+    expect(report.cellsAdded).toBe(3);   // two data cells and one corner
     expect(report.artifacts).toBeGreaterThan(0);
     expect(readFileSync(after).length).toBeGreaterThan(1000);
   }, 120000);

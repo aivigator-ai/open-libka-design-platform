@@ -91,8 +91,8 @@ describe('versions', () => {
 describe('zip', () => {
   it('exports the Markdown file and the files it uses, byte-identical every time, and reads it back', async () => {
     const files = new Map([['images/screen.png', png(1)], ['images/unused.png', png(2)]]);
-    const zip = exportZip({ name: 'guide.md', source: DOC, files });
-    expect(exportZip({ name: 'guide.md', source: DOC, files })).toEqual(zip);
+    const zip = await exportZip({ name: 'guide.md', source: DOC, files });
+    expect(await exportZip({ name: 'guide.md', source: DOC, files })).toEqual(zip);
     expect(Object.keys(unzipSync(zip)).sort()).toEqual(['guide.md', 'images/screen.png']);
 
     const entries = readZip(zip);
@@ -110,6 +110,40 @@ describe('zip', () => {
     const p = await collect('docs/guide.md', async (path) => entries.get(path) ?? null);
     expect(p.missing).toEqual(['images/screen.png']);
     expect(strFromU8(entries.get('README.md')!)).toBe('# Read me');
+  });
+});
+
+describe('a document\'s design files', () => {
+  const BRAND = 'meta:\n  name: Sunny Lane\ncolor:\n  primary: "#FFD400"\nlogo: brand/logo.svg\n';
+  const SVG = strToU8('<svg xmlns="http://www.w3.org/2000/svg"/>');
+
+  it('reads a project\'s _brand.yml from a folder above the document, with its logo, as the build finds it', async () => {
+    const folder = new Map([['docs/guide.md', strToU8(DOC)], ['_brand.yml', strToU8(BRAND)], ['brand/logo.svg', SVG]]);
+    const p = await collect('docs/guide.md', async (path) => folder.get(path) ?? null);
+    expect([...p.files.keys()].sort()).toEqual(['../_brand.yml', '../brand/logo.svg']);
+    expect(p.missing).toEqual(['images/screen.png']);
+  });
+
+  it('puts the design\'s files in the zip: a brand from above the document at the zip\'s top, with its logo beside it', async () => {
+    const files = new Map([['images/screen.png', png(1)], ['../_brand.yml', strToU8(BRAND)], ['../brand/logo.svg', SVG]]);
+    const zip = await exportZip({ name: 'guide.md', source: DOC, files });
+    expect(Object.keys(unzipSync(zip)).sort()).toEqual(['_brand.yml', 'brand/logo.svg', 'guide.md', 'images/screen.png']);
+    // a brand the front matter names, beside the document
+    const named = DOC.replace('---\n', '---\nbrand: house.yml\n');
+    const own = await exportZip({ name: 'guide.md', source: named, files: new Map([['house.yml', strToU8(BRAND)], ['brand/logo.svg', SVG]]) });
+    expect(Object.keys(unzipSync(own)).sort()).toEqual(['brand/logo.svg', 'guide.md', 'house.yml']);
+  });
+
+  it('writes the design\'s files to the folder: beside the document, and a project\'s brand above it in place', async () => {
+    const dir = new MemoryDir('project');
+    const files = new Map([['images/screen.png', png(1)], ['_brand.yml', strToU8(BRAND)], ['brand/logo.svg', SVG]]);
+    const written = await writeFolder(dir as unknown as FileSystemDirectoryHandle, { name: 'docs/guide.md', source: DOC, files });
+    expect(written.sort()).toEqual(['docs/_brand.yml', 'docs/brand/logo.svg', 'docs/guide.md', 'docs/images/screen.png']);
+    const above = new MemoryDir('project');
+    const up = await writeFolder(above as unknown as FileSystemDirectoryHandle, { name: 'docs/guide.md', source: DOC, files: new Map([['../_brand.yml', strToU8(BRAND)], ['../brand/logo.svg', SVG]]) });
+    expect(up.sort()).toEqual(['_brand.yml', 'brand/logo.svg', 'docs/guide.md']);
+    // written again, nothing has changed: nothing is written
+    expect(await writeFolder(above as unknown as FileSystemDirectoryHandle, { name: 'docs/guide.md', source: DOC, files: new Map([['../_brand.yml', strToU8(BRAND)], ['../brand/logo.svg', SVG]]) })).toEqual([]);
   });
 });
 

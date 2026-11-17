@@ -1,0 +1,12 @@
+{
+  "id": "talk",
+  "name": { "en": "Talk", "cs": "Přednáška" },
+  "description": {
+    "en": "Slides for a talk: an agenda, key figures, one message, speaker notes and a closing slide with contacts.",
+    "cs": "Snímky k přednášce: program, klíčová čísla, jedno sdělení, poznámky řečníka a závěrečný snímek s kontakty."
+  },
+  "file": "talk",
+  "theme": "modern",
+  "outputs": ["web", "pdf", "deck"],
+  "picture": "slide"
+}

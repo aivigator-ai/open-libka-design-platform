@@ -207,8 +207,33 @@ describe('messages a writer can act on', () => {
     expect(r.problems[0]).toMatchObject({ line: 1, fixes: [{ kind: 'remove-front-matter', keys: ['marp', 'theme', 'paginate'] }] });
     expect(r.problems[0]!.message).toMatch(/^this looks like a Marp deck \(marp: true\): LibKa makes slides from ## and ### headings, .*: marp, theme, paginate$/);
     expect(r.problems[1]!.message).toMatch(/^unknown front matter keys: colour /);
-    // without marp: true, theme is just an unknown key
-    expect(parse('---\ntitle: T\ntheme: gaia\n---\n\nText.\n').problems.map((p) => p.code)).toEqual(['front-matter-unknown-key']);
+    // a Marp deck's theme stays Marp's: never read as LibKa's
+    expect(r.document.meta.theme).toBeUndefined();
+    expect(parse('---\nmarp: true\ntitle: T\ntheme: modern\n---\n\nText.\n').document.meta.theme).toBeUndefined();
+    // without marp: true, theme is LibKa's, and Marp's theme names are unknown themes
+    expect(parse('---\ntitle: T\ntheme: gaia\n---\n\nText.\n').problems.map((p) => p.code)).toEqual(['theme-unknown']);
+  });
+
+  it('reads theme and brand from the front matter: a built-in theme or a theme file, a brand file or libka', () => {
+    const fm = (extra: string) => parse(`---\ntitle: T\n${extra}\n---\n\nText.\n`);
+    expect(fm('theme: modern').document.meta.theme).toBe('modern');
+    expect(fm('theme: themes/house.theme.json').document.meta.theme).toBe('themes/house.theme.json');
+    expect(fm('brand: _brand.yml').document.meta.brand).toBe('_brand.yml');
+    expect(fm('brand: brands/acme.yaml').document.meta.brand).toBe('brands/acme.yaml');
+    expect(fm('brand: libka').document.meta.brand).toBe('libka');
+    expect(fm('theme: modern\nbrand: _brand.yml').problems).toEqual([]);
+    const typo = fm('theme: Modren');
+    expect(typo.document.meta.theme).toBeUndefined();
+    expect(typo.problems).toEqual([expect.objectContaining({ code: 'theme-unknown', line: 1, fixes: [{ kind: 'set-front-matter', key: 'theme', value: 'modern' }] })]);
+    expect(typo.problems[0]!.message).toBe('unknown theme "Modren" (did you mean modern?): a built-in theme (classic, modern) or a .theme.json file in the project, its path relative to the document');
+    // a path up from the document is the build's to check (it must stay in the project); addresses and absolute paths never
+    expect(fm('theme: ../themes/house.theme.json').document.meta.theme).toBe('../themes/house.theme.json');
+    for (const outside of ['/etc/x.theme.json', 'https://example.com/x.theme.json', 'C:/x.theme.json']) expect(fm(`theme: "${outside}"`).problems[0]?.code).toBe('theme-unknown');
+    for (const wrong of ['acme', '/srv/_brand.yml', 'https://example.com/brand.yml', 'brand.json']) {
+      const r = fm(`brand: "${wrong}"`);
+      expect(r.document.meta.brand).toBeUndefined();
+      expect(r.problems.map((p) => p.code)).toEqual(['brand-unknown']);
+    }
   });
 });
 

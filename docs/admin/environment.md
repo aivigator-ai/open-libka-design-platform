@@ -92,9 +92,10 @@ CI is these workflow files in `.github/workflows/`:
 
 | File | Runs | What it does |
 |---|---|---|
-| `check.yml` | every push to `main` that changes more than `docs/` or top-level Markdown, every tag, every pull request | `check.py` on Ubuntu and Windows, and the TypeScript job |
-| `typescript.yml` | when another workflow calls it | the TypeScript job: install, Java and veraPDF, LibreOffice, Firefox and WebKit, type check, every test |
-| `ubuntu-next.yml` | Mondays at 05:00 UTC, or by hand (`gh workflow run ubuntu-next.yml`) | the TypeScript job on `ubuntu-latest` |
+| `check.yml` | every push to `main` that changes more than `docs/` or top-level Markdown, every tag, every pull request | `check.py` on Ubuntu and Windows, the TypeScript jobs `packages` and `studio`, and on a release tag `designs` too |
+| `typescript.yml` | when another workflow calls it | the TypeScript jobs, one part each, every one inside 30 minutes (never raised): `packages` (Java and veraPDF, LibreOffice, Firefox; the type check and every package's tests but the Studio's, with one rotating combination of the design matrix), `studio` (the Studio's tests in Chrome, Firefox and WebKit), `designs` (every built-in theme under every example brand built and checked, and the solver's property tests at full size) |
+| `weekly.yml` | Mondays at 04:00 UTC, or by hand (`gh workflow run weekly.yml`) | the `designs` part on the pinned runner |
+| `ubuntu-next.yml` | Mondays at 05:00 UTC, or by hand (`gh workflow run ubuntu-next.yml`) | the `packages` and `studio` parts on `ubuntu-latest` |
 | `packages.yml` | as `check.yml`, and Mondays at 05:30 UTC | builds the npm packages once (`npm/build.mts`), then the quick start from the packed files alone on fresh Ubuntu and Windows runners (`npm/smoke.mts`) |
 | `dco.yml` | every pull request (not in the maintainers' development repository, where no outside pull requests arrive) | every commit carries a `Signed-off-by` line (the Developer Certificate of Origin, see CONTRIBUTING) |
 | `publish.yml` | a `v*` release tag, after a maintainer approves the `npm` environment; by hand (`gh workflow run publish.yml`) it is a dry run unless `-f dry_run=false -f tag=vX` is given | builds the packages from the tag and runs the quick start, publishes them to npm with provenance (trusted publishing, no stored token), lists the MCP server in the MCP Registry, and makes a draft GitHub Release with the Desktop extension, the skill `.zip` and checksums; the dry run publishes nothing |

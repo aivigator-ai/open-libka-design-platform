@@ -191,6 +191,8 @@ const ICONS: Record<string, string> = {
   preview: 'M2.5 10s3-5.5 7.5-5.5 7.5 5.5 7.5 5.5-3 5.5-7.5 5.5S2.5 10 2.5 10ZM10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
   checks: 'M4 10.5 8 14.5 16 5.5',
   properties: 'M4 6h7M15 6h1M4 14h1M9 14h7M13 4v4M7 12v4',
+  // a palette: the design's colours and type
+  design: 'M10 3a7 7 0 1 0 0 14c1 0 1.5-.8 1.2-1.6-.4-1 .3-1.9 1.3-1.9H14a3 3 0 0 0 3-3C17 6.1 13.9 3 10 3ZM6.5 9.5h.01M8.5 6.5h.01M12 6.5h.01',
   versions: 'M10 5v5l3 2M3.5 10a6.5 6.5 0 1 0 2-4.7M3 3v3.5h3.5',
   tutorial: 'M3 5.5 10 3l7 2.5L10 8 3 5.5ZM6 7v4.5c2.5 2 5.5 2 8 0V7',
 };

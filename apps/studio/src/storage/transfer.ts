@@ -6,6 +6,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { parse } from '@libka/model';
 import { dirOf, join, localFiles, normalize } from './paths.ts';
+import { brandCandidates, designPaths, designSources, loadBrandParser, needsDesign, relative } from './design-files.ts';
 
 /** A project as files: the Markdown file's path in the folder, its text, and the files it uses (by their path in the text). */
 export interface ProjectFiles {
@@ -23,12 +24,23 @@ const hidden = (path: string) => path.split('/').some((p) => p.startsWith('.') |
 const ZIP_TIME = new Date(1980, 0, 1);
 
 /** The project as a zip: the Markdown file at the top and the files the document uses, at their paths. */
-export function exportZip(p: Pick<ProjectFiles, 'name' | 'source' | 'files'>): Uint8Array {
-  const used = localFiles(parse(p.source).document);
+export async function exportZip(p: Pick<ProjectFiles, 'name' | 'source' | 'files'>): Promise<Uint8Array> {
+  const doc = parse(p.source).document;
   const entries: Zippable = { [p.name]: [strToU8(p.source), { mtime: ZIP_TIME }] };
-  for (const path of used) {
+  const put = (at: string, data: Uint8Array) => { entries[at] = [data, { mtime: ZIP_TIME, level: /\.(png|jpe?g|gif|webp|avif|mp4|webm)$/i.test(at) ? 0 : 6 }]; };
+  for (const path of localFiles(doc)) {
     const data = p.files.get(path);
-    if (data) entries[path] = [data, { mtime: ZIP_TIME, level: /\.(png|jpe?g|gif|webp|avif|mp4|webm)$/i.test(path) ? 0 : 6 }];
+    if (data) put(path, data);
+  }
+  // the design's files; a project's brand from a folder above the document goes to the zip's top, where the build
+  // finds it by itself, with its logos at the same places relative to it
+  const parser = needsDesign(doc, (path) => p.files.has(path)) ? await loadBrandParser() : undefined;
+  const design = designSources(doc, (path) => p.files.get(path), parser);
+  const lift = design.brandPath && !design.named ? (design.brandPath.match(/^(\.\.\/)+/)?.[0] ?? '') : '';
+  for (const path of designPaths(design)) {
+    const data = p.files.get(path);
+    const at = lift && path.startsWith(lift) ? path.slice(lift.length) : path;
+    if (data && !at.startsWith('../')) put(at, data);
   }
   return zipSync(entries);
 }
@@ -58,10 +70,28 @@ export async function collect(mdPath: string, read: (path: string) => Promise<Ui
   const files = new Map<string, Uint8Array>();
   const missing: string[] = [];
   const dir = dirOf(mdPath);
-  for (const path of localFiles(parse(source).document)) {
+  const doc = parse(source).document;
+  for (const path of localFiles(doc)) {
     const at = join(dir, path);
     const data = at ? await read(at) : null;
     if (data) files.set(path, data); else missing.push(path);
+  }
+  // the design: the brand file (the one named, else the first _brand.yml from the document's folder up to the top),
+  // then its logos and the theme file, which only the brand's text names
+  const inside = (path: string) => { const at = relative(dir, path); return at && !at.startsWith('../') ? at : null; };
+  const fetch = async (path: string) => {
+    if (files.has(path)) return;
+    const at = inside(path);
+    const data = at ? await read(at) : null;
+    if (data) files.set(path, data);
+  };
+  if (doc.meta.brand && doc.meta.brand !== 'libka') await fetch(relative('', doc.meta.brand) ?? '');
+  else if (!doc.meta.brand) for (const c of brandCandidates()) { if (!inside(c)) break; await fetch(c); if (files.has(c)) break; }
+  const parser = needsDesign(doc, (path) => files.has(path)) ? await loadBrandParser() : undefined;
+  const design = designSources(doc, (path) => files.get(path), parser);
+  for (const path of designPaths(design)) {
+    await fetch(path);
+    if (!files.has(path)) missing.push(path);
   }
   return { name: mdPath.slice(mdPath.lastIndexOf('/') + 1), source, files, missing };
 }
@@ -122,7 +152,10 @@ const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every(
 export async function writeFolder(dir: FileSystemDirectoryHandle, p: Pick<ProjectFiles, 'name' | 'source' | 'files'>): Promise<string[]> {
   const written: string[] = [];
   const entries: [string, Uint8Array][] = [[p.name, strToU8(p.source)]];
-  for (const path of localFiles(parse(p.source).document)) {
+  const doc = parse(p.source).document;
+  const parser = needsDesign(doc, (x) => p.files.has(x)) ? await loadBrandParser() : undefined;
+  // the design's files too, a project's brand above the document included (inside the folder; unchanged ones are skipped)
+  for (const path of [...localFiles(doc), ...designPaths(designSources(doc, (x) => p.files.get(x), parser))]) {
     const data = p.files.get(path);
     const at = join(dirOf(p.name), path);
     if (data && at) entries.push([at, data]);

@@ -78,9 +78,11 @@ function KeyBindings() {
     <section aria-labelledby="prefs-keys">
       <h3 id="prefs-keys" class="st-insp-heading">{t('keys.commandKeys')}</h3>
       <p class="st-field-help">{t('keys.commandKeysHelp')}</p>
+      {/* two columns, what a command does and its keys with Change beside them; in a narrow window Change goes under
+          the keys, so a row keeps its name in view and nothing scrolls sideways */}
       <table class="st-keys-table st-keys-edit">
         <caption class="st-visually-hidden">{t('keys.commandKeys')}</caption>
-        <thead><tr><th scope="col">{t('keys.does')}</th><th scope="col">{t('keys.keys')}</th><th scope="col"><span class="st-visually-hidden">{t('keys.change')}</span></th></tr></thead>
+        <thead><tr><th scope="col">{t('keys.does')}</th><th scope="col">{t('keys.keys')}</th></tr></thead>
         <tbody>
           {commands.map((c) => {
             const keys = keysOf(c);
@@ -88,16 +90,24 @@ function KeyBindings() {
             return (
               <tr key={c.id} data-command={c.id}>
                 <td id={`key-name-${c.id}`}>{t(c.title)}</td>
-                <td>{listening === c.id ? <span class="st-keys-listen">{t('keys.press')}</span> : keys ? <kbd>{commandKeys(keys)}</kbd> : <span class="st-keys-none">{t('keys.noKey')}</span>}
-                  {message?.id === c.id ? <span class="st-field-help" role="status">{message.text}</span> : null}</td>
-                <td class="st-keys-actions">
+                <td><div class="st-keys-cell">
+                  {/* keyed, so the buttons stay the same elements (and keep the focus) when the keys beside them change */}
+                  {listening === c.id ? <span key="listen" class="st-keys-listen">{t('keys.press')}</span> : keys ? <kbd key="keys">{keyBreaks(commandKeys(keys))}</kbd> : <span key="none" class="st-keys-none">{t('keys.noKey')}</span>}
+                  <span key="actions" class="st-keys-actions">
                   <button type="button" class="st-btn st-btn--small" aria-describedby={`key-name-${c.id}`} aria-pressed={listening === c.id}
                     onClick={(e) => { setMessage(null); setListening(c.id); (e.currentTarget as HTMLElement).focus(); }}
                     onKeyDown={listening === c.id ? listen(c.id) : undefined} onBlur={() => { if (listening === c.id) setListening(null); }}>
                     {t(listening === c.id ? 'keys.pressNow' : 'keys.change')}
                   </button>
-                  {changed ? <button type="button" class="st-btn st-btn--small" aria-describedby={`key-name-${c.id}`} onClick={() => { setKeys(c.id, null); setMessage({ id: c.id, text: t('keys.reset') }); }}>{t('keys.default')}</button> : null}
-                </td>
+                  {changed ? <button type="button" class="st-btn st-btn--small" aria-describedby={`key-name-${c.id}`} onClick={(e) => {
+                    // Default goes away with the change it undoes: the focus moves to the row's Change, not out of the dialog
+                    const change = e.currentTarget.closest('tr')?.querySelector('button');
+                    setKeys(c.id, null); setMessage({ id: c.id, text: t('keys.reset') });
+                    requestAnimationFrame(() => change?.focus());
+                  }}>{t('keys.default')}</button> : null}
+                  </span>
+                </div>
+                {message?.id === c.id ? <span class="st-field-help" role="status">{message.text}</span> : null}</td>
               </tr>
             );
           })}
@@ -109,6 +119,8 @@ function KeyBindings() {
 
 const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const keyText = (keys: string) => keys.replaceAll('Mod', mac ? '⌘' : 'Ctrl').replaceAll('Alt', mac ? '⌥' : 'Alt');
+/** A key combination that may break only after its "+" and "/" in a narrow window ("Ctrl+Shift+" / "Enter"). */
+const keyBreaks = (text: string) => text.split(/(?<=[+/])/).flatMap((part, i) => (i ? [<wbr key={i} />, part] : [part]));
 
 /** Every shortcut, by group: [keys, what it does]. */
 const SHORTCUTS: [Key, [string, Key][]][] = [
@@ -136,7 +148,7 @@ export function ShortcutList() {
         <table key={g} class="st-keys-table">
           <caption>{t(g)}</caption>
           <thead><tr><th scope="col">{t('keys.keys')}</th><th scope="col">{t('keys.does')}</th></tr></thead>
-          <tbody>{rows.map(([k, what]) => <tr key={k + what}><td><kbd>{keyText(k)}</kbd></td><td>{t(what)}</td></tr>)}</tbody>
+          <tbody>{rows.map(([k, what]) => <tr key={k + what}><td><kbd>{keyBreaks(keyText(k))}</kbd></td><td>{t(what)}</td></tr>)}</tbody>
         </table>
       ))}
       {groups.length ? null : <p class="st-empty">{t('keys.none')}</p>}

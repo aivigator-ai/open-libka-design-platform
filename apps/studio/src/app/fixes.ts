@@ -29,6 +29,7 @@ export function fixLabel(fix: Fix): string {
     case 'wrap': return t('fix.wrap', { title: blockTitle(fix.block, s.lang.value) });
     case 'heading-level': return t('fix.level', { n: fix.level });
     case 'list-type': return t(fix.ordered ? 'fix.numbered' : 'fix.bulleted');
+    case 'move-to-end': return t('fix.moveToEnd');
     case 'set-front-matter': return t('fix.frontMatter', { key: fix.key, value: Array.isArray(fix.value) ? `[${fix.value.join(', ')}]` : fix.value });
     case 'remove-front-matter': return t('fix.removeFrontMatter', { keys: fix.keys.join(', ') });
   }

@@ -21,4 +21,13 @@ Accessibility defects are bugs, not security problems: please report them as iss
 
 ## Supported versions
 
-Security fixes go into the latest release. Upgrade to it to receive them.
+| Version | Security fixes |
+|---|---|
+| 2.0.4, the latest release | Yes |
+| Older versions | No |
+
+Security fixes go into the latest release. When a new minor version is released (for example 2.1), the one before it (2.0.x) still receives security fixes for three months, so you have time to upgrade; this table then says until when.
+
+## Software bill of materials
+
+Each release on GitHub carries a software bill of materials (SBOM) for each of its npm packages, in CycloneDX JSON (`<package>-<version>.cdx.json`): every dependency with its version, licence and integrity hash, as npm installs it for you. The release's `SHA256SUMS` lists them with the other files.
